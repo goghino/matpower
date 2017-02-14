@@ -14,10 +14,10 @@ function mso = most_summary(mdo)
 %       nt      - number of periods in planning horizon
 %       nj_max  - max number of scenarios per period
 %       nc_max  - max number of contingencies per scenario in any period
-%       Pg      - ng x nt x nj_max x (nc_max+1), real power generation
+%       Pg      - ng x nt x nj_max x (nc_max+1), real power output (MW)
 %       Rup     - ng x nt, upward ramping reserve quantities
 %       Rdn     - ng x nt, downward ramping reserve quantities
-%       Pf      - nl x nt x nj_max x (nc_max+1), real power generation
+%       Pf      - nl x nt x nj_max x (nc_max+1), real power injected at "from" bus end (MW)
 %       u       - ng x nt x nj_max x (nc_max+1), generator commitment status
 %       lamP    - nb x nt x nj_max x (nc_max+1), shadow price on power balance
 %       muF     - nl x nt x nj_max x (nc_max+1), shadow price on flow limits
@@ -135,9 +135,9 @@ if verbose
         print_most_summary_section('RAMP UP', 'Gen', nt, 1, 0, Rup);
         print_most_summary_section('RAMP DOWN', 'Gen', nt, 1, 0, Rdn);
     end
-    print_most_summary_section('LAM_P', 'Bus', nt, nj_max, nc_max, lamP);
+    %print_most_summary_section('LAM_P', 'Bus', nt, nj_max, nc_max, lamP);
     print_most_summary_section('PF',   'Brch', nt, nj_max, nc_max, Pf);
-    print_most_summary_section('MU_F', 'Brch', nt, nj_max, nc_max, muF);
+    %print_most_summary_section('MU_F', 'Brch', nt, nj_max, nc_max, muF);
 end
 
 if nargout

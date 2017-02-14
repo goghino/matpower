@@ -35,6 +35,8 @@ function [x, info] = mplinsolve(A, b, solver, opt)
 %   Covered by the 3-clause BSD License (see LICENSE file for details).
 %   See https://github.com/MATPOWER/mips for more info.
 
+
+%TODO: mplinsolve that calls PARDISO or uses backslash
 if nargin < 4
     opt = [];
     if nargin < 3

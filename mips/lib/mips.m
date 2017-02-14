@@ -454,7 +454,7 @@ while (~converged && i < opt.max_it)
     dh_zinv = dh * zinvdiag;
     M = Lxx + dh_zinv * mudiag * dh';
     N = Lx + dh_zinv * (mudiag * h + gamma * e);
-    dxdlam = mplinsolve([M dg; dg' sparse(neq, neq)], [-N; -g], opt.linsolver, []);
+    dxdlam = mplinsolve([M dg; dg' sparse(neq, neq)], [-N; -g], opt.linsolver, []); %TODO: call of the linear solver
 %     AAA = [
 %         M  dg;
 %         dg'  sparse(neq, neq)

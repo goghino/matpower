@@ -45,7 +45,7 @@ l = -u;
 s2 = s;
 s(2).type = '()';
 s1 = s;
-for k = 1:om.lin.NS
+for k = 1:om.lin.NS %TODO: number of linear constraint sets or named blocks
     name = om.lin.order(k).name;
     idx  = om.lin.order(k).idx;
     if isempty(idx)

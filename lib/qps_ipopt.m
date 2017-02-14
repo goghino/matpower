@@ -231,7 +231,7 @@ funcs.hessian           = @(x, sigma, lambda) tril(H);
 funcs.hessianstructure  = @() tril(H);
 
 %% run the optimization
-[x, info] = ipopt(x0,funcs,options);
+[x, info] = ipopt(x0,funcs,options); %TODO: call of the IPOPT
 
 if info.status == 0 || info.status == 1
     eflag = 1;

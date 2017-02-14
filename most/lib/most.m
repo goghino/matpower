@@ -448,8 +448,8 @@ if mpopt.most.build_model
         clist = unique(contab(:, CT_LABEL));
         mdi.idx.nc(t, j) = length(clist);
         k = 2;
-        for label = clist'
-          mdi.flow(t, j, k).mpc = apply_changes(label, mdi.flow(t, j, 1).mpc, contab);
+        for label = clist' %TODO: LOOK HERE, iterate over contingencies and apply changes
+          mdi.flow(t, j, k).mpc = apply_changes(label, mdi.flow(t, j, 1).mpc, contab); %simply change mpc and assign it to (t,j,k), k==1 is base case
           ii = find( label == contab(:, CT_LABEL) );
           mdi.CostWeights(k, j, t) = contab(ii(1), CT_PROB);
           mdi.idx.nb(t, j, k) = size(mdi.flow(t, j, k).mpc.bus, 1);
@@ -522,7 +522,7 @@ if mpopt.most.build_model
     for j = 1:mdi.idx.nj(t)
       mdi.idx.nf_total = mdi.idx.nf_total + (1 + mdi.idx.nc(t,j));
       for k = 1:mdi.idx.nc(t,j)+1
-        mdi.idx.nb_total = mdi.idx.nb_total + size(mdi.flow(t, j, k).mpc.bus, 1);
+        mdi.idx.nb_total = mdi.idx.nb_total + size(mdi.flow(t, j, k).mpc.bus, 1); %TODO: total number of buses (over all contingencies)
         ii = find(mdi.flow(t,j,k).mpc.gencost(:, MODEL) == PW_LINEAR);
         mdi.idx.ny(t,j,k) = length(ii);
       end
@@ -537,7 +537,7 @@ if mpopt.most.build_model
   % mechanism for adding theta variables if we want to create DC flow restrictions.
   % Then start assigning the start and end indices for variables in each
   % c3sopf cell
-  om = opt_model;
+  om = opt_model; %TODO: optimization model class, contains functions to add vars, constraints, costs
   nj_max = max(mdi.idx.nj);
   nc_max = max(max(mdi.idx.nc));
   Ing = speye(ng);
@@ -555,7 +555,7 @@ if mpopt.most.build_model
   for t = 1:nt
     for j = 1:mdi.idx.nj(t)
       % first all angles if using DCMODEL
-      for k = 1:mdi.idx.nc(t,j)+1
+      for k = 1:mdi.idx.nc(t,j)+1 %TODO: adding variables for base and contingencies
         if mdi.DCMODEL
           iref = find(mdi.flow(t,j,k).mpc.bus(:,BUS_TYPE) == REF);
           if verbose && length(iref) > 1
@@ -925,7 +925,7 @@ if mpopt.most.build_model
 
   % Now for the constraint indexing and creation.
   if verbose
-    fprintf('- Building constraint submatrices.\n');
+    fprintf('- Building constraint submatrices.\n'); %TODO: adding constraints for base and contingencies
   end
   baseMVA = mdi.mpc.baseMVA;
   om = add_constraints(om, 'Pmis', {nt, nj_max, nc_max+1});
@@ -939,7 +939,7 @@ if mpopt.most.build_model
       for j = 1:mdi.idx.nj(t)
         for k = 1:mdi.idx.nc(t,j)+1
           % First the flow constraints
-          mpc = mdi.flow(t,j,k).mpc;
+          mpc = mdi.flow(t,j,k).mpc; %TODO: this is mpc case that contains line failures
           ion = find(mpc.branch(:, BR_STATUS));
           [Bdc, Bl, Psh, PLsh] = makeBdc(baseMVA, mpc.bus, mpc.branch(ion,:));
           mdi.flow(t,j,k).PLsh = PLsh;     %% save for computing flows later
@@ -1974,7 +1974,7 @@ mdi.om = om;
 if verbose
   fprintf('- Assembling full set of constraints.\n');
 end
-[mdi.QP.A, mdi.QP.l, mdi.QP.u] = linear_constraints(om);
+[mdi.QP.A, mdi.QP.l, mdi.QP.u] = linear_constraints(om); %TODO: combining all constraints into full matrix
 if verbose
   fprintf('- Assembling full set of variable bounds.\n');
 end
