@@ -1,21 +1,26 @@
+%this function modifies mpc case by inserting storages
 function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p_storage)
 
     define_constants
+    
+    %replicate mpc for each timestep with demand scaled by given profile
+    %ordering according to timesteps (eg. buses b1_t1, b1_t1,...bn_t1, b1_t2, b1_t2,...bn_t2)
     mpcN_opf = create_multi_time_step_case_file4(mpc,load_scaling_profile);
 
-
+    %number of nodes in the original network
     nnodes =size(mpc.bus,1);
 
-    id_storage_location = p_storage.id_storage_location;
-    E_storage_max_MWh   = p_storage.E_storage_max_MWh;
-    E_storage_init_MWh  = p_storage.E_storage_init_MWh ;
-    nstorage = length(id_storage_location);
+    id_storage_location = p_storage.id_storage_location; %placement of storages
+    E_storage_max_MWh   = p_storage.E_storage_max_MWh; %max capacity of storages
+    E_storage_init_MWh  = p_storage.E_storage_init_MWh; %initial capacity
+    nstorage = length(id_storage_location); %number of storages
 
-    ngen0 = size(mpc.gen,1);
-    ngen_total = ngen0+nstorage*2;
+    ngen0 = size(mpc.gen,1); %number of generators in base case
+    ngen_total = ngen0+nstorage*2; %storages are generators as well (2-times charge/discharge)
 
     P_storage_max_MW   =  p_storage.rPmaxEmax_MW_per_MWh*E_storage_max_MWh;
     P_storage_min_MW   =  p_storage.rPminEmax_MW_per_MWh*E_storage_max_MWh;
+    %set charging/discharging ratios of storages
     if length(p_storage.c_discharge)> 1
         c_discharge        = p_storage.c_discharge;
     else
@@ -28,6 +33,9 @@ function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p
     end
 
 
+    %extend mpc structure - namely generator table - by inserting storage 
+    %devices (1 storage = 2 new generators for charge/discharge) and also 
+    %construct constraints for MP problem
     mpcN_opf_storage = add_storage2b(mpcN_opf,nnodes,id_storage_location,P_storage_max_MW,P_storage_min_MW,E_storage_max_MWh,E_storage_init_MWh,c_discharge,c_charge, 1)
     % max(max(abs(mpcN_opf_storage.bus - mpcN_opf_storage2.bus)))
     % max(max(abs(mpcN_opf_storage.branch - mpcN_opf_storage2.branch)))
