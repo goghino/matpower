@@ -5,9 +5,9 @@ print_timing_statistics         "yes"
 "mu_strategy"                   "monotone"
 "obj_scaling_factor"            "1"
 "print_options_documentation"   "no" 
-"linear_solver"                 "pardiso-opf"
-number_of_timesteps    24
-number_of_buses   118
-number_of_generators    60
-number_of_lines    186
-number_of_storages    3
+#"linear_solver"                 "pardiso-opf"
+#number_of_timesteps    24
+#number_of_buses   118
+#number_of_generators    60
+#number_of_lines    186
+#number_of_storages    3

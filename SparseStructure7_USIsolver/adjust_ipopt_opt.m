@@ -1,4 +1,6 @@
 function adjust_ipopt_opt(N,nbus,ngen,nbranch,nstorage)
+    return;
+
     A = regexp( fileread('ipopt.opt'), '\n', 'split');
     A{9} = ['number_of_timesteps    '        num2str(N)];
     A{10} = ['number_of_buses   '        num2str(nbus)];
