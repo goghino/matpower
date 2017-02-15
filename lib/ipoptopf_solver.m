@@ -197,7 +197,7 @@ funcs.hessianstructure  = @(d) Hs;
 %funcs.jacobianstructure = @jacobianstructure;
 %funcs.hessianstructure  = @hessianstructure;
 
-%% run the optimization
+%% run the optimization %TODO call of the ipopt
 if have_fcn('ipopt_auxdata')
     [x, info] = ipopt_auxdata(x0,funcs,options);
 else
@@ -208,6 +208,7 @@ if info.status == 0 || info.status == 1
     success = 1;
 else
     success = 0;
+    display(['Ipopt finished with error: ', num2str(info.status)]);
 end
 if isfield(info, 'iter')
     output.iterations = info.iter;
