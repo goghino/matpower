@@ -1,4 +1,3 @@
-clear all;
 clc
 close all
 % addpath('/home/alex/checkout/gitFEN/matlab/matpower51')
@@ -15,8 +14,10 @@ define_constants
 
 %% set options
 
-%opt = mpoption('verbose',2,'out.all',0, 'opf.ac.solver','IPOPT');
-opt = mpoption('verbose',2,'out.all',0);
+opt = mpoption('verbose',2,'out.all',0, 'opf.ac.solver','IPOPT');
+opt = mpoption(opt, 'ipopt.opts', struct('tol', 1e-04));
+setenv('OMP_NUM_THREADS', '1');
+%opt = mpoption('verbose',2,'out.all',0);
 
 %% set time step data
 nstorage_ref = 3;  %% 1 ... 100
@@ -84,12 +85,15 @@ ng = size(mpc.gen,1);
 NG = ng * length(load_scaling_profile);
 ri = 76:ng:1317; %TODO: hardcoded number for the specific testcase
 ci = 5665:ng:6960;
-figure; hold on;
-plot(1:size(ri,2), repmat(150, [1, size(ri,2)]), 'r-');
-plot(1:size(ri,2), repmat(-150, [1, size(ri,2)]), 'r-');
-for i = 1:ng
-    ramps = mpcN_opf_storage.A(ri,ci)*resN_opf_storage.gen(i:ng:NG, PG);
-    plot(ramps);
+
+if 1
+    figure; hold on;
+    plot(1:size(ri,2), repmat(150, [1, size(ri,2)]), 'r-');
+    plot(1:size(ri,2), repmat(-150, [1, size(ri,2)]), 'r-');
+    for i = 1:ng
+        ramps = mpcN_opf_storage.A(ri,ci)*resN_opf_storage.gen(i:ng:NG, PG);
+        plot(ramps);
+    end
 end
 title('Generator ramping over time horizon')
 

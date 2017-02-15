@@ -1,5 +1,12 @@
 function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_storage_min_MW, E_storage_max_MWh, E_storage_init_MWh,c_discharge, c_charge,T_timestep_hours)
     
+    %defines whether to enable generator ramping constraint and specifies
+    %its limits (actual limit is value given multiplied by 100)
+    RAMPS = 1;
+    ramp_min = -1.20;
+    ramp_max = 1.20;
+    
+    %%
     mpc_storage      = mpc;
     nnodes_total     = size(mpc.bus,1); %buses for all time periods
     if mod(nnodes_total,nnodes)
@@ -46,7 +53,9 @@ ngen_total           = size(mpc_storage.gen,1);
 %   (N+1)*number of storages (start=end state and each period limits) for storage based constraints
 %   ng*(N-1) for ramping limits
 NR = nstorage+N*nstorage;
-ng = ngen_nostorage_total/N;  NR = NR + ng*(N-1);
+if RAMPS
+    ng = ngen_nostorage_total/N;  NR = NR + ng*(N-1);
+end
 % NC is size of x - see above; nnodes = [theta,Vm] and ngen = [P Q]
 NC = 2*(nnodes_total+ngen_total);
 A                    = sparse(NR,NC);
@@ -84,14 +93,20 @@ offset = offset + N*nstorage;
 
 %% Ramping limits on real power
 %% dp_min < p_g_t+1 - p_g_t < dp_max for all gen g and periods N
-figure; spy(A(:,2*nnodes_total+(1:ngen_total))); title('Storage constraints');
-A(offset+(1:ng*(N-1)), 2*nnodes_total+(1:ngen_nostorage_total)) = ... 
-    [kron(diag(ones(N-1,1)), -eye(ng)), zeros((N-1)*ng,ng)] + [zeros((N-1)*ng,ng), kron(diag(ones(N-1,1)), eye(ng))];
-l(offset+(1:ng*(N-1))) = repmat( -0.9*ones(ng,1), [N-1,1]); %TODO: min ramp
-u(offset+(1:ng*(N-1))) = repmat( 1.2*ones(ng,1), [N-1,1]); %TODO: max ramp
-offset = offset + ng*(N-1);
+if RAMPS
+    A(offset+(1:ng*(N-1)), 2*nnodes_total+(1:ngen_nostorage_total)) = ... 
+        [kron(diag(ones(N-1,1)), -eye(ng)), zeros((N-1)*ng,ng)] + [zeros((N-1)*ng,ng), kron(diag(ones(N-1,1)), eye(ng))];
+    l(offset+(1:ng*(N-1))) = repmat( ramp_min * ones(ng,1), [N-1,1]); %TODO: min ramp
+    u(offset+(1:ng*(N-1))) = repmat( ramp_max * ones(ng,1), [N-1,1]); %TODO: max ramp
+    offset = offset + ng*(N-1);
+end
+
 assert(offset == NR); %check if we have all constraints
-figure; spy(A(:,2*nnodes_total+(1:ngen_total))); title('Storage+ramping constraints');
+
+if 0
+    figure; spy(A(:,2*nnodes_total+(1:ngen_total))); title('Storage constraints');
+    figure; spy(A(:,2*nnodes_total+(1:ngen_total))); title('Storage+ramping constraints');
+end
 
 %TODO ramp limits for reactive power
 
