@@ -25,8 +25,8 @@ factor_timesteps = 1;  %% 1...365
 Kpv = 1;  %% 0 ...1  (size of PV penetration)
 
 %load scaling profile for each period
-load_scaling_profile0 = [0.4544 0.3570 0.2860 0.2783 0.3795 0.5822 0.8086 0.9633 1.0086 0.9883 0.9761 1.0000 1.0193 0.9773 0.8772 0.7991 0.8359 1.0023 1.2063 1.3123 1.2438 1.0343 0.7873 0.5885]';
-pv_scaling_profile =  [  0 0 0  0 0 0.0046 0.0548 0.1686 0.3457 0.5100 0.6687 0.7496 0.8175 0.8305 0.8026 0.7212 0.5988 0.4453 0.2718 0.1203 0.0350 0.0019 0 0 ]'  ;
+load_scaling_profile0 = [0.0544 0.0544 0.0544 0.1544 0.2544 0.4544 0.3570 0.2860 0.2783 0.3795 0.5822 0.8086 0.9633 1.0086 0.9883 0.9761 1.0000 1.0193 0.9773 0.8772 0.7991 0.8359 1.0023 1.2063 1.3123 1.2438 1.0343 0.7873 0.5885]';
+pv_scaling_profile =  [0 0 0 0 0 0 0 0  0 0 0.0046 0.0548 0.1686 0.3457 0.5100 0.6687 0.7496 0.8175 0.8305 0.8026 0.7212 0.5988 0.4453 0.2718 0.1203 0.0350 0.0019 0 0]'  ;
 save -ascii -double 'load.dat' load_scaling_profile0;
 save -ascii -double 'pv.dat' pv_scaling_profile;
 
@@ -75,16 +75,26 @@ p_storage.rPminEmax_MW_per_MWh = -1/2;
 p_storage.c_discharge        = .97;
 p_storage.c_charge           = .95;
 
-mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage)
-resN_opf_storage = runopf(mpcN_opf_storage, opt)
+mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
+resN_opf_storage = runopf(mpcN_opf_storage, opt);
 resN_opf_storage.success
 
 %% Plot actual ramping behavior of PG - real power output (MW)
 %in gen we have firs data for generators for all time periods, only then storages
 ng = size(mpc.gen,1);
 NG = ng * length(load_scaling_profile);
-ri = 76:ng:1317; %TODO: hardcoded number for the specific testcase
-ci = 5665:ng:6960;
+
+%number of preceeding constraints in A for storages (N+1)*nstorages
+r_offset = (length(load_scaling_profile)+1) * length(id_storage_location);
+%rows of A matrix for ramping constraints of g1, constraints are always
+%same g1=g2=g3 ([-I I]) so we extract just for first generator and reuse it
+%for all the rest 1..ng
+ri = r_offset+(1:ng:(NG-ng));
+
+%skip comuns in A corresponding to bus variables (angle, magnitude)
+c_offset = 2*size(mpcN_opf_storage.bus,1);
+%columns of A matrix, same for all generators
+ci = c_offset + (1:ng:NG);
 
 if 1
     figure; hold on;

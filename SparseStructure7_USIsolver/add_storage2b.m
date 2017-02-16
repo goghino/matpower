@@ -96,8 +96,8 @@ offset = offset + N*nstorage;
 if RAMPS
     A(offset+(1:ng*(N-1)), 2*nnodes_total+(1:ngen_nostorage_total)) = ... 
         [kron(diag(ones(N-1,1)), -eye(ng)), zeros((N-1)*ng,ng)] + [zeros((N-1)*ng,ng), kron(diag(ones(N-1,1)), eye(ng))];
-    l(offset+(1:ng*(N-1))) = repmat( ramp_min * ones(ng,1), [N-1,1]); %TODO: min ramp
-    u(offset+(1:ng*(N-1))) = repmat( ramp_max * ones(ng,1), [N-1,1]); %TODO: max ramp
+    l(offset+(1:ng*(N-1))) = repmat( ramp_min * ones(ng,1), [N-1,1]);
+    u(offset+(1:ng*(N-1))) = repmat( ramp_max * ones(ng,1), [N-1,1]);
     offset = offset + ng*(N-1);
 end
 
