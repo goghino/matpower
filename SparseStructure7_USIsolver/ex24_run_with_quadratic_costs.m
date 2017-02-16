@@ -74,6 +74,9 @@ p_storage.rPmaxEmax_MW_per_MWh = 1/3;
 p_storage.rPminEmax_MW_per_MWh = -1/2;
 p_storage.c_discharge        = .97;
 p_storage.c_charge           = .95;
+%network properties related to generator ramps
+p_storage.ramp_max           = 1.20;
+p_storage.ramp_min           = -1.20;
 
 mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
 resN_opf_storage = runopf(mpcN_opf_storage, opt);
@@ -98,8 +101,8 @@ ci = c_offset + (1:ng:NG);
 
 if 1
     figure; hold on;
-    plot(1:size(ri,2), repmat(150, [1, size(ri,2)]), 'r-');
-    plot(1:size(ri,2), repmat(-150, [1, size(ri,2)]), 'r-');
+    plot(1:size(ri,2), repmat(p_storage.ramp_max*100, [1, size(ri,2)]), 'r-');
+    plot(1:size(ri,2), repmat(p_storage.ramp_min*100, [1, size(ri,2)]), 'r-');
     for i = 1:ng
         ramps = mpcN_opf_storage.A(ri,ci)*resN_opf_storage.gen(i:ng:NG, PG);
         plot(ramps);

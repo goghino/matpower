@@ -1,10 +1,8 @@
-function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_storage_min_MW, E_storage_max_MWh, E_storage_init_MWh,c_discharge, c_charge,T_timestep_hours)
+function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_storage_min_MW, E_storage_max_MWh, E_storage_init_MWh,c_discharge, c_charge,T_timestep_hours,ramp_max,ramp_min)
     
     %defines whether to enable generator ramping constraint and specifies
     %its limits (actual limit is value given multiplied by 100)
     RAMPS = 1;
-    ramp_min = -1.20;
-    ramp_max = 1.20;
     
     %%
     mpc_storage      = mpc;

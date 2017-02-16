@@ -36,7 +36,7 @@ function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p
     %extend mpc structure - namely generator table - by inserting storage 
     %devices (1 storage = 2 new generators for charge/discharge) and also 
     %construct constraints for MP problem
-    mpcN_opf_storage = add_storage2b(mpcN_opf,nnodes,id_storage_location,P_storage_max_MW,P_storage_min_MW,E_storage_max_MWh,E_storage_init_MWh,c_discharge,c_charge, 1)
+    mpcN_opf_storage = add_storage2b(mpcN_opf,nnodes,id_storage_location,P_storage_max_MW,P_storage_min_MW,E_storage_max_MWh,E_storage_init_MWh,c_discharge,c_charge, 1, p_storage.ramp_max, p_storage.ramp_min)
     % max(max(abs(mpcN_opf_storage.bus - mpcN_opf_storage2.bus)))
     % max(max(abs(mpcN_opf_storage.branch - mpcN_opf_storage2.branch)))
     % max(max(abs(mpcN_opf_storage.gen - mpcN_opf_storage2.gen)))
