@@ -19,3 +19,6 @@ most/docs/src/MOST-manual/MOST-manual.pdf
 most/docs/src/MOST-manual/MOST-manual.synctex.gz
 most/docs/src/MOST-manual/MOST-manual.synctex.gz(busy)
 most/docs/src/MOST-manual/MOST-manual.toc
+SparseStructure7_USIsolver/*.mtx
+*.dat
+*~
