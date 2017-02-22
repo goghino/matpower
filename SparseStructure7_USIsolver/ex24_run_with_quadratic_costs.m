@@ -1,5 +1,4 @@
-clc
-close all
+%close all
 % addpath('/home/alex/checkout/gitFEN/matlab/matpower51')
 % addpath('/home/alex/checkout/gitFEN/matlab/matpower51/t')
 define_constants
@@ -37,12 +36,11 @@ save -ascii -double 'pv.dat' pv_scaling_profile;
 load_scaling_profile = load_scaling_profile0 - 1*pv_scaling_profile;
 save -ascii -double 'loadpv.dat' load_scaling_profile;
 
-figure;
-plot(load_scaling_profile0,'b--');
-hold on;
-plot(load_scaling_profile,'b');
-legend('load','net load with PV injection')
-
+% figure;
+% plot(load_scaling_profile0,'b--');
+% hold on;
+% plot(load_scaling_profile,'b');
+% legend('load','net load with PV injection')
 
 load_scaling_profile       = kron(ones(factor_timesteps,1), load_scaling_profile  );
 
@@ -93,31 +91,42 @@ resN_opf_storage.success
 
 %% Plot actual ramping behavior of PG - real power output (MW)
 %in gen we have firs data for generators for all time periods, only then storages
-if RAMP
-    ng = size(mpc.gen,1);
-    NG = ng * length(load_scaling_profile);
+ng = size(mpc.gen,1);
+NG = ng * length(load_scaling_profile);
 
-    %number of preceeding constraints in A for storages (N+1)*nstorages
-    r_offset = (length(load_scaling_profile)+1) * length(id_storage_location);
-    %rows of A matrix for ramping constraints of g1, constraints are always
-    %same g1=g2=g3=... ([-I I]) so we extract just for first generator and reuse it
-    %for all the rest 1..ng
-    ri = r_offset+(1:ng:(NG-ng));
+%number of preceeding constraints in A for storages (N+1)*nstorages
+r_offset = (length(load_scaling_profile)+1) * length(id_storage_location);
+%rows of A matrix for ramping constraints of g1, constraints are always
+%same g1=g2=g3=... ([-I I]) so we extract just for first generator and reuse it
+%for all the rest 1..ng
+ri = r_offset+(1:ng:(NG-ng));
 
-    %skip comuns in A corresponding to bus variables (angle, magnitude)
-    c_offset = 2*size(mpcN_opf_storage.bus,1);
-    %columns of A matrix, same for all generators
-    ci = c_offset + (1:ng:NG);
+%skip comuns in A corresponding to bus variables (angle, magnitude)
+c_offset = 2*size(mpcN_opf_storage.bus,1);
+%columns of A matrix, same for all generators
+ci = c_offset + (1:ng:NG);
 
-    figure; hold on; title('Generator ramping over time horizon');
-    plot(1:size(ri,2), repmat(p_storage.ramp_max*100, [1, size(ri,2)]), 'r-');
-    plot(1:size(ri,2), repmat(p_storage.ramp_min*100, [1, size(ri,2)]), 'r-');
-    for i = 1:ng
-        %ramp rates of i-th generator
+figure; subplot(2,1,1); hold on; title('Generator ramping over time horizon');
+xlabel('N'); ylabel('Real power ramp [MW]');
+plot(1:size(ri,2), repmat(p_storage.ramp_max*100, [1, size(ri,2)]), 'r-');
+plot(1:size(ri,2), repmat(p_storage.ramp_min*100, [1, size(ri,2)]), 'r-');
+for i = 1:ng
+    %ramp rates of i-th generator, PG_t+1 - PG_t
+    if RAMP
         ramps = mpcN_opf_storage.A(ri,ci)*resN_opf_storage.gen(i:ng:NG, PG);
-        plot(ramps);
+    else
+        ramps = resN_opf_storage.gen((i+ng):ng:NG, PG) - resN_opf_storage.gen(i:ng:(NG-ng), PG);
     end
+    plot(ramps);
 end
+
+%plot generator profile
+subplot(2,1,2); hold on; title('Generator power profile');
+xlabel('N'); ylabel('Real power output [MW]');
+for i = 1:ng
+    plot(resN_opf_storage.gen(i:ng:NG, PG))
+end
+
 
 
 
