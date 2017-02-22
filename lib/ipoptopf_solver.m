@@ -1,5 +1,5 @@
 function [results, success, raw] = ipoptopf_solver(om, mpopt)
-%IPOPTOPF_SOLVER  Solves AC optimal power flow using MIPS.
+%IPOPTOPF_SOLVER  Solves AC optimal power flow using IPOPT.
 %
 %   [RESULTS, SUCCESS, RAW] = IPOPTOPF_SOLVER(OM, MPOPT)
 %
@@ -125,7 +125,7 @@ Cf = sparse(1:nl, f, ones(nl, 1), nl, nb);      %% connection matrix for line & 
 Ct = sparse(1:nl, t, ones(nl, 1), nl, nb);      %% connection matrix for line & to buses
 Cl = Cf + Ct;
 Cb = Cl' * Cl + speye(nb);
-Cl2 = Cl(il, :);
+Cl2 = Cl(il, :); %branches with active flow limit
 Cg = sparse(gen(:, GEN_BUS), (1:ng)', 1, nb, ng);
 nz = nx - 2*(nb+ng);
 nxtra = nx - 2*nb;

@@ -235,14 +235,14 @@ if dc
 else
   om = userdata(om, 'Apqdata', Apqdata);
   om = userdata(om, 'iang', iang);
-  om = add_vars(om, 'Va', nb, Va, Val, Vau);
-  om = add_vars(om, 'Vm', nb, Vm, bus(:, VMIN), bus(:, VMAX));
-  om = add_vars(om, 'Pg', ng, Pg, Pmin, Pmax);
-  om = add_vars(om, 'Qg', ng, Qg, Qmin, Qmax);
+  om = add_vars(om, 'Va', nb, Va, Val, Vau); %adds OPF variables for voltage angles and set initial values
+  om = add_vars(om, 'Vm', nb, Vm, bus(:, VMIN), bus(:, VMAX)); %voltage magnitude
+  om = add_vars(om, 'Pg', ng, Pg, Pmin, Pmax); %generator real power
+  om = add_vars(om, 'Qg', ng, Qg, Qmin, Qmax); %generator imaginary power
   om = add_constraints(om, 'Pmis', nb, 'nonlinear');
-  om = add_constraints(om, 'Qmis', nb, 'nonlinear');
+  om = add_constraints(om, 'Qmis', nb, 'nonlinear');%real and reactive power balance (eq. constr.)
   om = add_constraints(om, 'Sf', nl, 'nonlinear');
-  om = add_constraints(om, 'St', nl, 'nonlinear');
+  om = add_constraints(om, 'St', nl, 'nonlinear');%branch flow limits (ineq. constr.)
   om = add_constraints(om, 'PQh', Apqh, [], ubpqh, {'Pg', 'Qg'});   %% npqh
   om = add_constraints(om, 'PQl', Apql, [], ubpql, {'Pg', 'Qg'});   %% npql
   om = add_constraints(om, 'vl',  Avl, lvl, uvl,   {'Pg', 'Qg'});   %% nvl
