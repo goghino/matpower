@@ -37,9 +37,9 @@ if nargin < 2
         name = om.var.order(k).name;
         idx = om.var.order(k).idx;
         if isempty(idx)
-            v0 = [ v0; om.var.data.v0.(name) ];
-            vl = [ vl; om.var.data.vl.(name) ];
-            vu = [ vu; om.var.data.vu.(name) ];
+            v0 = [ v0; om.var.data.v0.(name) ]; %we extract OPF control variables
+            vl = [ vl; om.var.data.vl.(name) ]; %from OM and get initial value
+            vu = [ vu; om.var.data.vu.(name) ]; %and bounds as big vectors
             if have_vt
                 N = om.var.idx.N.(name);
                 vt0 = om.var.data.vt.(name);

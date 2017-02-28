@@ -123,10 +123,10 @@ f = branch(:, F_BUS);                           %% list of "from" buses
 t = branch(:, T_BUS);                           %% list of "to" buses
 Cf = sparse(1:nl, f, ones(nl, 1), nl, nb);      %% connection matrix for line & from buses
 Ct = sparse(1:nl, t, ones(nl, 1), nl, nb);      %% connection matrix for line & to buses
-Cl = Cf + Ct;
-Cb = Cl' * Cl + speye(nb);
+Cl = Cf + Ct;                                   %% for each line - from & to 
+Cb = Cl' * Cl + speye(nb);                      %% for each bus - contains adjacent buses
 Cl2 = Cl(il, :); %branches with active flow limit
-Cg = sparse(gen(:, GEN_BUS), (1:ng)', 1, nb, ng);
+Cg = sparse(gen(:, GEN_BUS), (1:ng)', 1, nb, ng); %%locations where each gen. resides
 nz = nx - 2*(nb+ng);
 nxtra = nx - 2*nb;
 Js = [
@@ -136,6 +136,11 @@ Js = [
     Cl2     Cl2     sparse(nl2, 2*ng)               sparse(nl2,nz);
     A;
 ];
+% Jacobian for the power flow:
+%      | dPf_da  dPf_dV dPf_dP  dPf_dQ |   | Cb   Cb  Cg 0| 
+% Js = |                               | = |              |
+%      | dQf_da  dQf_dV dPf_dP  dPf_dQ |   | Cb   Cb  0 Cg|
+%
 [f, df, d2f] = opf_costfcn(x0, om);
 Hs = tril(d2f + [
     Cb  Cb  sparse(nb,nxtra);
@@ -182,9 +187,9 @@ options.auxdata = struct( ...
 
 %% define variable and constraint bounds
 options.lb = xmin;
-options.ub = xmax;
+options.ub = xmax; %TODO drosos added eps
 options.cl = [zeros(2*nb, 1);  -Inf(2*nl2, 1); l];
-options.cu = [zeros(2*nb, 1); zeros(2*nl2, 1); u];
+options.cu = [zeros(2*nb, 1); zeros(2*nl2, 1); u]; %TODO drosos added eps
 
 %% assign function handles
 funcs.objective         = @objective;

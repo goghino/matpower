@@ -182,7 +182,7 @@ else                                %% AC formulation
     end
     %% initial state
     % V0    = ones(size(bus, 1), 1);            %% flat start
-    V0  = bus(:, VM) .* exp(sqrt(-1) * pi/180 * bus(:, VA));
+    V0  = bus(:, VM) .* exp(sqrt(-1) * pi/180 * bus(:, VA)); %flat start for PF
     vcb = ones(size(V0));           %% create mask of voltage-controlled buses
     vcb(pq) = 0;                    %% exclude PQ buses
     k = find(vcb(gbus));            %% in-service gens at v-c buses
@@ -196,7 +196,8 @@ else                                %% AC formulation
     end
 
     %% build admittance matrices
-    [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
+    [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch); %addmitance matrix is build here
+    figure; spy(Ybus);
     
     repeat = 1;
     while (repeat)

@@ -90,11 +90,11 @@ while (~converged && i < max_it)
 
     %% update voltage
     if npv
-        Va(pv) = Va(pv) + dx(j1:j2);
+        Va(pv) = Va(pv) + dx(j1:j2); %for PV bus only angle is unknown
     end
     if npq
-        Va(pq) = Va(pq) + dx(j3:j4);
-        Vm(pq) = Vm(pq) + dx(j5:j6);
+        Va(pq) = Va(pq) + dx(j3:j4); %for PQ buses both voltage
+        Vm(pq) = Vm(pq) + dx(j5:j6); %angle and magnitude are unknown
     end
     V = Vm .* exp(1j * Va);
     Vm = abs(V);            %% update Vm and Va again in case
