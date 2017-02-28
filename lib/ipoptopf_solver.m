@@ -72,6 +72,7 @@ ny = getN(om, 'var', 'y');  %% number of piece-wise linear costs
 
 %% bounds on optimization vars
 [x0, xmin, xmax] = getv(om);
+xmax = xmax + 1e-10;
 
 %% build admittance matrices
 [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
@@ -187,9 +188,9 @@ options.auxdata = struct( ...
 
 %% define variable and constraint bounds
 options.lb = xmin;
-options.ub = xmax; %TODO drosos added eps
+options.ub = xmax;
 options.cl = [zeros(2*nb, 1);  -Inf(2*nl2, 1); l];
-options.cu = [zeros(2*nb, 1); zeros(2*nl2, 1); u]; %TODO drosos added eps
+options.cu = [zeros(2*nb, 1); zeros(2*nl2, 1); u+1e-10]; %TODO drosos added eps
 
 %% assign function handles
 funcs.objective         = @objective;
