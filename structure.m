@@ -1,13 +1,20 @@
 close all;
 
-ORIGINAL = 1;
+ORIGINAL = 0;
 
 if ORIGINAL
     nb=118; ng=72; nl=186; ns=9; N=24;
     file = '~/Documents/Code/MatPowerMatrices/case118factor1N24/mat-ipopt_023-01.iajaa';
 else
-    nb=118; ng=72; nl=186; ns=9; N=31;
-    file = '~/Documents/Optimization/matpower/SparseStructure7_USIsolver/mat-ipopt_023-01.iajaa';
+    %mpc = case118
+    %-------------
+    %number_of_timesteps    24
+    %number_of_buses       118
+    %number_of_generators   54
+    %number_of_lines       186
+    %number_of_storages      3
+    nb=118; ng=60; nl=186; ns=3; N=24;
+    file = '~/Documents/Optimization/matpower/SparseStructure7_USIsolver/mat-ipopt_002-01.iajaa';
 end
 
 
