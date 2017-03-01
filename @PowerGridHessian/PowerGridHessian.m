@@ -388,14 +388,14 @@ classdef PowerGridHessian < handle
         
         
         
-        function [H, x] = CheckStructure(this, reordering)
+        function [H, x] = CheckStructure(this, reordering, ramps)
             
             %Scale = ScaleSystem(this);
             %sc=full(diag(Scale));
             %fprintf('max and min scales = %25.16f %25.16f\n',max(sc),min(sc));
-            p = computePermutation(this, reordering);
+            p = computePermutation(this, reordering, ramps);
             %p  = amd(IPOPTHessian);
-            fprintf('size of permutation array is %d and size of rhs b is %d\n',length(p), length(this.b));
+            fprintf(' and size of rhs b is %d\n', length(this.b));
             
             ns      = this.ns;
             b       = this.b;
@@ -431,7 +431,7 @@ classdef PowerGridHessian < handle
             B0   = this.H(I, N*npart+1+this.ns:N*npart+4*this.ns);
             alpha = sparse(npart,npart);
             P = this.H;
-             if (this.makeSpyPlots == true)
+            if (this.makeSpyPlots == true)
                 figure; spy([H_00  B; B' , sparse(nS,nS)], 'k');
             end
             %H_00 = H_nn / N;
@@ -443,9 +443,9 @@ classdef PowerGridHessian < handle
                 %pause;
                 for i=1:N+1
                   B_i         = B(:,     (i-1)*ns+1:i*ns);
-                  fprintf('|B_%2d| = %26.15e\n', i, norm(full(B_i)));
+                  %fprintf('|B_%2d| = %26.15e\n', i, norm(full(B_i)));
                 end
-                fprintf('============== n = %d\n', n);
+                %fprintf('============== n = %d\n', n);
                 %for k=1:N
                 %  B           = this.H(I, N*npart+1:end);
                 %end
@@ -776,7 +776,7 @@ classdef PowerGridHessian < handle
         end
         
         
-        function p = computePermutation(this, reordering)
+        function p = computePermutation(this, reordering, ramps)
             
             nb     = this.nb; % number of buses
             ng     = this.ng; % number of generators
@@ -789,10 +789,15 @@ classdef PowerGridHessian < handle
             NG     = ng * N;
             NL     = nl * N;
             
-            NH     = 2*NB + 2*NG;
-            NJ     = 2*NB;
-            NP     = 2*NL + (N+1)*ns;
-            NK     = 2*NL + (N+1)*ns;
+            NH     = 2*NB + 2*NG; %size of the hessian [Va Vm P Q]
+            NJ     = 2*NB; %size of jacobian, power flow equations for [P Q]
+            NP     = 2*NL + (N+1)*ns; %ineqality c., line flows [P Q] + storage constraints
+            NK     = 2*NL + (N+1)*ns; %slack vars, same as inequality
+            
+            if ramps
+              NP = NP + (N-1)*(ng-2*ns); %inequality c. for generator ramps
+              NK = NK + (N-1)*(ng-2*ns); %slacks for generator ramps
+            end
             
             
             %  [  H     0     J^T     P^T   ]
@@ -828,14 +833,15 @@ classdef PowerGridHessian < handle
             end
             
             if (strcmp(reordering, 'nsAInDiagBlocks') == 1)
+                %put variables for t_i together
                 for i = 0:N-1
-                    p = [p   i*nb+[1:nb]   NB+i*nb+[1:nb]   2*NB+i*ng+[1:ng]   2*NB+NG+i*ng+[1:ng] ]; % H
-                    p = [p   NH+NK+i*nb+[1:nb]       NH+NK+NB+i*nb+[1:nb]    ];                       % J
-                    p = [p   NH+NK+NJ+i*nl+[1:nl]    NH+NK+NJ+NL+i*nl+[1:nl] ];                       % P
-                    p = [p   NH+i*nl+[1:nl]          NH+NL+i*nl+[1:nl]       ];                       % K
-                    p = [p   NH+2*NL+1 + i*ns:NH+2*NL+(i+1)*ns   ];
+                    p = [p   i*nb+[1:nb]   NB+i*nb+[1:nb]   2*NB+i*ng+[1:ng]   2*NB+NG+i*ng+[1:ng] ]; % H [Va Vm P Q]
+                    p = [p   NH+NK+i*nb+[1:nb]       NH+NK+NB+i*nb+[1:nb]    ];                       % J eq.[P Q]
+                    p = [p   NH+NK+NJ+i*nl+[1:nl]    NH+NK+NJ+NL+i*nl+[1:nl] ];                       % P ineq. [line flow P Q]
+                    p = [p   NH+i*nl+[1:nl]          NH+NL+i*nl+[1:nl]       ];                       % K slack [line flow P Q]
+                    p = [p   NH+2*NL+1 + i*ns:NH+2*NL+(i+1)*ns   ];                                   % K slack storages neutral charge over all Ns  
                 end
-                p = [p   NH+2*NL+N*ns+1:NH+NK    NH+NK+NJ+2*NL+1:NH+NK+NJ+NP ];
+                p = [p   NH+2*NL+N*ns+1:NH+NK    NH+NK+NJ+2*NL+1:NH+NK+NJ+NP ]; %K slack storages c/d between time steps at the end -- whole P for all related storage/gen ineq.
                 this.npart = 2*nb + 2*ng + 2*nb + 4*nl + ns;
             end
             
@@ -873,7 +879,7 @@ classdef PowerGridHessian < handle
                 p(this.iperm(i)) = i;
             end
             
-            fprintf('Permutation0 array has numel #%d %d\n',length(p));
+            fprintf('Permutation array has length #%d %d\n',length(p));
             
             
         end

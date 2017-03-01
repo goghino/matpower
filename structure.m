@@ -1,6 +1,7 @@
 close all;
 
 ORIGINAL = 0;
+RAMPS = 0;
 
 if ORIGINAL
     nb=118; ng=72; nl=186; ns=9; N=24;
@@ -14,10 +15,13 @@ else
     %number_of_lines       186
     %number_of_storages      3
     nb=118; ng=60; nl=186; ns=3; N=24;
-    file = '~/Documents/Optimization/matpower/SparseStructure7_USIsolver/ramp.iajaa';
-    %file = '~/Documents/Optimization/matpower/SparseStructure7_USIsolver/noramp.iajaa';
+    if RAMPS
+        file = '~/Documents/Optimization/matpower/SparseStructure7_USIsolver/ramp.iajaa';
+    else
+        file = '~/Documents/Optimization/matpower/SparseStructure7_USIsolver/noramp.iajaa';
+    end
 end
 
 
 pg = PowerGridHessian(file, nb, ng, nl, ns, N, 1);
-pg.CheckStructure('nsAInDiagBlocks');
+pg.CheckStructure('nsAInDiagBlocks', RAMPS);
