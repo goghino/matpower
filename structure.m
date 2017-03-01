@@ -14,7 +14,8 @@ else
     %number_of_lines       186
     %number_of_storages      3
     nb=118; ng=60; nl=186; ns=3; N=24;
-    file = '~/Documents/Optimization/matpower/SparseStructure7_USIsolver/mat-ipopt_002-01.iajaa';
+    file = '~/Documents/Optimization/matpower/SparseStructure7_USIsolver/ramp.iajaa';
+    %file = '~/Documents/Optimization/matpower/SparseStructure7_USIsolver/noramp.iajaa';
 end
 
 
