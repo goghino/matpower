@@ -1,14 +1,5 @@
-function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_storage_min_MW, E_storage_max_MWh, E_storage_init_MWh,c_discharge, c_charge,T_timestep_hours,ramp_max,ramp_min)
-    
-    %defines whether to enable generator ramping constraint and specifies
-    %its limits (actual limit is value given multiplied by 100)
-    if (ramp_min == -Inf && ramp_max == Inf)
-        RAMPS = 0; %do not even create ramping constraints
-    else
-        RAMPS = 1;
-    end
-    
-    %%
+function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_storage_min_MW, E_storage_max_MWh, E_storage_init_MWh,c_discharge, c_charge,T_timestep_hours,RAMPS,ramp_max,ramp_min)
+
     mpc_storage      = mpc;
     nnodes_total     = size(mpc.bus,1); %buses for all time periods
     if mod(nnodes_total,nnodes)
@@ -56,7 +47,8 @@ ngen_total           = size(mpc_storage.gen,1);
 %   ng*(N-1) for ramping limits
 NR = nstorage+N*nstorage;
 if RAMPS
-    ng = ngen_nostorage_total/N;  NR = NR + ng*(N-1);
+    ng = ngen_nostorage_total/N;
+    NR = NR + ng*(N-1);
 end
 % NC is size of x - see above; nnodes = [theta,Vm] and ngen = [P Q]
 NC = 2*(nnodes_total+ngen_total);
@@ -77,8 +69,8 @@ M_diag_charge = sparse(1:nstorage,1:nstorage,c_charge);
 A(offset+(1:nstorage),2*nnodes_total+ngen_nostorage_total+(1:(2*N*nstorage)) ) = ...
     [repmat(M_diag_discharge,[1,N]),...
      repmat(M_diag_charge   ,[1,N]) ];
-l(offset+(1:nstorage))   = -Inf; 
-u(offset+(1:nstorage))   = Inf;
+l(offset+(1:nstorage))   = -Inf; %TODO shouldn't be 0??? 0 <= Ax <= 0
+u(offset+(1:nstorage))   = Inf; %TODO shouldn't be 0???
 offset = offset + nstorage;
 
 %% 0 < Einit + T*P1 < Emax
@@ -128,6 +120,9 @@ mpc_storage.P_storage_max_MW          = P_storage_max_MW;
 mpc_storage.P_storage_min_MW          = P_storage_min_MW;
 mpc_storage.E_storage_init_MWh        = E_storage_init_MWh;
 mpc_storage.E_storage_max_MWh         = E_storage_max_MWh;
+
+mpc_storage.ramp_min                  = ramp_min;
+mpc_storage.ramp_max                  = ramp_max;
 
 mpc_storage.id_gen_storages_discharge = ngen_nostorage_total+(1:(N*nstorage));
 mpc_storage.id_gen_storages_charge    = ngen_nostorage_total+N*nstorage+(1:(N*nstorage));
