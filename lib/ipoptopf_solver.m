@@ -326,28 +326,113 @@ raw = struct('xr', x, 'pimul', pimul, 'info', info.status, 'output', output);
 
 
 %-----  callback functions  -----
+% Alternative representation of ramping constraints.
+% We check feasibility of power generation between time steps
+% and if ramp limit is violated we adjust powers accordingly
+% and use the modified quantities for evaluation of callback functions.
+% X contains [Va Vm P Q] where P is [Pgen Pc Pd] and Pgen is the real
+% power of generator, Pc is charging of storages and Pd is discharging.
+function xnew = check_ramps(x, d)
+
+%TODO: remove
+x_bk = x;
+
+%Access to an object's fields is only permitted within its methods.
+%OM is class, need to use speial method to access its member variables
+mpc = get_mpc(d.om);
+N = mpc.horizon;
+ns = mpc.nstorage;
+NP = size(mpc.gen,1); %size of the P variable of OPF (includes gens and 2*storages)
+NG = (NP - N*ns*2);
+ng = NG/N;
+i2e = mpc.order.gen.i2e;
+e2i = mpc.order.gen.e2i;
+
+%compute generator ramps of real power generation
+PG = 2; %index to real power column in gen table
+offset = size(mpc.bus,1)*2 + 1; %skip [Va Vm] variables
+
+%convert x to external ordering
+xe = x(offset:offset+NP-1);
+xe = xe(i2e);
+
+%build constraints
+A = [kron(diag(ones(N-1,1)), -eye(ng)), zeros((N-1)*ng,ng)] + [zeros((N-1)*ng,ng), kron(diag(ones(N-1,1)), eye(ng))];
+
+%% handle max violations by setting power differences to max acceptable rate
+ramps = A * xe(1:NG);
+%r = reshape(ramps,ng,N-1);
+%figure;plot(r');axis([0,N-1,-2,2]);
+
+%find ramp limits violations
+r_max = mpc.ramp_max;
+ii = find(ramps > r_max);
+
+%ramp = Pi_tj - Pi_t(j-1)
+%new value is: Pi_tj = Pi_t(j-1) + r_max
+%!!!it may create new cascade violations
+xe(ii + ng) = xe(ii) + r_max;
+
+%% handle min violations by setting power differences to max acceptable rate
+ramps = A * xe(1:NG);
+%r = reshape(ramps,ng,N-1);
+%figure;plot(r');axis([0,N-1,-2,2]);
+
+%find ramp limits violations
+r_min = mpc.ramp_min;
+ii = find(ramps < r_min);
+
+%ramp = Pi_tj - Pi_t(j-1)
+%new value is: Pi_tj = Pi_t(j-1) + r_min [it is already negative]
+%!!!it may create new cascade violations
+xe(ii + ng) = xe(ii) + r_min;
+
+%% 
+%TODO: not necessary, is here just to plot the final result
+%ramps = A * xe(1:NG);
+%r = reshape(ramps,ng,N-1);
+%figure;plot(r');axis([0,N-1,-2,2]);
+
+%convert x to internal ordering
+xi = xe(e2i);
+x(offset:offset+NP-1) = xi;
+
+%return new generator powers
+xnew = x;
+%xnew = x_bk; %TODO: remove
+
 function f = objective(x, d)
-f = opf_costfcn(x, d.om);
+%xnew = x;
+xnew = check_ramps(x,d);
+f = opf_costfcn(xnew, d.om);
 
 function df = gradient(x, d)
-[f, df] = opf_costfcn(x, d.om);
+%xnew = x;
+xnew = check_ramps(x,d);
+[f, df] = opf_costfcn(xnew, d.om);
 
 function c = constraints(x, d)
-[hn, gn] = opf_consfcn(x, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
+%xnew = x;
+xnew = check_ramps(x,d);
+[hn, gn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 if isempty(d.A)
     c = [gn; hn];
 else
-    c = [gn; hn; d.A*x];
+    c = [gn; hn; d.A*xnew];
 end
 
 function J = jacobian(x, d)
-[hn, gn, dhn, dgn] = opf_consfcn(x, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
+%xnew = x;
+xnew = check_ramps(x,d);
+[hn, gn, dhn, dgn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 J = [dgn'; dhn'; d.A];
 
 function H = hessian(x, sigma, lambda, d)
+%xnew = x;
+xnew = check_ramps(x,d);
 lam.eqnonlin   = lambda(1:d.neqnln);
 lam.ineqnonlin = lambda(d.neqnln+(1:d.niqnln));
-H = tril(opf_hessfcn(x, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
+H = tril(opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
 
 % function Js = jacobianstructure(d)
 % Js = d.Js;
