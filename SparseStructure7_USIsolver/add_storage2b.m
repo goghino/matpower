@@ -89,7 +89,7 @@ offset = offset + N*nstorage;
 %% dp_min < p_g_t+1 - p_g_t < dp_max for all gen g and periods N
 if RAMPS
     A(offset+(1:ng*(N-1)), 2*nnodes_total+(1:ngen_nostorage_total)) = ... 
-        [kron(diag(ones(N-1,1)), -eye(ng)), zeros((N-1)*ng,ng)] + [zeros((N-1)*ng,ng), kron(diag(ones(N-1,1)), eye(ng))];
+        [kron(eye(N-1), -eye(ng)), zeros((N-1)*ng,ng)] + [zeros((N-1)*ng,ng), kron(eye(N-1), eye(ng))];
     l(offset+(1:ng*(N-1))) = repmat( ramp_min * ones(ng,1), [N-1,1]);
     u(offset+(1:ng*(N-1))) = repmat( ramp_max * ones(ng,1), [N-1,1]);
     offset = offset + ng*(N-1);
