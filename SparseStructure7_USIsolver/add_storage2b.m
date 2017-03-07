@@ -32,6 +32,11 @@ function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_s
 %  mpc.gencost = ones(ngens,1)*[2 0 0 3 0 200 0];
 mpc_storage.gencost = [mpc_storage.gencost;
                        ones(nstorage*N*2,1)*[2 0 0 3 0 0 0]];
+                   
+%% scale ramp limits by BASE MVA
+ramp_max = ramp_max / mpc.baseMVA;
+ramp_min = ramp_min / mpc.baseMVA;
+
 
 
 %% add userconstraints

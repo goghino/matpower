@@ -9,8 +9,8 @@ define_constants
 %by checking iterate solutions x_k
 RAMP = 0;
 
-ramp_max = 1.2;
-ramp_min = -0.8;
+ramp_max = 120;
+ramp_min = -80;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% TBD 
@@ -28,7 +28,7 @@ setenv('OMP_NUM_THREADS', '1');
 %opt = mpoption('verbose',2,'out.all',0);
 
 %% set time step data
-nstorage_ref = 3;  %% 1 ... 100
+nstorage_ref = 3;  %% number of storages in network
 factor_timesteps = 1;  %% 1...365
 Kpv = 1;  %% 0 ...1  (size of PV penetration)
 
@@ -109,8 +109,8 @@ ci = c_offset + (1:ng:NG);
 
 figure; subplot(2,1,1); hold on; title('Generator ramping over time horizon');
 xlabel('N'); ylabel('Real power ramp [MW]');
-plot(1:size(ri,2), repmat(p_storage.ramp_max*100, [1, size(ri,2)]), 'r-');
-plot(1:size(ri,2), repmat(p_storage.ramp_min*100, [1, size(ri,2)]), 'r-');
+plot(1:size(ri,2), repmat(p_storage.ramp_max, [1, size(ri,2)]), 'r-');
+plot(1:size(ri,2), repmat(p_storage.ramp_min, [1, size(ri,2)]), 'r-');
 for i = 1:ng
     %ramp rates of i-th generator, PG_t+1 - PG_t
     if RAMP
