@@ -1,7 +1,7 @@
 close all;
 
 ORIGINAL = 0;
-RAMPS = 0;
+RAMPS = 1;
 
 if ORIGINAL
     nb=118; ng=72; nl=186; ns=9; N=24;

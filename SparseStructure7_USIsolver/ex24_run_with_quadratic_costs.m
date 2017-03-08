@@ -7,7 +7,7 @@ define_constants
 %its limits (actual limit is value given multiplied by BaseMVA=100). If ramp
 %is not specified ramping limits are enforced in between IPM iterations
 %by checking iterate solutions x_k
-RAMP = 0;
+RAMP = 1;
 
 ramp_max = 120;
 ramp_min = -80;
@@ -22,7 +22,7 @@ ramp_min = -80;
 
 %% set options
 
-opt = mpoption('verbose',2,'out.all',0, 'opf.ac.solver','IPOPT');
+opt = mpoption('verbose',2,'out.all',0, 'opf.ac.solver','MIPS'); %'opf.ac.solver','IPOPT'
 opt = mpoption(opt, 'ipopt.opts', struct('tol', 1e-04));
 setenv('OMP_NUM_THREADS', '1');
 %opt = mpoption('verbose',2,'out.all',0);
@@ -88,7 +88,9 @@ p_storage.ramp_min           = ramp_min;
 
 mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
 resN_opf_storage = runopf(mpcN_opf_storage, opt);
-resN_opf_storage.success
+
+disp('[success, f]');
+disp([resN_opf_storage.success, resN_opf_storage.f]);
 
 %% Plot actual ramping behavior of PG - real power output (MW)
 %in gen we have firs data for generators for all time periods, only then storages
