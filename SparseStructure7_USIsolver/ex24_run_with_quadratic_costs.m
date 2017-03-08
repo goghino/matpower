@@ -22,7 +22,7 @@ ramp_min = -80;
 
 %% set options
 
-opt = mpoption('verbose',2,'out.all',0, 'opf.ac.solver','MIPS'); %'opf.ac.solver','IPOPT'
+opt = mpoption('verbose',2,'out.all',0, 'opf.ac.solver','IPOPT'); %'opf.ac.solver','IPOPT'
 opt = mpoption(opt, 'ipopt.opts', struct('tol', 1e-04));
 setenv('OMP_NUM_THREADS', '1');
 %opt = mpoption('verbose',2,'out.all',0);
