@@ -327,21 +327,21 @@ raw = struct('xr', x, 'pimul', pimul, 'info', info.status, 'output', output);
 
 %-----  callback functions  -----
 function f = objective(x, d)
-%xnew = x;
-mpc = get_mpc(d.om);
-xnew = check_ramps(x,mpc);
+xnew = x;
+% mpc = get_mpc(d.om);
+% xnew = check_ramps(x,mpc);
 f = opf_costfcn(xnew, d.om);
 
 function df = gradient(x, d)
-%xnew = x;
-mpc = get_mpc(d.om);
-xnew = check_ramps(x,mpc);
+xnew = x;
+% mpc = get_mpc(d.om);
+% xnew = check_ramps(x,mpc);
 [f, df] = opf_costfcn(xnew, d.om);
 
 function c = constraints(x, d)
-%xnew = x;
-mpc = get_mpc(d.om);
-xnew = check_ramps(x,mpc);
+xnew = x;
+% mpc = get_mpc(d.om);
+% xnew = check_ramps(x,mpc);
 [hn, gn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 if isempty(d.A)
     c = [gn; hn];
@@ -350,16 +350,16 @@ else
 end
 
 function J = jacobian(x, d)
-%xnew = x;
-mpc = get_mpc(d.om);
-xnew = check_ramps(x,mpc);
+xnew = x;
+% mpc = get_mpc(d.om);
+% xnew = check_ramps(x,mpc);
 [hn, gn, dhn, dgn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 J = [dgn'; dhn'; d.A];
 
 function H = hessian(x, sigma, lambda, d)
-%xnew = x;
-mpc = get_mpc(d.om);
-xnew = check_ramps(x,mpc);
+xnew = x;
+% mpc = get_mpc(d.om);
+% xnew = check_ramps(x,mpc);
 lam.eqnonlin   = lambda(1:d.neqnln);
 lam.ineqnonlin = lambda(d.neqnln+(1:d.niqnln));
 H = tril(opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
