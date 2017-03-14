@@ -6,7 +6,8 @@ define_constants
 %defines whether to enable explicit generator ramping constraint and specifies
 %its limits (actual limit is value given multiplied by BaseMVA=100). If ramp
 %is not specified ramping limits are enforced in between IPM iterations
-%by checking iterate solutions x_k
+%by checking iterate solutions x_k (not working, not used - commented out in
+%both ipoptopf_solver and mipsopf_solver/mips)
 RAMP = 1;
 
 ramp_max = 120;
@@ -23,6 +24,7 @@ ramp_min = -80;
 %% set options
 
 opt = mpoption('verbose',2,'out.all',0, 'opf.ac.solver','IPOPT'); %'opf.ac.solver','IPOPT'
+opt = mpoption(opt, 'mips.feastol',1e-4,'mips.gradtol',1e-3,'mips.comptol',1e-4,'mips.costtol',1e-4,'mips.step_control',1);
 opt = mpoption(opt, 'ipopt.opts', struct('tol', 1e-04));
 setenv('OMP_NUM_THREADS', '1');
 %opt = mpoption('verbose',2,'out.all',0);
@@ -35,11 +37,10 @@ Kpv = 1;  %% 0 ...1  (size of PV penetration)
 %load scaling profile for each period
 load_scaling_profile0 = [0.0544 0.0544 0.0544 0.1544 0.2544 0.4544 0.3570 0.2860 0.2783 0.3795 0.5822 0.8086 0.9633 1.0086 0.9883 0.9761 1.0000 1.0193 0.9773 0.8772 0.7991 0.8359 1.0023 1.2063]';
 pv_scaling_profile =  [0 0 0 0 0 0 0 0  0 0 0.0046 0.0548 0.1686 0.3457 0.5100 0.6687 0.7496 0.8175 0.8305 0.8026 0.7212 0.5988 0.4453 0.2718 ]'  ;
-save -ascii -double 'load.dat' load_scaling_profile0;
-save -ascii -double 'pv.dat' pv_scaling_profile;
 
 load_scaling_profile = load_scaling_profile0 - 1*pv_scaling_profile;
-save -ascii -double 'loadpv.dat' load_scaling_profile;
+%load_scaling_profile = [1 1.1 0.8 1 0.644 0.9 1.69 1.9 1.72 1.2 0.8 0.6 0.4 ]';
+%load_scaling_profile       = kron(ones(factor_timesteps,1), load_scaling_profile  );
 
 % figure;
 % plot(load_scaling_profile0,'b--');
@@ -47,7 +48,9 @@ save -ascii -double 'loadpv.dat' load_scaling_profile;
 % plot(load_scaling_profile,'b');
 % legend('load','net load with PV injection')
 
-load_scaling_profile       = kron(ones(factor_timesteps,1), load_scaling_profile  );
+%save -ascii -double 'loadpv.dat' load_scaling_profile;
+%save -ascii -double 'load.dat' load_scaling_profile0;
+%save -ascii -double 'pv.dat' pv_scaling_profile;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% create base case file
