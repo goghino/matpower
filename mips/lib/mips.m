@@ -1,4 +1,4 @@
-function [x, f, eflag, output, lambda] = mips(f_fcn, x0, A, l, u, xmin, xmax, gh_fcn, hess_fcn, opt)
+function [x, f, eflag, output, lambda] = mips(f_fcn, x0, A, l, u, xmin, xmax, gh_fcn, hess_fcn, opt, mpc)
 %MIPS  MATPOWER Interior Point Solver.
 %   [X, F, EXITFLAG, OUTPUT, LAMBDA] = ...
 %       MIPS(F_FCN, X0, A, L, U, XMIN, XMAX, GH_FCN, HESS_FCN, OPT)
@@ -345,7 +345,10 @@ Ai  = [ AA(ilt, :); -AA(igt, :); AA(ibx, :); -AA(ibx, :) ];
 bi  = [ uu(ilt, 1); -ll(igt, 1); uu(ibx, 1); -ll(ibx, 1) ];
 
 %% evaluate cost f(x0) and constraints g(x0), h(x0)
+%  g represents mismatch PF equations
+%  h are line power flow limits
 x = x0;
+%x = check_ramps(x,mpc);         %% check and fix ramping constraint violations for the initial guess
 [f, df] = f_fcn(x);             %% cost
 f = f * opt.cost_mult;
 df = df * opt.cost_mult;
@@ -389,7 +392,7 @@ f0 = f;
 if opt.step_control
     L = f + lam' * g + mu' * (h+z) - gamma * sum(log(z));
 end
-Lx = df + dg * lam + dh * mu;
+Lx = df + dg * lam + dh * mu; %Lagrangian derivative w.r.t. x 
 if isempty(h)
     maxh = zeros(1,0);
 else
@@ -435,6 +438,7 @@ end
 
 %%-----  do Newton iterations  -----
 while (~converged && i < opt.max_it)
+    
     %% update iteration counter
     i = i + 1;
 
@@ -444,7 +448,7 @@ while (~converged && i < opt.max_it)
         if isempty(hess_fcn)
             fprintf('mips: Hessian evaluation via finite differences not yet implemented.\n       Please provide your own hessian evaluation function.');
         end
-        Lxx = hess_fcn(x, lambda, opt.cost_mult);
+        Lxx = hess_fcn(x, lambda, opt.cost_mult); %hessian of Lagrangian
     else
         [f_, df_, d2f] = f_fcn(x);      %% cost
         Lxx = d2f * opt.cost_mult;
@@ -452,9 +456,10 @@ while (~converged && i < opt.max_it)
     zinvdiag = sparse(1:niq, 1:niq, 1 ./ z, niq, niq);
     mudiag = sparse(1:niq, 1:niq, mu, niq, niq);
     dh_zinv = dh * zinvdiag;
-    M = Lxx + dh_zinv * mudiag * dh';
-    N = Lx + dh_zinv * (mudiag * h + gamma * e);
-    dxdlam = mplinsolve([M dg; dg' sparse(neq, neq)], [-N; -g], opt.linsolver, []); %TODO: call of the linear solver
+    M = Lxx + dh_zinv * mudiag * dh'; %this comes from elimination of variables [z mu]
+    N = Lx + dh_zinv * (mudiag * h + gamma * e); %this comes from elimination of variables [z mu]
+    %call of the linear solver - PARDISO or backslash
+    dxdlam = mplinsolve([M dg; dg' sparse(neq, neq)], [-N; -g], opt.linsolver, []);
 %     AAA = [
 %         M  dg;
 %         dg'  sparse(neq, neq)
@@ -474,10 +479,13 @@ while (~converged && i < opt.max_it)
         eflag = -1;
         break;
     end
-    dx = dxdlam(1:nx, 1);
-    dlam = dxdlam(nx+(1:neq), 1);
-    dz = -h - z - dh' * dx;
-    dmu = -mu + zinvdiag *(gamma*e - mudiag * dz);
+    %extract updates for primal variables dx and equality constraints dlam
+    %[M dg; dg' sparse(neq, neq)] [dx dlam] = RHS  
+    dx = dxdlam(1:nx, 1); %primal variables        
+    dlam = dxdlam(nx+(1:neq), 1); %lagrange for equality
+    %compute [z mu] from equations based on elimination of variables
+    dz = -h - z - dh' * dx; % slack variables
+    dmu = -mu + zinvdiag *(gamma*e - mudiag * dz);  %lagrange for inequality
 
     %% optional step-size control
     sc = 0;
@@ -560,10 +568,14 @@ while (~converged && i < opt.max_it)
     else
         alphad = min( [xi * min(mu(k) ./ -dmu(k)) 1] );
     end
-    x = x + alphap * dx;
-    z = z + alphap * dz;
-    lam = lam + alphad * dlam;
-    mu  = mu  + alphad * dmu;
+    %update variables
+    x = x + alphap * dx;        %primal
+    %TODO: this approach was not working
+    %it converged to unconstrained optima
+    %x = check_ramps(x, mpc);    %check and fix ramping limits
+    z = z + alphap * dz;        %dual variables
+    lam = lam + alphad * dlam;  %eq lagrange multipliers
+    mu  = mu  + alphad * dmu;   %ineq lagrange multipliers
     if niq > 0
         gamma = sigma * (z' * mu) / niq;
     end

@@ -115,8 +115,11 @@ nl2 = length(il);           %% number of constrained lines
 f_fcn = @(x)opf_costfcn(x, om);
 gh_fcn = @(x)opf_consfcn(x, om, Ybus, Yf(il,:), Yt(il,:), mpopt, il);
 hess_fcn = @(x, lambda, cost_mult)opf_hessfcn(x, lambda, cost_mult, om, Ybus, Yf(il,:), Yt(il,:), mpopt, il);
+%we need to make solver aware of MPOPF problem structure
+%therefore we pass also mpc as an argument
+%[alternatively add new entries into 'opt' struct]
 [x, f, info, Output, Lambda] = ...
-  mips(f_fcn, x0, A, l, u, xmin, xmax, gh_fcn, hess_fcn, opt);
+  mips(f_fcn, x0, A, l, u, xmin, xmax, gh_fcn, hess_fcn, opt, mpc);
 success = (info > 0);
 
 %% update solution data
