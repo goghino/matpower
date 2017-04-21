@@ -50,3 +50,85 @@ Gaa = E + F;
 Gva = 1j * G * (E - F);
 Gav = Gva.';
 Gvv = G * (C + C.') * G;
+
+%% alternative implementation of Gaa
+% Gaa1 = sparse(n,n);
+% for s = 1:n %for each eq constraint/row of Ybus
+% for i=1:n 
+%     for j=1:n
+%         
+%         tmp = 0;
+%         
+%         if(s == i && i == j)
+%             tmp = tmp - (Ibus(s)); %1j*1j
+%         end
+%         
+%         if (s == i)
+%             tmp = tmp + (Ybus(s,j)*V(j));
+%         end
+%         
+%         if(s == j)
+%             tmp = tmp + (Ybus(s,i)*V(i));
+%         end
+%         
+%         if (i == j)
+%             tmp = tmp - (Ybus(s,j)*V(j)); %1j*1j
+%         end
+%         
+%         
+%         Gaa1(i,j) = Gaa1(i,j) + V(s)*lam(s)*conj(tmp);
+% 
+%     end
+% end
+% end
+% 
+% Gav1 = sparse(n,n);
+% for s = 1:n %for each eq constraint/row of Ybus
+% for i=1:n 
+%     for j=1:n
+%         
+%         tmp = 0;
+%         
+%         if(s == i && i == j)
+%             tmp = tmp +  (1/abs(V(s)) * Ibus(s));
+%         end
+%         
+%         if (s == i)
+%             tmp = tmp + (Ybus(s,j)*V(j)/abs(V(j)));
+%         end
+%         
+%         if(s == j)
+%             tmp = tmp - (1/abs(V(s)) * Ybus(s,i)*V(i));
+%         end
+%         
+%         if (i == j)
+%             tmp = tmp - (Ybus(s,j)*V(j)/abs(V(j)));
+%         end
+%         
+%         
+%         Gav1(i,j) = Gav1(i,j) + 1j*V(s)*lam(s)*conj(tmp);
+% 
+%     end
+% end
+% end
+% 
+% Gvv1 = sparse(n,n);
+% for s = 1:n %for each eq constraint/row of Ybus
+% for i=1:n 
+%     for j=1:n
+%         
+%         tmp = 0;
+%         
+%         if (s == i)
+%             tmp = tmp + (Ybus(s,j)*V(j)/abs(V(j)));
+%         end
+%         
+%         if(s == j)
+%             tmp = tmp + ( Ybus(s,i)*V(i)/abs(V(i)));
+%         end
+% 
+%         Gvv1(i,j) = Gvv1(i,j) + V(s)/abs(V(s))*lam(s)*conj(tmp);
+% 
+%     end
+% end
+% end

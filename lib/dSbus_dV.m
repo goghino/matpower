@@ -64,3 +64,35 @@ end
 
 dSbus_dVm = diagV * conj(Ybus * diagVnorm) + conj(diagIbus) * diagVnorm;
 dSbus_dVa = 1j * diagV * conj(diagIbus - Ybus * diagV);
+
+%% alternative code to construct part of jacobian dSbus_dVm
+% V = 1:9; V = V';
+% jacob_dVm = sparse(n,n);
+% for i = 1:n
+% for j = 1:n
+%     if i == j
+%         % conj(diagIbus) * diagVnorm
+%         jacob_dVm(j,j) = jacob_dVm(j,j) + conj(Ibus(i))*V(j)/abs(V(j)); %%TODO: conj of only Ibus(i)
+%     end
+%     
+%     if Ybus(i,j) ~= 0
+%         % diagV * conj(Ybus * diagVnorm)
+%        jacob_dVm(i,j) = jacob_dVm(i,j) + V(i)*conj(Ybus(i,j)*V(j)/abs(V(j)));
+%     end
+% end
+% end
+% 
+% jacob_dVa = sparse(n,n);
+% for i = 1:n
+% for j = 1:n
+%     if i == j
+%         % conj(diagIbus) * diagVj
+%         jacob_dVa(j,j) = jacob_dVa(j,j) + conj(Ibus(i))*V(j)*1i;
+%     end
+%     
+%     if Ybus(i,j) ~= 0
+%         % diagV * conj(Ybus * diagVj)
+%        jacob_dVa(i,j) = jacob_dVa(i,j) + V(i)*conj(Ybus(i,j)*V(j)*1i);
+%     end
+% end
+% end

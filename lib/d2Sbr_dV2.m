@@ -55,3 +55,89 @@ Haa = F - D - E;
 Hva = 1j * G * (B - B.' - D + E);
 Hav = Hva.';
 Hvv = G * F * G;
+
+%% alternative representation of the hessians
+% Vf = Cbr * V;
+% If = Ybr * V;
+% Haa1 = sparse(nb,nb);
+% for row = 1:nl %1:nl
+% for i = 1:nb
+% for j = 1:nb
+%     
+%     tmp = 0;
+%     
+%     if (Cbr(row,i) == 1 && i == j)
+%         %tmp = tmp + lam(i)*1j*1j*Vf(i)* conj(If(i));
+%         tmp = tmp - (If(row));
+%     end
+%     
+%     if (Cbr(row,i) == 1)
+%         %tmp = tmp + lam(i)*1j*Vf(i)* conj(Ybr(i,k)*V(k)*1j);
+%         tmp = tmp +  (Ybr(row,j)*V(j));
+%     end
+%     
+%     if (Cbr(row,j) == 1)
+%         %tmp = tmp + lam(i)*1j*Vf(i)* conj(Ybr(i,j)*V(j)*1j);
+%         tmp = tmp +  (Ybr(row,i)*V(i));
+%     end
+%     
+%     if (i == j)
+%         %tmp = tmp + lam(i)*Vf(i)* conj(Ybr(i,k)*V(k)*1j*1j);
+%         tmp = tmp -  (Ybr(row,j)*V(j));
+%     end
+% 
+%     %Haa1(j,k) = Haa1(j,k) + tmp;
+%     Haa1(i,j) = Haa1(i,j) + lam(row) * Vf(row) * conj(tmp);
+% end
+% end
+% end
+% 
+% Hav1 = sparse(nb,nb);
+% for row = 1:nl %1:nl
+% for i = 1:nb
+% for j = 1:nb
+%     
+%     tmp = 0;
+%     
+%     if (Cbr(row,i) == 1 && i == j)
+%         tmp = tmp + (If(row)/abs(Vf(row)));
+%     end
+%     
+%     if (Cbr(row,i) == 1)
+%         tmp = tmp +  (Ybr(row,j)*V(j)/abs(V(j)));
+%     end
+%     
+%     if (Cbr(row,j) == 1)
+%         tmp = tmp - (Ybr(row,i)*V(i)/abs(Vf(row)));
+%     end
+%     
+%     if (i == j)
+%         tmp = tmp -  (Ybr(row,j)*V(j)/abs(V(j)));
+%     end
+% 
+%     
+%     Hav1(i,j) = Hav1(i,j) + Vf(row)*1j*lam(row)*conj(tmp);
+% end
+% end
+% end
+% 
+% Hvv1 = sparse(nb,nb);
+% for row = 1:nl %1:nl
+% for i = 1:nb
+% for j = 1:nb
+%     
+%     tmp = 0;
+%     
+%     if (Cbr(row,i) == 1)
+%         tmp = tmp +  (Ybr(row,j)*V(j)/abs(V(j)));
+%     end
+%     
+%     if (Cbr(row,j) == 1)
+%         tmp = tmp +  (Ybr(row,i)*V(i)/abs(V(i)));
+%     end
+% 
+%     
+%     Hvv1(i,j) = Hvv1(i,j) + lam(row)*Vf(row)/abs(Vf(row))* conj(tmp);
+% end
+% end
+% end

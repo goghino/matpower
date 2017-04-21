@@ -87,3 +87,43 @@ Yt = sparse(i, [f; t], [Ytf; Ytt], nl, nb);
 %% build Ybus
 Ybus = Cf' * Yf + Ct' * Yt + ...                %% branch admittances
         sparse(1:nb, 1:nb, Ysh, nb, nb);        %% shunt admittance
+
+%% alternative way how to build Ybus without constructing C's or Yf/Yt
+% Yf1 = sparse(nb,nl);
+% for i=1:nl
+%    Yf1(i,f(i)) = Yff(i);
+%    Yf1(i,t(i)) = Yft(i);
+% end
+% 
+% fb = cell(nb,1);
+% tb = cell(nb,1);
+% for i=1:nl
+%    fb{f(i)} = [fb{f(i)} i];
+%    tb{t(i)} = [tb{t(i)} i];
+% end
+% 
+% Y = sparse(nb,nb);
+% for i = 1:nb
+%     for j=1:nb
+%         for k = fb{i}
+%             if f(k) == j
+%                 Y(i,j) = Y(i,j)+ Yff(k);
+%             end
+%             if t(k) == j
+%                 Y(i,j) = Y(i,j)+ Yft(k);
+%             end
+%         end
+%         
+%         for k = tb{i}
+%             if f(k) == j
+%                 Y(i,j) = Y(i,j)+ Ytf(k);
+%             end
+%             if t(k) == j
+%                 Y(i,j) = Y(i,j)+ Ytt(k);
+%             end
+%         end
+%     end
+%     
+%     Y(i,i) = Y(i,i) + Ysh(i);
+% end
+% writecsr('/Users/Juraj/Desktop/Y.csr',Y,0);
