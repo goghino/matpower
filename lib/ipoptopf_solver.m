@@ -126,22 +126,31 @@ Cf = sparse(1:nl, f, ones(nl, 1), nl, nb);      %% connection matrix for line & 
 Ct = sparse(1:nl, t, ones(nl, 1), nl, nb);      %% connection matrix for line & to buses
 Cl = Cf + Ct;                                   %% for each line - from & to 
 Cb = Cl' * Cl + speye(nb);                      %% for each bus - contains adjacent buses
-Cl2 = Cl(il, :); %branches with active flow limit
+Cl2 = Cl(il, :);                                %% branches with active flow limit
 Cg = sparse(gen(:, GEN_BUS), (1:ng)', 1, nb, ng); %%locations where each gen. resides
 nz = nx - 2*(nb+ng);
 nxtra = nx - 2*nb;
+
+% Jacobian for the power flow constraints:
+%      | dPf_da  dPf_dV dPf_dP  dPf_dQ |   | Cb   Cb  Cg 0| 
+% Js = |                               | = |              |
+%      | dQf_da  dQf_dV dPf_dP  dPf_dQ |   | Cb   Cb  0 Cg|
+%       and line active/reactive power flow constraints
 Js = [
-    Cb      Cb      Cg              sparse(nb,ng)   sparse(nb,nz);
+    Cb      Cb      Cg              sparse(nb,ng)   sparse(nb,nz); %nz - user variables
     Cb      Cb      sparse(nb,ng)   Cg              sparse(nb,nz);
     Cl2     Cl2     sparse(nl2, 2*ng)               sparse(nl2,nz);
     Cl2     Cl2     sparse(nl2, 2*ng)               sparse(nl2,nz);
     A;
 ];
-% Jacobian for the power flow:
-%      | dPf_da  dPf_dV dPf_dP  dPf_dQ |   | Cb   Cb  Cg 0| 
-% Js = |                               | = |              |
-%      | dQf_da  dQf_dV dPf_dP  dPf_dQ |   | Cb   Cb  0 Cg|
+
+% Hessian of lagrangian
+% Hs = f(x)_dxx + c(x)_dxx + h(x)_dxx
+%            | dPf_daa  dPf_daV dPf_daP  dPf_daQ |   | Cb   Cb  0  0| 
+% c(x)_dxx = |                                   | = |              |
+%            | dQf_dVa  dQf_dVV dPf_dVP  dPf_dVQ |   | Cb   Cb  0  0|
 %
+% h(x)_dxx = zeros(nl2,:)
 [f, df, d2f] = opf_costfcn(x0, om);
 Hs = tril(d2f + [
     Cb  Cb  sparse(nb,nxtra);
@@ -222,6 +231,13 @@ else
     output.iterations = [];
 end
 f = opf_costfcn(x, om);
+
+%% print value of the constraints
+%disp('Final value of the constraints:');
+%[hn, gn] = opf_consfcn(x, om, Ybus, Yf, Yt, mpopt, il)
+
+%disp('Objective value:');
+%f
 
 %% update solution data
 Va = x(vv.i1.Va:vv.iN.Va);
@@ -339,7 +355,7 @@ xnew = x;
 [f, df] = opf_costfcn(xnew, d.om);
 
 function c = constraints(x, d)
-xnew = x;
+xnew = x; 
 % mpc = get_mpc(d.om);
 % xnew = check_ramps(x,mpc);
 [hn, gn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
@@ -351,10 +367,18 @@ end
 
 function J = jacobian(x, d)
 xnew = x;
+
+%case9
+%xnew = [[1:9]' ; [1:9]'; [1.300000000050000,1.550000000050000,1.400000000050000,0.5e-10,0.5e-10,0.5e-10]']
+
+%xnew = [0:343]'; %case118
+%xnew = [0:3227]'; %case_pegase1354
+
 % mpc = get_mpc(d.om);
 % xnew = check_ramps(x,mpc);
 [hn, gn, dhn, dgn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 J = [dgn'; dhn'; d.A];
+
 
 function H = hessian(x, sigma, lambda, d)
 xnew = x;
@@ -362,6 +386,24 @@ xnew = x;
 % xnew = check_ramps(x,mpc);
 lam.eqnonlin   = lambda(1:d.neqnln);
 lam.ineqnonlin = lambda(d.neqnln+(1:d.niqnln));
+
+% reference values for C++ case118
+% xnew = [0:343]'; %ones(344,1);
+% lam.eqnonlin = [0:235]'; % ones(236,1);
+% lam.ineqnonlin = [236:607]'; %ones(372,1);
+% sigma = 1;
+ 
+% reference values for C++ case_pegase1354
+% xnew = [0:3227]'; %ones(344,1);
+% lam.eqnonlin = [0:2707]'; % ones(236,1);
+% lam.ineqnonlin = [2708:5571]'; %ones(372,1);
+% sigma = 1;
+
+% reference values for C++ case9
+%xnew = [[1:9]' ; [1:9]'; [1.300000000050000,1.550000000050000,1.400000000050000,0.5e-10,0.5e-10,0.5e-10]']
+
+%H = (opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
+%writecsr('/Users/Juraj/Documents/matpower_cpp/matpower_cpp_tests/Hes_pegase1354_ref.csr',H,1);
 H = tril(opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
 
 % function Js = jacobianstructure(d)
