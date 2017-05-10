@@ -347,13 +347,13 @@ bi  = [ uu(ilt, 1); -ll(igt, 1); uu(ibx, 1); -ll(ibx, 1) ];
 %% evaluate cost f(x0) and constraints g(x0), h(x0)
 %  g represents mismatch PF equations
 %  h are line power flow limits
-x = x0;
+x = x0; %PIPM - only local partitions of the global x vector
 %x = check_ramps(x,mpc);         %% check and fix ramping constraint violations for the initial guess
-[f, df] = f_fcn(x);             %% cost
+[f, df] = f_fcn(x);              %PIPM
 f = f * opt.cost_mult;
 df = df * opt.cost_mult;
 if nonlinear
-    [hn, gn, dhn, dgn] = gh_fcn(x); %% nonlinear constraints
+    [hn, gn, dhn, dgn] = gh_fcn(x); %PIPM %% nonlinear constraints
     h = [hn; Ai * x - bi];          %% inequality constraints
     g = [gn; Ae * x - be];          %% equality constraints
     dh = [dhn Ai'];                 %% 1st derivative of inequalities
@@ -392,7 +392,7 @@ f0 = f;
 if opt.step_control
     L = f + lam' * g + mu' * (h+z) - gamma * sum(log(z));
 end
-Lx = df + dg * lam + dh * mu; %Lagrangian derivative w.r.t. x 
+Lx = df + dg * lam + dh * mu; %PIPM %Lagrangian derivative w.r.t. x 
 if isempty(h)
     maxh = zeros(1,0);
 else

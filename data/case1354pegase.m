@@ -46,16 +46,16 @@ function mpc = case1354pegase
 %   and generators.
 %
 %   Contacts:
-%     Cédric Josz, Stéphane Fliscounakis, Jean Maeght, Patrick Panciatici
+%     C??dric Josz, St??phane Fliscounakis, Jean Maeght, Patrick Panciatici
 %     firstname.lastname@rte-france.com
-%     Réseau de Transport d'Electricité (French Transmission System Operator)
-%     Département Expertise Système, Immeuble "Le Colbert"
+%     R??seau de Transport d'Electricit?? (French Transmission System Operator)
+%     D??partement Expertise Syst??me, Immeuble "Le Colbert"
 %     9 rue de la Porte de Buc, 78000 Versailles Cedex, France
 %
 %   March 18th, 2015
 
 %   MATPOWER
-%   Copyright (c) 2015, 2016 by Cédric Josz, Stéphane Fliscounakis, Jean Maeght,
+%   Copyright (c) 2015, 2016 by C??dric Josz, St??phane Fliscounakis, Jean Maeght,
 %   and Patrick Panciatici
 %   Licensed under the Creative Commons Attribution 4.0 International license,
 %   http://creativecommons.org/licenses/by/4.0/

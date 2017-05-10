@@ -213,7 +213,7 @@ funcs.hessianstructure  = @(d) Hs;
 %funcs.hessianstructure  = @hessianstructure;
 
 %% run the optimization %TODO call of the ipopt
-if have_fcn('ipopt_auxdata')
+if 1 %have_fcn('ipopt_auxdata')
     [x, info] = ipopt_auxdata(x0,funcs,options);
 else
     [x, info] = ipopt(x0,funcs,options);
@@ -373,6 +373,7 @@ xnew = x;
 
 %xnew = [0:343]'; %case118
 %xnew = [0:3227]'; %case_pegase1354
+%xnew = [0:35501]'; %case_pegase13659
 
 % mpc = get_mpc(d.om);
 % xnew = check_ramps(x,mpc);
@@ -399,11 +400,17 @@ lam.ineqnonlin = lambda(d.neqnln+(1:d.niqnln));
 % lam.ineqnonlin = [2708:5571]'; %ones(372,1);
 % sigma = 1;
 
+% reference values for C++ case_pegase13659
+% xnew = [0:35501]'; %ones(344,1);
+% lam.eqnonlin = [0:27317]'; % ones(236,1);
+% lam.ineqnonlin = []'; %ones(372,1);
+% sigma = 1;
+
 % reference values for C++ case9
 %xnew = [[1:9]' ; [1:9]'; [1.300000000050000,1.550000000050000,1.400000000050000,0.5e-10,0.5e-10,0.5e-10]']
 
-%H = (opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
-%writecsr('/Users/Juraj/Documents/matpower_cpp/matpower_cpp_tests/Hes_pegase1354_ref.csr',H,1);
+%H = tril(opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
+%writecsr('/Users/Juraj/Documents/matpower_cpp/matpower_cpp_tests/HesLT_pegase13659_ref.csr',H,1);
 H = tril(opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
 
 % function Js = jacobianstructure(d)
