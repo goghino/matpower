@@ -1,19 +1,19 @@
 function [MVAbase, bus, gen, gencost, branch, f, success, et] = ...
-                runscopf(casedata, mpopt, cont, fname, solvedcase)
+                runscopf(casedata, cont, mpopt, fname, solvedcase)
 %RUNOPF  Runs a security constrained optimal power flow.
 %   [RESULTS, SUCCESS] = RUNOPF(CASEDATA, MPOPT, CONT, FNAME, SOLVEDCASE)
 %
-%   Runs a security constrained optimal power flow (AC OPF), optionally returning
-%   a RESULTS struct and SUCCESS flag.
+%   Runs a security constrained optimal power flow (AC OPF),
+%   optionally returning a RESULTS struct and SUCCESS flag.
 %
 %   Inputs (all are optional):
 %       CASEDATA : either a MATPOWER case struct or a string containing
 %           the name of the file with the case data (default is 'case9')
 %           (see also CASEFORMAT and LOADCASE)
+%       CONT  : list of branch contingencies, empty for standard OPF
 %       MPOPT : MATPOWER options struct to override default options
 %           can be used to specify the solution algorithm, output options
 %           termination tolerances, and more (see also MPOPTION).
-%       CONT  : list of branch contingencies, empty for standard OPF
 %       FNAME : name of a file to which the pretty-printed output will
 %           be appended
 %       SOLVEDCASE : name of file to which the solved case will be saved
@@ -59,21 +59,22 @@ function [MVAbase, bus, gen, gencost, branch, f, success, et] = ...
 
 %%-----  initialize  -----
 %% default arguments
-if nargin < 4
+if nargin < 5
     solvedcase = '';                %% don't save solved case
-    if nargin < 3
+    if nargin < 4
         fname = '';                 %% don't print results to a file
-        if nargin < 2
+        if nargin < 3
             mpopt = mpoption;       %% use default options
             if nargin < 1
                 casedata = 'case9'; %% default data file is 'case9.m'
+                cont = [];          %% by default no contingency
             end
         end
     end
 end
 
 %%-----  run the optimal power flow  -----
-[r, success] = opf(casedata, mpopt);
+[r, success] = scopf(casedata, cont, mpopt);
 
 %%-----  output results  -----
 if fname
