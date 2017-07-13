@@ -448,7 +448,7 @@ if mpopt.most.build_model
         clist = unique(contab(:, CT_LABEL));
         mdi.idx.nc(t, j) = length(clist);
         k = 2;
-        for label = clist' %TODO: LOOK HERE, iterate over contingencies and apply changes
+        for label = clist' %iterate over contingencies and apply changes
           mdi.flow(t, j, k).mpc = apply_changes(label, mdi.flow(t, j, 1).mpc, contab); %simply change mpc and assign it to (t,j,k), k==1 is base case
           ii = find( label == contab(:, CT_LABEL) );
           mdi.CostWeights(k, j, t) = contab(ii(1), CT_PROB);
@@ -522,7 +522,7 @@ if mpopt.most.build_model
     for j = 1:mdi.idx.nj(t)
       mdi.idx.nf_total = mdi.idx.nf_total + (1 + mdi.idx.nc(t,j));
       for k = 1:mdi.idx.nc(t,j)+1
-        mdi.idx.nb_total = mdi.idx.nb_total + size(mdi.flow(t, j, k).mpc.bus, 1); %TODO: total number of buses (over all contingencies)
+        mdi.idx.nb_total = mdi.idx.nb_total + size(mdi.flow(t, j, k).mpc.bus, 1); %total number of buses (over all contingencies)
         ii = find(mdi.flow(t,j,k).mpc.gencost(:, MODEL) == PW_LINEAR);
         mdi.idx.ny(t,j,k) = length(ii);
       end
@@ -537,7 +537,7 @@ if mpopt.most.build_model
   % mechanism for adding theta variables if we want to create DC flow restrictions.
   % Then start assigning the start and end indices for variables in each
   % c3sopf cell
-  om = opt_model; %TODO: optimization model class, contains functions to add vars, constraints, costs
+  om = opt_model; %optimization model class, contains functions to add vars, constraints, costs
   nj_max = max(mdi.idx.nj);
   nc_max = max(max(mdi.idx.nc));
   Ing = speye(ng);
