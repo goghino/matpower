@@ -354,7 +354,7 @@ f = f * opt.cost_mult;
 df = df * opt.cost_mult;
 if nonlinear
     [hn, gn, dhn, dgn] = gh_fcn(x); %PIPM %% nonlinear constraints
-    h = [hn; Ai * x - bi];          %% inequality constraints
+    h = [hn; Ai * x - bi];          %% inequality constraints and bounds on X (Vm, Pg, Qg; no bounds on Va)
     g = [gn; Ae * x - be];          %% equality constraints
     dh = [dhn Ai'];                 %% 1st derivative of inequalities
     dg = [dgn Ae'];                 %% 1st derivative of equalities
@@ -453,13 +453,18 @@ while (~converged && i < opt.max_it)
         [f_, df_, d2f] = f_fcn(x);      %% cost
         Lxx = d2f * opt.cost_mult;
     end
-    zinvdiag = sparse(1:niq, 1:niq, 1 ./ z, niq, niq);
+    zinvdiag = sparse(1:niq, 1:niq, 1 ./ z, niq, niq);    
     mudiag = sparse(1:niq, 1:niq, mu, niq, niq);
     dh_zinv = dh * zinvdiag;
     M = Lxx + dh_zinv * mudiag * dh'; %this comes from elimination of variables [z mu]
     N = Lx + dh_zinv * (mudiag * h + gamma * e); %this comes from elimination of variables [z mu]
     %call of the linear solver - PARDISO or backslash
     dxdlam = mplinsolve([M dg; dg' sparse(neq, neq)], [-N; -g], opt.linsolver, []);
+
+    %MY full MIPS matrix
+    %zdiag = sparse(1:niq, 1:niq, z, niq, niq);
+    %KKT = [Lxx zeros(24, niq) dg dh; zeros(niq, 24) mudiag zeros(niq, neq) zdiag; dg' zeros(neq, niq+neq+niq); dh' speye(niq) zeros(niq,neq+niq)]    
+
 %     AAA = [
 %         M  dg;
 %         dg'  sparse(neq, neq)
