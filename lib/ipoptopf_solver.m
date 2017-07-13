@@ -200,6 +200,9 @@ options.lb = xmin;
 options.ub = xmax;
 options.cl = [zeros(2*nb, 1);  -Inf(2*nl2, 1); l];
 options.cu = [zeros(2*nb, 1); zeros(2*nl2, 1); u+1e-10]; %TODO drosos added eps
+%% TODO simulating contingency for line 9, case 9. Delete afterwards!!!!
+% options.cu(2*nb+9) = Inf;
+% options.cu(2*nb+18) = Inf;
 
 %% assign function handles
 funcs.objective         = @objective;
@@ -358,6 +361,11 @@ function c = constraints(x, d)
 xnew = x; 
 % mpc = get_mpc(d.om);
 % xnew = check_ramps(x,mpc);
+
+% xnew = 1:size(x,1); %for case9 SCOPF
+% xnew = xnew';
+
+%xnew = [1:24]';
 [hn, gn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 if isempty(d.A)
     c = [gn; hn];
@@ -377,6 +385,9 @@ xnew = x;
 
 % mpc = get_mpc(d.om);
 % xnew = check_ramps(x,mpc);
+
+%xnew = [1:24]'; %SCOPF, [Jbase(:,1:18) zeros(36,18) Jbase(:,19:end); zeros(34,18) Jcont8]
+
 [hn, gn, dhn, dgn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 J = [dgn'; dhn'; d.A];
 
@@ -408,10 +419,16 @@ lam.ineqnonlin = lambda(d.neqnln+(1:d.niqnln));
 
 % reference values for C++ case9
 %xnew = [[1:9]' ; [1:9]'; [1.300000000050000,1.550000000050000,1.400000000050000,0.5e-10,0.5e-10,0.5e-10]']
+%xnew = [1:24]';
 
-%H = tril(opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
-%writecsr('/Users/Juraj/Documents/matpower_cpp/matpower_cpp_tests/HesLT_pegase13659_ref.csr',H,1);
+% xnew = [1:9 1:9 1:6]';
+% 
+% lam.eqnonlin = ones(d.neqnln,1);
+% 
+% lam.ineqnonlin = ones(d.niqnln,1);
+
 H = tril(opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
+%writecsr('/Users/Juraj/Desktop/mtlb_hess.csr',H,1);
 
 % function Js = jacobianstructure(d)
 % Js = d.Js;
