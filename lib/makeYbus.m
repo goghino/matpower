@@ -87,8 +87,17 @@ Yt = sparse(i, [f; t], [Ytf; Ytt], nl, nb);
 %% build Ybus
 Ybus = Cf' * Yf + Ct' * Yt + ...                %% branch admittances
         sparse(1:nb, 1:nb, Ysh, nb, nb);        %% shunt admittance
-    
-Ybus;
+ 
+%% modifications of Ybus for contingency
+%% simulating contingency on line 9 for case 9, delete it afterwards!!!
+% cont = 9;
+% 
+% tmp = Ybus;
+% tmp(f(cont), f(cont)) = tmp(f(cont), f(cont)) - Yf(cont, f(cont));
+% tmp(f(cont), t(cont)) = tmp(f(cont), t(cont)) - Yf(cont, t(cont));
+% 
+% tmp(t(cont), f(cont)) = tmp(t(cont), f(cont)) - Yt(cont, f(cont));
+% tmp(t(cont), t(cont)) = tmp(t(cont), t(cont)) - Yt(cont, t(cont));
 
 %% alternative way how to build Ybus without constructing C's or Yf/Yt
 % Yf1 = sparse(nb,nl);
