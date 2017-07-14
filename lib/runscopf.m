@@ -73,6 +73,12 @@ if nargin < 5
     end
 end
 
+%%-----  add nominal case to the list of contingencies  -----
+if size(cont, 2) > 1
+   error('List of contingencies must be column vector'); 
+end
+cont = [-1; cont];
+
 %%-----  run the optimal power flow  -----
 [r, success] = scopf(casedata, cont, mpopt);
 

@@ -1,4 +1,4 @@
-function [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch)
+function [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch, cont)
 %MAKEYBUS   Builds the bus admittance matrix and branch admittance matrices.
 %   [YBUS, YF, YT] = MAKEYBUS(MPC)
 %   [YBUS, YF, YT] = MAKEYBUS(BASEMVA, BUS, BRANCH)
@@ -88,16 +88,20 @@ Yt = sparse(i, [f; t], [Ytf; Ytt], nl, nb);
 Ybus = Cf' * Yf + Ct' * Yt + ...                %% branch admittances
         sparse(1:nb, 1:nb, Ysh, nb, nb);        %% shunt admittance
  
-%% modifications of Ybus for contingency
-%% simulating contingency on line 9 for case 9, delete it afterwards!!!
-% cont = 9;
-% 
-% tmp = Ybus;
-% tmp(f(cont), f(cont)) = tmp(f(cont), f(cont)) - Yf(cont, f(cont));
-% tmp(f(cont), t(cont)) = tmp(f(cont), t(cont)) - Yf(cont, t(cont));
-% 
-% tmp(t(cont), f(cont)) = tmp(t(cont), f(cont)) - Yt(cont, f(cont));
-% tmp(t(cont), t(cont)) = tmp(t(cont), t(cont)) - Yt(cont, t(cont));
+%% modifications of admittance matrices for contingency
+if (nargin > 3 && cont > 0)
+
+%update Ybus    
+Ybus(f(cont), f(cont)) = Ybus(f(cont), f(cont)) - Yf(cont, f(cont));
+Ybus(f(cont), t(cont)) = Ybus(f(cont), t(cont)) - Yf(cont, t(cont));
+
+Ybus(t(cont), f(cont)) = Ybus(t(cont), f(cont)) - Yt(cont, f(cont));
+Ybus(t(cont), t(cont)) = Ybus(t(cont), t(cont)) - Yt(cont, t(cont));
+
+%update Yf, Yt
+Yt(cont, :) = 0;
+Yf(cont, :) = 0;
+end
 
 %% alternative way how to build Ybus without constructing C's or Yf/Yt
 % Yf1 = sparse(nb,nl);

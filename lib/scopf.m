@@ -1,7 +1,7 @@
 function [busout, genout, branchout, f, success, info, et, g, jac, xr, pimul] = ...
-    opf(varargin)
-%OPF  Solves an optimal power flow.
-%   [RESULTS, SUCCESS] = OPF(MPC, MPOPT)
+    opf(mpc, cont, mpopt)
+%OPF  Solves an optimal power flow with security constraints.
+%   [RESULTS, SUCCESS] = OPF(MPC, CONT, MPOPT)
 %
 %   Returns either a RESULTS struct and an optional SUCCESS flag, or individual
 %   data matrices, the objective function value and a SUCCESS flag. In the
@@ -19,12 +19,8 @@ function [busout, genout, branchout, f, success, info, et, g, jac, xr, pimul] = 
 %       Input arguments options:
 %
 %       opf(mpc)
-%       opf(mpc, mpopt)
-%       opf(mpc, userfcn, mpopt)
-%       opf(mpc, A, l, u)
-%       opf(mpc, A, l, u, mpopt)
-%       opf(mpc, A, l, u, mpopt, N, fparm, H, Cw)
-%       opf(mpc, A, l, u, mpopt, N, fparm, H, Cw, z0, zl, zu)
+%       opf(mpc, cont)
+%       opf(mpc, cont, mpopt)
 %
 %       opf(baseMVA, bus, gen, branch, areas, gencost)
 %       opf(baseMVA, bus, gen, branch, areas, gencost, mpopt)
@@ -174,9 +170,6 @@ t0 = clock;         %% start timer
     ANGMIN, ANGMAX, MU_ANGMIN, MU_ANGMAX] = idx_brch;
 [PW_LINEAR, POLYNOMIAL, MODEL, STARTUP, SHUTDOWN, NCOST, COST] = idx_cost;
 
-%% process input arguments
-[mpc, mpopt] = opf_args(varargin{:});
-
 %% add zero columns to bus, gen, branch for multipliers, etc if needed
 nb   = size(mpc.bus, 1);    %% number of buses
 nl   = size(mpc.branch, 1); %% number of branches
@@ -195,13 +188,13 @@ end
 mpc = ext2int(mpc);
 
 %%-----  construct OPF model object  -----
-om = opf_setup(mpc, mpopt);
+om = scopf_setup(mpc, mpopt);
 
 %%-----  execute the OPF  -----
 if nargout > 7
     mpopt.opf.return_raw_der = 1;
 end
-[results, success, raw] = opf_execute(om, mpopt);
+[results, success, raw] = scopf_execute(om, cont, mpopt);
 
 %%-----  revert to original ordering, including out-of-service stuff  -----
 results = int2ext(results);
