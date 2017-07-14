@@ -1,5 +1,5 @@
 function [busout, genout, branchout, f, success, info, et, g, jac, xr, pimul] = ...
-    opf(mpc, cont, mpopt)
+    scopf(mpc, cont, mpopt)
 %OPF  Solves an optimal power flow with security constraints.
 %   [RESULTS, SUCCESS] = OPF(MPC, CONT, MPOPT)
 %

@@ -1,9 +1,10 @@
 function [results, success, raw] = ipoptscopf_solver(om, cont, mpopt)
 %IPOPTOPF_SOLVER  Solves AC optimal power flow with security constraints using IPOPT.
 %
-%   [RESULTS, SUCCESS, RAW] = IPOPTSCOPF_SOLVER(OM, MPOPT)
+%   [RESULTS, SUCCESS, RAW] = IPOPTSCOPF_SOLVER(OM, CONT, MPOPT)
 %
-%   Inputs are an OPF model object and a MATPOWER options struct.
+%   Inputs are an OPF model object, list of branch contingencies CONT
+%   and a MATPOWER options struct.
 %
 %   Outputs are a RESULTS struct, SUCCESS flag and RAW output struct.
 %
@@ -28,7 +29,6 @@ function [results, success, raw] = ipoptscopf_solver(om, cont, mpopt)
 %
 %   RAW         raw output in form returned by MINOS
 %       .xr     final value of optimization variables
-%       .pimul  constraint multipliers
 %       .info   solver specific termination code
 %       .output solver specific output information
 %
@@ -48,11 +48,10 @@ function [results, success, raw] = ipoptscopf_solver(om, cont, mpopt)
 % Add list of contingencies to options.auxdata and construct
 % admittance matrices on fly and construct hessian/jacobian accordingly
 % by assembling it from the individual scenarios
+% --> need to be more efficient while re-constructing Y matrices
 
 % need to work more efficiently with sparse indexing during construction
 % of global hessian/jacobian
-
-% need to be more efficient while constructing Y matrices
 
 % how to account for the sparse() leaving out zeros from the sparse
 % structure? We want to have exactly same structure across scenarios
