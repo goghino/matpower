@@ -1,0 +1,11 @@
+print_level                   5
+print_timing_statistics       yes
+linear_solver                 pardiso
+tol                           1e-2
+dual_inf_tol                  1e-2
+compl_inf_tol                 1e-2
+constr_viol_tol               1e-2
+max_iter                      6
+mu_strategy                   monotone
+#derivative_test               second-order
+#derivative_test_print_all     no
