@@ -84,10 +84,11 @@ ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 [x0, xmin, xmax] = getv(om); %[Va Vm Pg Qg]
 xmax = xmax + 1e-10;
 
-% copy bounds for all scenarios and append global PG/QG limits
+% replicate bounds for all scenarios and append global PG/QG limits
 xl = xmin(1:2*nb);
 xg = xmin(2*nb+(1:2*ng));
 xmin = [repmat(xl, [ns, 1]); xg];
+
 xl = xmax(1:2*nb);
 xg = xmax(2*nb+(1:2*ng));
 xmax = [repmat(xl, [ns, 1]); xg];
@@ -127,7 +128,7 @@ Cb = Cl' * Cl + speye(nb);                      %% for each bus - contains adjac
 Cl2 = Cl(il, :);                                %% branches with active flow limit
 Cg = sparse(gen(:, GEN_BUS), (1:ng)', 1, nb, ng); %%locations where each gen. resides
 
-% Jacobian for the power flow constraints:
+% Jacobian for the power flow and branch flow constraints:
 %    | Cb   Cb  Cg 0| 
 %    |              |
 %    | Cb   Cb  0 Cg|
@@ -148,8 +149,8 @@ CG = [
  sparse(2*nl2, 2*ng);
 ];
 
-Js = kron(eye(ns), Js_local);
-Js = [Js kron(ones(ns,1), CG)];
+Js = kron(eye(ns), Js_local); %replicate jac. w.r.t local variables
+Js = [Js kron(ones(ns,1), CG)]; % replicate and append jac w.r.t global variables
 
 % Hessian of lagrangian
 % Hs = f(x)_dxx + c(x)_dxx + h(x)_dxx
@@ -282,9 +283,9 @@ NCONSTR = 2*nb + 2*nl;
 constr = zeros(ns*(NCONSTR), 1);
 
 for i = 0:ns-1
-    c = d.cont(i+1);
+    cont = d.cont(i+1);
     xl = [x(i*2*nb + (1:2*nb)); x(ns*2*nb + (1:2*ng))]; % extract local [Vai Vmi] and append global [Pg Qg]
-    [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, c);
+    [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
     [hn_local, gn_local] = opf_consfcn(xl, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     constr(i*(NCONSTR) + (1:NCONSTR)) = [gn_local; hn_local];
 end
@@ -302,9 +303,9 @@ J = sparse(ns*(NCONSTR), size(x,1));
 
 
 for i = 0:ns-1
-    c = d.cont(i+1);
+    cont = d.cont(i+1);
     xl = [x(i*2*nb + (1:2*nb)); x(ns*2*nb + (1:2*ng))]; % extract logal [Vai Vmi] and append global [Pg Qg]
-    [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, c);
+    [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
     [hn, gn, dhn, dgn] = opf_consfcn(xl, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     dgn = dgn';
     dhn = dhn';
@@ -326,12 +327,12 @@ NCONSTR = 2*nb + 2*nl;
 H = sparse(size(x,1), size(x,1));
 
 for i = 0:ns-1
-    c = d.cont(i+1);
+    cont = d.cont(i+1);
     xl = [x(i*2*nb + (1:2*nb)); x(ns*2*nb + (1:2*ng))]; % extract logal [Vai Vmi] and append global [Pg Qg]
     lam.eqnonlin   = lambda(i*NCONSTR + (1:2*nb));
     lam.ineqnonlin = lambda(i*NCONSTR + 2*nb + (1:2*nl));
-    [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, c);
-    %compute hessian w.r.t local variables and paste in into the global one
+    [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
+    %compute hessian w.r.t local variables and insert in into the global one
     H_local = opf_hessfcn(xl, lam, sigma, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     H(i*2*nb+(1:2*nb), i*2*nb+(1:2*nb)) = H_local(1:2*nb, 1:2*nb);
 end
