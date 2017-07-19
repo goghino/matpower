@@ -16,41 +16,54 @@ nbrch = size(mpc.branch, 1);
 ngen = size(mpc.gen, 1);
 
 
-%% specify list of branch contingencies, equals to OPF if empty
+%%
 cond_KKT = zeros(nbrch,1);
+cond_hess = zeros(nbrch,2);
 cond_block = zeros(nbrch,2);
 
-for i = 1:nbrch
+%for i = 1:nbrch
+for i = [2 3 5 6 8 9] %case9 branches that do not leave isolated bus if cut
+    
+    % specify list of branch contingencies, equals to OPF if empty
     cont = [i]'; 
     ns = size(cont,1) + 1; %number of scenarios (ncont + nominal)
 
-    %results = runopf(mpc, mpopt);
-    results = runscopf(mpc, cont, mpopt);
+    %runopf(mpc, mpopt);
+    runscopf(mpc, cont, mpopt);
 
     % inspect IPOPT hessian
-    A = readcsr('mat-ipopt_005-01.iajaa', 0, 1); 
+    A = readcsr('mat-ipopt_004-01.iajaa', 0, 1); 
     [P Pinv] = KKTpermute(nbus, nbrch, ngen, ns);
     AP = A(P,P'); 
     
 %     figure; spy(AP)
 %     figure; spy(A)
 
+    %condition num of full IPOPT KKT system
     cond_KKT(i,1) = cond(full(A));
 
     %local hessians wrt primal variables for nominal and contingency
     nH = 2*nbus;
-    cond_block(i,1) = cond(full(A(1:nH,1:nH)));
-    cond_block(i,2) = cond(full(A(nH+(1:nH),nH+(1:nH))));
+    cond_hess(i,1) = cond(full(A(1:nH,1:nH)));
+    cond_hess(i,2) = cond(full(A(nH+(1:nH),nH+(1:nH))));
+    
+    %diagonal blocks after permutation
+    npart = 2*nbus + 2*nbus + 2*nbrch + 2*nbrch;
+    nppart = 2*nbus + 2*nbus + 2*nbrch;
+    cond_block(i,1) = cond(full(AP(1:npart,1:npart)));
+    cond_block(i,2) = cond(full(AP(npart+(1:npart),npart+(1:npart))));
     
     %remove IPOPT matrices
     delete *.iajaa;
 end
 
 cond_KKT
+cond_hess
 cond_block
 
 %isolating bus by contingency creates singular Cb, zero on diagonal
-% -> singular local hessian
+% -> singular local hessian and fucked up condition numbers!!!
+% -> verify SC for reasonable matrices without isolated bus
 
 %% fix diagonal (for case 9, cont on branch 1)
 % idx = find(abs(A) > 1e10);
