@@ -199,7 +199,7 @@ funcs.hessian           = @hessian;
 funcs.jacobianstructure = @(d) Js;
 funcs.hessianstructure  = @(d) Hs;
 
-%% run the optimization %TODO call of the ipopt
+%% run the optimization, call ipopt
 if 1 %have_fcn('ipopt_auxdata')
     [x, info] = ipopt_auxdata(x0,funcs,options);
 else

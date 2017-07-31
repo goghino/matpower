@@ -437,6 +437,7 @@ if feascond < opt.feastol && gradcond < opt.gradtol && ...
 end
 
 %%-----  do Newton iterations  -----
+cond_it = [];
 while (~converged && i < opt.max_it)
     
     %% update iteration counter
@@ -460,6 +461,8 @@ while (~converged && i < opt.max_it)
     N = Lx + dh_zinv * (mudiag * h + gamma * e); %this comes from elimination of variables [z mu]
     %call of the linear solver - PARDISO or backslash
     dxdlam = mplinsolve([M dg; dg' sparse(neq, neq)], [-N; -g], opt.linsolver, []);
+    
+    cond_it = [cond_it; cond(full([M dg; dg' sparse(neq, neq)]))];
 
     %MY full MIPS matrix
     %zdiag = sparse(1:niq, 1:niq, z, niq, niq);
@@ -648,6 +651,11 @@ if opt.verbose
     if ~converged
         fprintf('\nDid not converge in %d iterations.\n', i);
     end
+end
+
+if opt.verbose
+    disp('Condition number of LS during iterations');
+    fprintf('%12g\n', cond_it);
 end
 
 %%-----  package up results  -----

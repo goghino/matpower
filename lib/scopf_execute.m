@@ -58,8 +58,7 @@ end
   %% run specific AC OPF solver
   switch alg
     case 'MIPS'
-      error('MIPS not yet supported in SCOPF');
-      [results, success, raw] = mipsopf_solver(om, mpopt);
+      [results, success, raw] = mipsscopf_solver(om, cont, mpopt);
     case 'IPOPT'
       if ~have_fcn('ipopt')
         error('opf_execute: MPOPT.opf.ac.solver = ''%s'' requires IPOPT (see http://www.coin-or.org/projects/Ipopt.xml)', alg);
