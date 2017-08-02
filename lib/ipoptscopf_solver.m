@@ -1,4 +1,4 @@
-function [results, success, raw] = ipoptscopf_solver(om, cont, mpopt)
+function [success, raw] = ipoptscopf_solver(om, cont, mpopt)
 %IPOPTOPF_SOLVER  Solves AC optimal power flow with security constraints using IPOPT.
 %
 %   [RESULTS, SUCCESS, RAW] = IPOPTSCOPF_SOLVER(OM, CONT, MPOPT)
@@ -92,6 +92,9 @@ xmin = [repmat(xl, [ns, 1]); xg];
 xl = xmax(1:2*nb);
 xg = xmax(2*nb+(1:2*ng));
 xmax = [repmat(xl, [ns, 1]); xg];
+
+%% build admittance matrices
+[Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
 
 %% try to select an interior initial point
 if mpopt.opf.init_from_mpc ~= 1
@@ -221,34 +224,29 @@ end
 
 f = opf_costfcn([zeros(2*nb,1); x(ns*2*nb+1:end)], om); %assuming only pg/qg are relevant
 
-%% update solution data for nominal senario and global vars
-Va = x(vv.i1.Va:vv.iN.Va);
-Vm = x(vv.i1.Vm:vv.iN.Vm);
-Pg = x(ns*2*nb + (1:ng));
-Qg = x(ns*2*nb + ng + (1:ng));
-V = Vm .* exp(1j*Va);
-
-%%-----  calculate return values  -----
-%% update voltages & generator outputs
-bus(:, VA) = Va * 180/pi;
-bus(:, VM) = Vm;
-gen(:, PG) = Pg * baseMVA;
-gen(:, QG) = Qg * baseMVA;
-gen(:, VG) = Vm(gen(:, GEN_BUS));
-
-%% compute branch flows
-[Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
-Sf = V(branch(:, F_BUS)) .* conj(Yf * V);  %% cplx pwr at "from" bus, p.u.
-St = V(branch(:, T_BUS)) .* conj(Yt * V);  %% cplx pwr at "to" bus, p.u.
-branch(:, PF) = real(Sf) * baseMVA;
-branch(:, QF) = imag(Sf) * baseMVA;
-branch(:, PT) = real(St) * baseMVA;
-branch(:, QT) = imag(St) * baseMVA;
-
-results = mpc;
-[results.bus, results.branch, results.gen, ...
-    results.om, results.x, results.f] = ...
-        deal(bus, branch, gen, om, [x(1:2*nb); x(ns*2*nb+(1:2*ng))], f);
+% %% update solution data for nominal senario and global vars
+% Va = x(vv.i1.Va:vv.iN.Va);
+% Vm = x(vv.i1.Vm:vv.iN.Vm);
+% Pg = x(ns*2*nb + (1:ng));
+% Qg = x(ns*2*nb + ng + (1:ng));
+% V = Vm .* exp(1j*Va);
+% 
+% %%-----  calculate return values  -----
+% %% update voltages & generator outputs
+% bus(:, VA) = Va * 180/pi;
+% bus(:, VM) = Vm;
+% gen(:, PG) = Pg * baseMVA;
+% gen(:, QG) = Qg * baseMVA;
+% gen(:, VG) = Vm(gen(:, GEN_BUS));
+% 
+% %% compute branch flows
+% [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
+% Sf = V(branch(:, F_BUS)) .* conj(Yf * V);  %% cplx pwr at "from" bus, p.u.
+% St = V(branch(:, T_BUS)) .* conj(Yt * V);  %% cplx pwr at "to" bus, p.u.
+% branch(:, PF) = real(Sf) * baseMVA;
+% branch(:, QF) = imag(Sf) * baseMVA;
+% branch(:, PT) = real(St) * baseMVA;
+% branch(:, QT) = imag(St) * baseMVA;
     
 %pack some additional info to output so that we can verify the solution
 output.Ybus = Ybus;
@@ -257,7 +255,7 @@ output.Yt = Yt;
 output.lb = options.lb;
 output.ub = options.ub;
     
-raw = struct('xr', x, 'info', info.status, 'output', output);
+raw = struct('x', x, 'info', info.status, 'output', output);
 
 %-----  callback functions  -----
 function f = objective(x, d)

@@ -1,4 +1,4 @@
-function [results, success, raw] = mipsscopf_solver(om, cont, mpopt)
+function [success, raw] = mipsscopf_solver(om, cont, mpopt)
 %MIPSOPF_SOLVER  Solves AC optimal power flow using MIPS.
 %
 %   [RESULTS, SUCCESS, RAW] = MIPSOPF_SOLVER(OM, MPOPT)
@@ -133,75 +133,28 @@ hess_fcn = @(x, lambda, cost_mult) hessian_fcn(x, lambda, cost_mult, auxdata);
   %pmips(f_fcn, x0, A, l, u, xmin, xmax, gh_fcn, hess_fcn, opt, mpc);
 success = (info > 0);
 
-%% update solution data
-Va = x(vv.i1.Va:vv.iN.Va);
-Vm = x(vv.i1.Vm:vv.iN.Vm);
-Pg = x(vv.i1.Pg:vv.iN.Pg);
-Qg = x(vv.i1.Qg:vv.iN.Qg);
-V = Vm .* exp(1j*Va);
-
-%%-----  calculate return values  -----
-%% update voltages & generator outputs
-bus(:, VA) = Va * 180/pi;
-bus(:, VM) = Vm;
-gen(:, PG) = Pg * baseMVA;
-gen(:, QG) = Qg * baseMVA;
-gen(:, VG) = Vm(gen(:, GEN_BUS));
-
-%% compute branch flows
-Sf = V(branch(:, F_BUS)) .* conj(Yf * V);  %% cplx pwr at "from" bus, p.u.
-St = V(branch(:, T_BUS)) .* conj(Yt * V);  %% cplx pwr at "to" bus, p.u.
-branch(:, PF) = real(Sf) * baseMVA;
-branch(:, QF) = imag(Sf) * baseMVA;
-branch(:, PT) = real(St) * baseMVA;
-branch(:, QT) = imag(St) * baseMVA;
-
-%% line constraint is typically on square of limit
-%% so we must fix multipliers
-muSf = zeros(nl, 1);
-muSt = zeros(nl, 1);
-if ~isempty(il)
-    if upper(mpopt.opf.flow_lim(1)) == 'P'
-        muSf(il) = Lambda.ineqnonlin(1:nl2);
-        muSt(il) = Lambda.ineqnonlin((1:nl2)+nl2);
-    else
-        muSf(il) = 2 * Lambda.ineqnonlin(1:nl2)       .* branch(il, RATE_A) / baseMVA;
-        muSt(il) = 2 * Lambda.ineqnonlin((1:nl2)+nl2) .* branch(il, RATE_A) / baseMVA;
-    end
-end
-
-%% update Lagrange multipliers
-bus(:, MU_VMAX)  = Lambda.upper(vv.i1.Vm:vv.iN.Vm);
-bus(:, MU_VMIN)  = Lambda.lower(vv.i1.Vm:vv.iN.Vm);
-gen(:, MU_PMAX)  = Lambda.upper(vv.i1.Pg:vv.iN.Pg) / baseMVA;
-gen(:, MU_PMIN)  = Lambda.lower(vv.i1.Pg:vv.iN.Pg) / baseMVA;
-gen(:, MU_QMAX)  = Lambda.upper(vv.i1.Qg:vv.iN.Qg) / baseMVA;
-gen(:, MU_QMIN)  = Lambda.lower(vv.i1.Qg:vv.iN.Qg) / baseMVA;
-bus(:, LAM_P)    = Lambda.eqnonlin(nn.i1.Pmis:nn.iN.Pmis) / baseMVA;
-bus(:, LAM_Q)    = Lambda.eqnonlin(nn.i1.Qmis:nn.iN.Qmis) / baseMVA;
-branch(:, MU_SF) = muSf / baseMVA;
-branch(:, MU_ST) = muSt / baseMVA;
-
-%% package up results
-nlnN = getN(om, 'nln');
-
-%% extract multipliers for nonlinear constraints
-kl = find(Lambda.eqnonlin < 0);
-ku = find(Lambda.eqnonlin > 0);
-nl_mu_l = zeros(nlnN, 1);
-nl_mu_u = [zeros(2*nb, 1); muSf; muSt];
-nl_mu_l(kl) = -Lambda.eqnonlin(kl);
-nl_mu_u(ku) =  Lambda.eqnonlin(ku);
-
-mu = struct( ...
-  'var', struct('l', Lambda.lower, 'u', Lambda.upper), ...
-  'nln', struct('l', nl_mu_l, 'u', nl_mu_u), ...
-  'lin', struct('l', Lambda.mu_l, 'u', Lambda.mu_u) );
-
-results = mpc;
-[results.bus, results.branch, results.gen, ...
-    results.om, results.x, results.mu, results.f] = ...
-        deal(bus, branch, gen, om, x, mu, f);
+% %% update solution data
+% Va = x(vv.i1.Va:vv.iN.Va);
+% Vm = x(vv.i1.Vm:vv.iN.Vm);
+% Pg = x(vv.i1.Pg:vv.iN.Pg);
+% Qg = x(vv.i1.Qg:vv.iN.Qg);
+% V = Vm .* exp(1j*Va);
+% 
+% %%-----  calculate return values  -----
+% %% update voltages & generator outputs
+% bus(:, VA) = Va * 180/pi;
+% bus(:, VM) = Vm;
+% gen(:, PG) = Pg * baseMVA;
+% gen(:, QG) = Qg * baseMVA;
+% gen(:, VG) = Vm(gen(:, GEN_BUS));
+% 
+% %% compute branch flows
+% Sf = V(branch(:, F_BUS)) .* conj(Yf * V);  %% cplx pwr at "from" bus, p.u.
+% St = V(branch(:, T_BUS)) .* conj(Yt * V);  %% cplx pwr at "to" bus, p.u.
+% branch(:, PF) = real(Sf) * baseMVA;
+% branch(:, QF) = imag(Sf) * baseMVA;
+% branch(:, PT) = real(St) * baseMVA;
+% branch(:, QT) = imag(St) * baseMVA;
     
 %pack some additional info to output so that we can verify the solution
 output.Ybus = Ybus;
@@ -210,7 +163,7 @@ output.Yt = Yt;
 output.lb = xmin;
 output.ub = xmax;
 
-raw = struct('xr', x, 'info', info, 'output', output);
+raw = struct('x', x, 'info', info, 'output', output);
 
 
 

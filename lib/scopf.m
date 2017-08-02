@@ -1,4 +1,4 @@
-function [busout, genout, branchout, f, success, info, et, g, jac, xr, pimul] = ...
+function [success, info, x] = ...
     scopf(mpc, cont, mpopt)
 %OPF  Solves an optimal power flow with security constraints.
 %   [RESULTS, SUCCESS] = OPF(MPC, CONT, MPOPT)
@@ -194,7 +194,7 @@ om = scopf_setup(mpc, mpopt);
 if nargout > 7
     mpopt.opf.return_raw_der = 1;
 end
-[results, success, raw] = scopf_execute(om, cont, mpopt);
+[success, raw] = scopf_execute(om, cont, mpopt);
 
 %% verify feasibility of the results 
 nb = size(mpc.bus, 1);          %% number of buses
@@ -208,9 +208,9 @@ for i = 1:ns
     c = cont(i);
     
     %extract local solution vector [Va_i Vm_i Pg Qg]
-    xb = raw.xr((i-1)*2*nb + (1:2*nb)); %[Va Vm]
+    xb = raw.x((i-1)*2*nb + (1:2*nb)); %[Va Vm]
     V = xb(nb+1:2*nb) .* exp(1j*xb(1:nb)); %complex V
-    xg = raw.xr(ns*2*nb + (1:2*ng)); %[Pg Qg]
+    xg = raw.x(ns*2*nb + (1:2*ng)); %[Pg Qg]
     
     x_i = [xb; xg];
     
@@ -263,38 +263,8 @@ for i = 1:ns
     end
 end
 
-%% -----  revert to original ordering, including out-of-service stuff  -----
-results = int2ext(results);
+info = raw.info;
+x = raw.x;
 
-%% zero out result fields of out-of-service gens & branches
-if ~isempty(results.order.gen.status.off)
-  results.gen(results.order.gen.status.off, [PG QG MU_PMAX MU_PMIN]) = 0;
-end
-if ~isempty(results.order.branch.status.off)
-  results.branch(results.order.branch.status.off, [PF QF PT QT MU_SF MU_ST MU_ANGMIN MU_ANGMAX]) = 0;
-end
-
-%%-----  finish preparing output  -----
-et = etime(clock, t0);      %% compute elapsed time
-if nargout > 0
-  if nargout <= 2
-    results.et = et;
-    results.success = success;
-    results.raw = raw;
-    busout = results;
-    genout = success;
-  else
-    [busout, genout, branchout, f, info, xr, pimul] = deal(results.bus, ...
-        results.gen, results.branch, results.f, raw.info, raw.xr, raw.pimul);
-    if isfield(results, 'g')
-      g = results.g;
-    end
-    if isfield(results, 'dg')
-      jac = results.dg;
-    end
-  end
-elseif success
-  results.et = et;
-  results.success = success;
-  printpf(results, 1, mpopt);
-end
+%% -----  DO NOT revert to original ordering, we are returnting SCOPF solution, not OPF  -----
+%results = int2ext(results);

@@ -1,4 +1,4 @@
-function [MVAbase, bus, gen, gencost, branch, f, success, et] = ...
+function [success, info, x] = ...
                 runscopf(casedata, cont, mpopt, fname, solvedcase)
 %RUNOPF  Runs a security constrained optimal power flow.
 %   [RESULTS, SUCCESS] = RUNOPF(CASEDATA, MPOPT, CONT, FNAME, SOLVEDCASE)
@@ -80,34 +80,7 @@ end
 cont = [-1; cont];
 
 %%-----  run the optimal power flow  -----
-[r, success] = scopf(casedata, cont, mpopt);
+[success, info, x] = scopf(casedata, cont, mpopt);
 
-%%-----  output results  -----
-if fname
-    [fd, msg] = fopen(fname, 'at');
-    if fd == -1
-        error(msg);
-    else
-        if mpopt.out.all == 0
-            printpf(r, fd, mpoption(mpopt, 'out.all', -1));
-        else
-            printpf(r, fd, mpopt);
-        end
-        fclose(fd);
-    end
-end
-printpf(r, 1, mpopt);
 
-%% save solved case
-if solvedcase
-    savecase(solvedcase, r);
-end
-
-if nargout == 1 || nargout == 2
-    MVAbase = r;
-    bus = success;
-elseif nargout > 2
-    [MVAbase, bus, gen, gencost, branch, f, et] = ...
-        deal(r.baseMVA, r.bus, r.gen, r.gencost, r.branch, r.f, r.et);
-% else  %% don't define MVAbase, so it doesn't print anything
 end
