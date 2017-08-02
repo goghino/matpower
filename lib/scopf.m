@@ -196,7 +196,74 @@ if nargout > 7
 end
 [results, success, raw] = scopf_execute(om, cont, mpopt);
 
-%%-----  revert to original ordering, including out-of-service stuff  -----
+%% verify feasibility of the results 
+nb = size(mpc.bus, 1);          %% number of buses
+ng = size(mpc.gen, 1);          %% number of gens
+nl = size(mpc.branch, 1);       %% number of branches
+ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
+
+%compute bus voltages and check bounds
+for i = 1:ns
+    %get contingency
+    c = cont(i);
+    
+    %extract local solution vector [Va_i Vm_i Pg Qg]
+    xb = raw.xr((i-1)*2*nb + (1:2*nb)); %[Va Vm]
+    V = xb(nb+1:2*nb) .* exp(1j*xb(1:nb)); %complex V
+    xg = raw.xr(ns*2*nb + (1:2*ng)); %[Pg Qg]
+    
+    x_i = [xb; xg];
+    
+    %update admittance matrices
+    [Ybus, Yf, Yt] = updateYbus(mpc.branch, raw.output.Ybus, raw.output.Yf, raw.output.Yt, c);
+    
+    %check power generation bounds
+    %[raw.output.lb(ns*2*nb + (1:2*ng)) xg raw.output.ub(ns*2*nb + (1:2*ng))]
+    idx = find(xg < raw.output.lb(ns*2*nb + (1:2*ng)));
+    if(not(isempty(idx)))
+        error('violated lower Pg/Qg limit');
+    end
+    idx = find(xg > raw.output.ub(ns*2*nb + (1:2*ng)));
+    if(not(isempty(idx)))
+        error('violated upper Pg/Qg limit');
+    end
+    
+    %bus voltages magnitude bounds p.u.
+    %[mpc.bus(:, VMIN) xb(nb+1:2*nb) mpc.bus(:, VMAX) ]
+    idx = find(xb(nb+1:2*nb) < mpc.bus(:, VMIN));
+    if(not(isempty(idx)))
+        error('violated lower Vm limit');
+    end
+    
+    idx = find(xb(nb+1:2*nb) > mpc.bus(:, VMAX));
+    if(not(isempty(idx)))
+        error('violated upper Vm limit');
+    end
+    
+    %bus voltage angles limits only reference bus Val = Va = Vau
+    %[xb(1:nb)]
+    %%refs = find(mpc.bus(:, BUS_TYPE) == REF);
+    %%Va   = xb(refs) * (pi/180);
+    
+    
+    %power flows equations and branch power flows
+    [hn_local, gn_local] = opf_consfcn(x_i, om, Ybus, Yf, Yt, mpopt);
+    
+    %g(x) = 0, g(x) = V .* conj(Ybus * V) - Sbus;
+    idx = find(abs(gn_local) > 1e-7);
+    if(not(isempty(idx)))
+        error('violated PF equations');
+    end
+    
+    %h(x) <= 0, h(x) = Sf .* conj(Sf) - flow_max.^2
+    %h(x) for lines with contingency is - flow_max.^2 which satisfy limits implicitly
+    idx = find(hn_local > 0);
+    if(not(isempty(idx)))
+        error('violated branch power flow limits');
+    end
+end
+
+%% -----  revert to original ordering, including out-of-service stuff  -----
 results = int2ext(results);
 
 %% zero out result fields of out-of-service gens & branches

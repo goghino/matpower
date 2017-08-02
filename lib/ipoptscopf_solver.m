@@ -250,6 +250,13 @@ results = mpc;
     results.om, results.x, results.f] = ...
         deal(bus, branch, gen, om, [x(1:2*nb); x(ns*2*nb+(1:2*ng))], f);
     
+%pack some additional info to output so that we can verify the solution
+output.Ybus = Ybus;
+output.Yf = Yf;
+output.Yt = Yt;
+output.lb = options.lb;
+output.ub = options.ub;
+    
 raw = struct('xr', x, 'info', info.status, 'output', output);
 
 %-----  callback functions  -----

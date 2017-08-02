@@ -128,7 +128,7 @@ f_fcn = @(x) objective_fcn(x, auxdata);
 gh_fcn = @(x) constraints_fcn(x, auxdata);
 hess_fcn = @(x, lambda, cost_mult) hessian_fcn(x, lambda, cost_mult, auxdata);
 
-[x, f, info, Output, Lambda] = ...
+[x, f, info, output, Lambda] = ...
   mips(f_fcn, x0, A, l, u, xmin, xmax, gh_fcn, hess_fcn, opt, mpc);
   %pmips(f_fcn, x0, A, l, u, xmin, xmax, gh_fcn, hess_fcn, opt, mpc);
 success = (info > 0);
@@ -202,8 +202,17 @@ results = mpc;
 [results.bus, results.branch, results.gen, ...
     results.om, results.x, results.mu, results.f] = ...
         deal(bus, branch, gen, om, x, mu, f);
+    
+%pack some additional info to output so that we can verify the solution
+output.Ybus = Ybus;
+output.Yf = Yf;
+output.Yt = Yt;
+output.lb = xmin;
+output.ub = xmax;
 
-raw = struct('xr', x, 'info', info, 'output', Output);
+raw = struct('xr', x, 'info', info, 'output', output);
+
+
 
 %% callback routines
 %evaluate objective, its gradient and hessian
