@@ -653,10 +653,10 @@ if opt.verbose
     end
 end
 
-if opt.verbose
-    disp('Condition number of LS during iterations');
-    fprintf('%12g\n', cond_it);
-end
+% if opt.verbose
+%     disp('Condition number of LS during iterations');
+%     fprintf('%12g\n', cond_it);
+% end
 
 %%-----  package up results  -----
 hist = hist(1:i+1);
