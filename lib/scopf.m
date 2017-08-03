@@ -1,4 +1,4 @@
-function [success, info, x] = ...
+function [results, success, info] = ...
     scopf(mpc, cont, mpopt)
 %OPF  Solves an optimal power flow with security constraints.
 %   [RESULTS, SUCCESS] = OPF(MPC, CONT, MPOPT)
@@ -194,7 +194,7 @@ om = scopf_setup(mpc, mpopt);
 if nargout > 7
     mpopt.opf.return_raw_der = 1;
 end
-[success, raw] = scopf_execute(om, cont, mpopt);
+[results, success, raw] = scopf_execute(om, cont, mpopt);
 
 %% verify feasibility of the results 
 nb = size(mpc.bus, 1);          %% number of buses
@@ -208,22 +208,22 @@ for i = 1:ns
     c = cont(i);
     
     %extract local solution vector [Va_i Vm_i Pg Qg]
-    xb = raw.x((i-1)*2*nb + (1:2*nb)); %[Va Vm]
+    xb = results.x((i-1)*2*nb + (1:2*nb)); %[Va Vm]
     V = xb(nb+1:2*nb) .* exp(1j*xb(1:nb)); %complex V
-    xg = raw.x(ns*2*nb + (1:2*ng)); %[Pg Qg]
+    xg = results.x(ns*2*nb + (1:2*ng)); %[Pg Qg]
     
     x_i = [xb; xg];
     
     %update admittance matrices
-    [Ybus, Yf, Yt] = updateYbus(mpc.branch, raw.output.Ybus, raw.output.Yf, raw.output.Yt, c);
+    [Ybus, Yf, Yt] = updateYbus(mpc.branch, raw.meta.Ybus, raw.meta.Yf, raw.meta.Yt, c);
     
     %check power generation bounds
     %[raw.output.lb(ns*2*nb + (1:2*ng)) xg raw.output.ub(ns*2*nb + (1:2*ng))]
-    idx = find(xg < raw.output.lb(ns*2*nb + (1:2*ng)));
+    idx = find(xg < raw.meta.lb(ns*2*nb + (1:2*ng)));
     if(not(isempty(idx)))
         error('violated lower Pg/Qg limit');
     end
-    idx = find(xg > raw.output.ub(ns*2*nb + (1:2*ng)));
+    idx = find(xg > raw.meta.ub(ns*2*nb + (1:2*ng)));
     if(not(isempty(idx)))
         error('violated upper Pg/Qg limit');
     end
@@ -264,7 +264,6 @@ for i = 1:ns
 end
 
 info = raw.info;
-x = raw.x;
 
 %% -----  DO NOT revert to original ordering, we are returnting SCOPF solution, not OPF  -----
 %results = int2ext(results);

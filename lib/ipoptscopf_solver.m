@@ -1,4 +1,4 @@
-function [success, raw] = ipoptscopf_solver(om, cont, mpopt)
+function [results, success, raw] = ipoptscopf_solver(om, cont, mpopt)
 %IPOPTOPF_SOLVER  Solves AC optimal power flow with security constraints using IPOPT.
 %
 %   [RESULTS, SUCCESS, RAW] = IPOPTSCOPF_SOLVER(OM, CONT, MPOPT)
@@ -217,9 +217,9 @@ else
 end
 
 if isfield(info, 'iter')
-    output.iterations = info.iter;
+    meta.iterations = info.iter;
 else
-    output.iterations = [];
+    meta.iterations = [];
 end
 
 f = opf_costfcn([zeros(2*nb,1); x(ns*2*nb+1:end)], om); %assuming only pg/qg are relevant
@@ -249,13 +249,14 @@ f = opf_costfcn([zeros(2*nb,1); x(ns*2*nb+1:end)], om); %assuming only pg/qg are
 % branch(:, QT) = imag(St) * baseMVA;
     
 %pack some additional info to output so that we can verify the solution
-output.Ybus = Ybus;
-output.Yf = Yf;
-output.Yt = Yt;
-output.lb = options.lb;
-output.ub = options.ub;
+meta.Ybus = Ybus;
+meta.Yf = Yf;
+meta.Yt = Yt;
+meta.lb = options.lb;
+meta.ub = options.ub;
     
-raw = struct('x', x, 'info', info.status, 'output', output);
+raw = struct('info', info.status, 'meta', meta);
+results = struct('f', f, 'x', x);
 
 %-----  callback functions  -----
 function f = objective(x, d)

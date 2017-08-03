@@ -1,4 +1,4 @@
-function [success, raw] = mipsscopf_solver(om, cont, mpopt)
+function [results, success, raw] = mipsscopf_solver(om, cont, mpopt)
 %MIPSOPF_SOLVER  Solves AC optimal power flow using MIPS.
 %
 %   [RESULTS, SUCCESS, RAW] = MIPSOPF_SOLVER(OM, MPOPT)
@@ -130,7 +130,6 @@ hess_fcn = @(x, lambda, cost_mult) hessian_fcn(x, lambda, cost_mult, auxdata);
 
 [x, f, info, output, Lambda] = ...
   mips(f_fcn, x0, A, l, u, xmin, xmax, gh_fcn, hess_fcn, opt, mpc);
-  %pmips(f_fcn, x0, A, l, u, xmin, xmax, gh_fcn, hess_fcn, opt, mpc);
 success = (info > 0);
 
 % %% update solution data
@@ -157,15 +156,14 @@ success = (info > 0);
 % branch(:, QT) = imag(St) * baseMVA;
     
 %pack some additional info to output so that we can verify the solution
-output.Ybus = Ybus;
-output.Yf = Yf;
-output.Yt = Yt;
-output.lb = xmin;
-output.ub = xmax;
-
-raw = struct('x', x, 'info', info, 'output', output);
-
-
+meta.Ybus = Ybus;
+meta.Yf = Yf;
+meta.Yt = Yt;
+meta.lb = xmin;
+meta.ub = xmax;
+    
+raw = struct('info', info, 'meta', meta);
+results = struct('f', f, 'x', x);
 
 %% callback routines
 %evaluate objective, its gradient and hessian
