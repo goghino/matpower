@@ -8,29 +8,13 @@ function [results, success, raw] = ipoptscopf_solver(om, cont, mpopt)
 %
 %   Outputs are a RESULTS struct, SUCCESS flag and RAW output struct.
 %
-%   RESULTS is a MATPOWER case struct (mpc) with the usual baseMVA, bus
-%   branch, gen, gencost fields, along with the following additional
-%   fields:
-%       .order      see 'help ext2int' for details of this field
-%       .x          final value of optimization variables (internal order)
-%       .f          final objective function value
-%       .mu         shadow prices on ...
-%           .var
-%               .l  lower bounds on variables
-%               .u  upper bounds on variables
-%           .nln
-%               .l  lower bounds on nonlinear constraints
-%               .u  upper bounds on nonlinear constraints
-%           .lin
-%               .l  lower bounds on linear constraints
-%               .u  upper bounds on linear constraints
+%   The internal x that ipopt works with has structure
+%   [Va1 Vm1 ... VaN VmN Pg Qg] for all contingency scenarios 1..N
+%   with corresponding bounds xmin < x < xmax
 %
-%   SUCCESS     1 if solver converged successfully, 0 otherwise
-%
-%   RAW         raw output in form returned by MINOS
-%       .xr     final value of optimization variables
-%       .info   solver specific termination code
-%       .output solver specific output information
+%   We impose nonlinear equality and inequality constraints g(x) and h(x)
+%   with corresponding bounds cl < [g(x); h(x)] < cu
+%   and linear constraints l < Ax < u.
 %
 %   See also OPF, IPOPT.
 
@@ -44,12 +28,7 @@ function [results, success, raw] = ipoptscopf_solver(om, cont, mpopt)
 %   See http://www.pserc.cornell.edu/matpower/ for more info.
 
 
-%% architecture of SCOPF implementation
-% Add list of contingencies to options.auxdata and construct
-% admittance matrices on fly and construct hessian/jacobian accordingly
-% by assembling it from the individual scenarios
-% --> need to be more efficient while re-constructing Y matrices
-
+%% TODO
 % need to work more efficiently with sparse indexing during construction
 % of global hessian/jacobian
 
@@ -93,7 +72,7 @@ xl = xmax(1:2*nb);
 xg = xmax(2*nb+(1:2*ng));
 xmax = [repmat(xl, [ns, 1]); xg];
 
-%% build admittance matrices
+%% build admittance matrices for nominal case
 [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
 
 %% try to select an interior initial point
@@ -287,24 +266,36 @@ meta.ub = options.ub;
 raw = struct('info', info.status, 'meta', meta);
 results = struct('f', f, 'x', x);
 
-%-----  callback functions  -----
-function f = objective(x, d)
-mpc = get_mpc(d.om);
+%% -----  helper functions  -----
+% extracts local solution from IPOPT's opt. vector
+% scenarios i are indexed 0..NS
+function x = extractLocal(mpc, ns, x_ipopt, i)
 nb = size(mpc.bus, 1);          %% number of buses
 ng = size(mpc.gen, 1);          %% number of gens
 nl = size(mpc.branch, 1);       %% number of branches
+
+x = [x_ipopt(i*2*nb + (1:2*nb));   % local [Vai Vmi]
+     x_ipopt(ns*2*nb + (1:2*ng))]; % global [Pg Qg]
+
+%% -----  callback functions  -----
+function f = objective(x, d)
+mpc = get_mpc(d.om);
 ns = size(d.cont, 1);           %% number of scenarios (nominal + ncont)
 
-f = opf_costfcn([zeros(2*nb,1); x(ns*2*nb+1:end)], d.om); %assuming only pg/qg are relevant
+% use nominal case to evaluate cost fcn (only pg/qg are relevant)
+x_nom = extractLocal(mpc, ns ,x, 0); 
+
+f = opf_costfcn(x_nom, d.om); %assuming only pg/qg are relevant
 
 function df = gradient(x, d)
 mpc = get_mpc(d.om);
 nb = size(mpc.bus, 1);          %% number of buses
-ng = size(mpc.gen, 1);          %% number of gens
-nl = size(mpc.branch, 1);       %% number of branches
 ns = size(d.cont, 1);           %% number of scenarios (nominal + ncont)
 
-[f, df] = opf_costfcn([zeros(2*nb,1); x(ns*2*nb+(1:2*ng))], d.om); %assuming only pg/qg are relevant
+% use nominal case to evaluate cost fcn
+x_nom = extractLocal(mpc, ns ,x, 0);
+
+[f, df] = opf_costfcn(x_nom, d.om); %assuming only pg/qg are relevant
 df = [zeros((ns-1)*2*nb, 1); df];
 
 function constr = constraints(x, d)
@@ -319,7 +310,7 @@ constr = zeros(ns*(NCONSTR), 1);
 
 for i = 0:ns-1
     cont = d.cont(i+1);
-    xl = [x(i*2*nb + (1:2*nb)); x(ns*2*nb + (1:2*ng))]; % extract local [Vai Vmi] and append global [Pg Qg]
+    xl = extractLocal(mpc, ns ,x, i);
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
     [hn_local, gn_local] = opf_consfcn(xl, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     constr(i*(NCONSTR) + (1:NCONSTR)) = [gn_local; hn_local];
@@ -343,15 +334,16 @@ J = sparse(ns*(NCONSTR), size(x,1));
 
 for i = 0:ns-1
     cont = d.cont(i+1);
-    xl = [x(i*2*nb + (1:2*nb)); x(ns*2*nb + (1:2*ng))]; % extract logal [Vai Vmi] and append global [Pg Qg]
+    xl = extractLocal(mpc, ns ,x, i);
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
     [hn, gn, dhn, dgn] = opf_consfcn(xl, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     dgn = dgn';
     dhn = dhn';
+    
     %global variables are ordered to be last in x, need to insert local
     %jacobian accordingly into the global structure
-    J(i*NCONSTR + (1:NCONSTR), i*2*nb + (1:2*nb)) = [dgn(:,1:2*nb); dhn(:,1:2*nb)];
-    J(i*NCONSTR + (1:2*nb), ns*2*nb + (1:2*ng)) = dgn(:,2*nb+(1:2*ng));
+    J(i*NCONSTR + (1:NCONSTR), i*2*nb + (1:2*nb)) = [dgn(:,1:2*nb); dhn(:,1:2*nb)]; %dVai dVmi
+    J(i*NCONSTR + (1:2*nb), ns*2*nb + (1:2*ng)) = dgn(:,2*nb+(1:2*ng));%dPg dQg
 end
 J = [J; d.A]; %append Jacobian of linear constraints
 
@@ -368,7 +360,7 @@ H = sparse(size(x,1), size(x,1));
 
 for i = 0:ns-1
     cont = d.cont(i+1);
-    xl = [x(i*2*nb + (1:2*nb)); x(ns*2*nb + (1:2*ng))]; % extract logal [Vai Vmi] and append global [Pg Qg]
+    xl = extractLocal(mpc, ns ,x, i);
     lam.eqnonlin   = lambda(i*NCONSTR + (1:2*nb));
     lam.ineqnonlin = lambda(i*NCONSTR + 2*nb + (1:2*nl));
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
