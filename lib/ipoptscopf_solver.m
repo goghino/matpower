@@ -59,17 +59,20 @@ ng = size(gen, 1);          %% number of gens
 nl = size(branch, 1);       %% number of branches
 ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 
+% indices of local parts of solution vector x = [VA VM PG QG]
+[VAi, VMi, PGi, QGi] = getLocalIndices(mpc);
+
 %% bounds on optimization vars
 [x0, xmin, xmax] = getv(om); %[Va Vm Pg Qg]
 xmax = xmax + 1e-10;
 
 % replicate bounds for all scenarios and append global PG/QG limits
-xl = xmin(1:2*nb);
-xg = xmin(2*nb+(1:2*ng));
+xl = xmin([VAi VMi]);
+xg = xmin([PGi QGi]);
 xmin = [repmat(xl, [ns, 1]); xg];
 
-xl = xmax(1:2*nb);
-xg = xmax(2*nb+(1:2*ng));
+xl = xmax([VAi VMi]);
+xg = xmax([PGi QGi]);
 xmax = [repmat(xl, [ns, 1]); xg];
 
 %% build admittance matrices for nominal case
@@ -88,7 +91,8 @@ if mpopt.opf.init_from_mpc ~= 1
     Varefs = bus(bus(:, BUS_TYPE) == REF, VA) * (pi/180);
     
     for i = 0:ns-1
-        x0(i*2*nb + (1:nb)) = Varefs(1);      %% angles set to first reference angle
+        idx = getGlobalIndices(mpc, ns, i);
+        x0(idx(VAi)) = Varefs(1);      %% angles set to first reference angle
     end
 end
 
@@ -111,11 +115,13 @@ u = [];
 %% ((this was matpower's approach, we address this problem by setting xmax+=1e-10))
 kk = [];
 for i = 0:ns-1
-    k = find(xmin(i*2*nb + nb+1 : (i+1)*2*nb) == xmax(i*2*nb + nb+1 : (i+1)*2*nb)); %% bounds for Vm
-    kk = [kk; k + i*2*nb + nb]; %% adjust index and append
+    idx = getGlobalIndices(mpc, ns, i);
+    k = find(xmin(idx(VMi)) == xmax(idx(VMi))); %% bounds for Vm
+    kk = [kk; k + idx(VMi(1))-1]; %% adjust index and append (-1 to compute offset to VM, not the first index of VM)
 end
-k = find(xmin(ns*2*nb+1:end) == xmax(ns*2*nb+1:end)); %% bounds for global variables
-kk = [kk; k + ns*2*nb];
+idx = getGlobalIndices(mpc, ns, 0);
+k = find(xmin(idx([PGi QGi])) == xmax(idx([PGi QGi]))); %% bounds for global variables
+kk = [kk; k + idx(PGi(1))-1];
 
 nk = length(kk);
 if nk
@@ -127,7 +133,7 @@ if nk
 end
 
 
-%% build Jacobian and Hessian structure
+%% build local connectivity matrices
 f = branch(:, F_BUS);                           %% list of "from" buses
 t = branch(:, T_BUS);                           %% list of "to" buses
 Cf = sparse(1:nl, f, ones(nl, 1), nl, nb);      %% connection matrix for line & from buses
@@ -175,11 +181,13 @@ Hs_local =[
     Cb  Cb
 ];
 Hs = kron(eye(ns), Hs_local);
+
+idx_nom = getGlobalIndices(mpc, ns, 0); %evaluate cost of nominal case (only Pg/Qg are relevant) 
+[f, df, d2f] = opf_costfcn(x0(idx_nom), om);
+
 %append hessian w.r.t global variables to lower right corner
-xCost = [zeros(2*nb,1); x0(ns*2*nb+1:end)]; %pass global x0, only PG/QG are important, rest fill with zeros
-[f, df, d2f] = opf_costfcn(xCost, om);
 Hs = [Hs              zeros(size(Hs,1), 2*ng);
-      zeros(2*ng, size(Hs,2)) d2f(2*nb+1:end,2*nb+1:end)]; %assuming that d2f has nonzeros only wrt Pg/Qg
+      zeros(2*ng, size(Hs,2)) d2f([PGi QGi], [PGi QGi])]; %assuming that d2f has nonzeros only wrt Pg/Qg
 Hs = tril(Hs);
 
 %% set options struct for IPOPT
@@ -230,7 +238,8 @@ else
     meta.iterations = [];
 end
 
-f = opf_costfcn([zeros(2*nb,1); x(ns*2*nb+1:end)], om); %assuming only pg/qg are relevant
+idx_nom = getGlobalIndices(mpc, ns, 0); %evaluate cost of nominal case (only Pg/Qg are relevant) 
+f = opf_costfcn(x(idx_nom), om); %assuming only pg/qg are relevant
 
 % %% update solution data for nominal senario and global vars
 % Va = x(vv.i1.Va:vv.iN.Va);
@@ -266,20 +275,10 @@ meta.ub = options.ub;
 raw = struct('info', info.status, 'meta', meta);
 results = struct('f', f, 'x', x);
 
-%% -----  helper functions  -----
-% extracts local solution from IPOPT's opt. vector
-% scenarios i are indexed 0..NS-1
-function x = extractLocalX(mpc, ns, x_ipopt, i)
-nb = size(mpc.bus, 1);          %% number of buses
-ng = size(mpc.gen, 1);          %% number of gens
-nl = size(mpc.branch, 1);       %% number of branches
-
-x = [x_ipopt(i*2*nb + (1:2*nb));   % local [Vai Vmi]
-     x_ipopt(ns*2*nb + (1:2*ng))]; % global [Pg Qg]
- 
+%% -----  helper functions  ----- 
 % returns indices of local/global variables of sceanrio i in vector x_ipopt
 % scenarios i are nidexed 0..NS-1
-function [li, gi] = getIndices(mpc, ns, i)
+function idx = getGlobalIndices(mpc, ns, i)
 nb = size(mpc.bus, 1);          %% number of buses
 ng = size(mpc.gen, 1);          %% number of gens
 nl = size(mpc.branch, 1);       %% number of branches
@@ -287,13 +286,26 @@ nl = size(mpc.branch, 1);       %% number of branches
 li = i*2*nb + (1:2*nb); %indices of local variables [Va Vm] of scenario i
 gi = ns*2*nb + (1:2*ng); %indices of global variables [Pg Qg]
 
+idx = [li gi];
+
+function [VAi, VMi, PGi, QGi] = getLocalIndices(mpc) %!!! VA VM PG QG are defined in idx_bus
+nb = size(mpc.bus, 1);          %% number of buses
+ng = size(mpc.gen, 1);          %% number of gens
+nl = size(mpc.branch, 1);       %% number of branches
+
+VAi = 1:nb;
+VMi = nb + (1:nb);
+PGi = 2*nb + (1:ng);
+QGi = 2*nb + ng + (1:ng);
+
 %% -----  callback functions  -----
 function f = objective(x, d)
 mpc = get_mpc(d.om);
 ns = size(d.cont, 1);           %% number of scenarios (nominal + ncont)
 
 % use nominal case to evaluate cost fcn (only pg/qg are relevant)
-x_nom = extractLocalX(mpc, ns ,x, 0); 
+idx_nom = getGlobalIndices(mpc, ns, 0);
+x_nom = x(idx_nom);
 
 f = opf_costfcn(x_nom, d.om); %assuming only pg/qg are relevant
 
@@ -303,7 +315,8 @@ nb = size(mpc.bus, 1);          %% number of buses
 ns = size(d.cont, 1);           %% number of scenarios (nominal + ncont)
 
 % use nominal case to evaluate cost fcn
-x_nom = extractLocalX(mpc, ns ,x, 0);
+idx_nom = getGlobalIndices(mpc, ns, 0);
+x_nom = x(idx_nom);
 
 [f, df] = opf_costfcn(x_nom, d.om); %assuming only pg/qg are relevant
 df = [zeros((ns-1)*2*nb, 1); df];
@@ -320,9 +333,9 @@ constr = zeros(ns*(NCONSTR), 1);
 
 for i = 0:ns-1
     cont = d.cont(i+1);
-    xl = extractLocalX(mpc, ns ,x, i);
+    idx = getGlobalIndices(mpc, ns, i);
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
-    [hn_local, gn_local] = opf_consfcn(xl, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
+    [hn_local, gn_local] = opf_consfcn(x(idx), d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     constr(i*(NCONSTR) + (1:NCONSTR)) = [gn_local; hn_local];
 end
 
@@ -342,18 +355,20 @@ NCONSTR = 2*nb + 2*nl;
 J = sparse(ns*(NCONSTR), size(x,1));
 
 for i = 0:ns-1
+    %compute local indices and its parts
+    idx = getGlobalIndices(mpc, ns, i);
+    [VAi, VMi, PGi, QGi] = getLocalIndices(mpc);
+    
     cont = d.cont(i+1);
-    xl = extractLocalX(mpc, ns ,x, i);
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
-    [hn, gn, dhn, dgn] = opf_consfcn(xl, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
+    [hn, gn, dhn, dgn] = opf_consfcn(x(idx), d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     dgn = dgn';
     dhn = dhn';
     
     %global variables are ordered to be last in x, need to insert local
     %jacobian accordingly into the global structure
-    [localIdx, globalIdx] = getIndices(mpc, ns, i);
-    J(i*NCONSTR + (1:NCONSTR), localIdx) = [dgn(:,1:2*nb); dhn(:,1:2*nb)]; %dVai dVmi
-    J(i*NCONSTR + (1:2*nb), globalIdx) = dgn(:,2*nb+(1:2*ng));%dPg dQg
+    J(i*NCONSTR + (1:NCONSTR), idx([VAi VMi])) = [dgn(:,[VAi VMi]); dhn(:,[VAi VMi])]; %dVai dVmi
+    J(i*NCONSTR + [VAi VMi], idx([PGi QGi])) = dgn(:, [PGi QGi]);%dPg dQg
 end
 J = [J; d.A]; %append Jacobian of linear constraints
 
@@ -369,18 +384,21 @@ NCONSTR = 2*nb + 2*nl;
 H = sparse(size(x,1), size(x,1));
 
 for i = 0:ns-1
+    %compute local indices and its parts
+    idx = getGlobalIndices(mpc, ns, i);
+    [VAi, VMi, PGi, QGi] = getLocalIndices(mpc);
+    
     cont = d.cont(i+1);
-    xl = extractLocalX(mpc, ns ,x, i);
+    [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
+    
     lam.eqnonlin   = lambda(i*NCONSTR + (1:2*nb));
     lam.ineqnonlin = lambda(i*NCONSTR + 2*nb + (1:2*nl));
-    [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
-    H_local = opf_hessfcn(xl, lam, sigma, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
+    H_local = opf_hessfcn(x(idx), lam, sigma, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     
     %insert hessian w.r.t local variables in into the full hessian
-    [localIdx, globalIdx] = getIndices(mpc, ns, i);
-    H(localIdx, localIdx) = H_local(1:2*nb, 1:2*nb);
+    H(idx([VAi VMi]), idx([VAi VMi])) = H_local([VAi VMi], [VAi VMi]);
 end
 %hessian w.r.t global variables goes to lower right corner
-H(globalIdx, globalIdx) = H_local(2*nb+1:end, 2*nb+1:end);
+H(idx([PGi QGi]), idx([PGi QGi])) = H_local([PGi QGi], [PGi QGi]);
 
 H = tril(H);
