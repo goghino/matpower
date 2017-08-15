@@ -269,7 +269,7 @@ results = struct('f', f, 'x', x);
 %% -----  helper functions  -----
 % extracts local solution from IPOPT's opt. vector
 % scenarios i are indexed 0..NS-1
-function x = extractLocal(mpc, ns, x_ipopt, i)
+function x = extractLocalX(mpc, ns, x_ipopt, i)
 nb = size(mpc.bus, 1);          %% number of buses
 ng = size(mpc.gen, 1);          %% number of gens
 nl = size(mpc.branch, 1);       %% number of branches
@@ -293,7 +293,7 @@ mpc = get_mpc(d.om);
 ns = size(d.cont, 1);           %% number of scenarios (nominal + ncont)
 
 % use nominal case to evaluate cost fcn (only pg/qg are relevant)
-x_nom = extractLocal(mpc, ns ,x, 0); 
+x_nom = extractLocalX(mpc, ns ,x, 0); 
 
 f = opf_costfcn(x_nom, d.om); %assuming only pg/qg are relevant
 
@@ -303,7 +303,7 @@ nb = size(mpc.bus, 1);          %% number of buses
 ns = size(d.cont, 1);           %% number of scenarios (nominal + ncont)
 
 % use nominal case to evaluate cost fcn
-x_nom = extractLocal(mpc, ns ,x, 0);
+x_nom = extractLocalX(mpc, ns ,x, 0);
 
 [f, df] = opf_costfcn(x_nom, d.om); %assuming only pg/qg are relevant
 df = [zeros((ns-1)*2*nb, 1); df];
@@ -320,7 +320,7 @@ constr = zeros(ns*(NCONSTR), 1);
 
 for i = 0:ns-1
     cont = d.cont(i+1);
-    xl = extractLocal(mpc, ns ,x, i);
+    xl = extractLocalX(mpc, ns ,x, i);
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
     [hn_local, gn_local] = opf_consfcn(xl, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     constr(i*(NCONSTR) + (1:NCONSTR)) = [gn_local; hn_local];
@@ -343,7 +343,7 @@ J = sparse(ns*(NCONSTR), size(x,1));
 
 for i = 0:ns-1
     cont = d.cont(i+1);
-    xl = extractLocal(mpc, ns ,x, i);
+    xl = extractLocalX(mpc, ns ,x, i);
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
     [hn, gn, dhn, dgn] = opf_consfcn(xl, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     dgn = dgn';
@@ -370,7 +370,7 @@ H = sparse(size(x,1), size(x,1));
 
 for i = 0:ns-1
     cont = d.cont(i+1);
-    xl = extractLocal(mpc, ns ,x, i);
+    xl = extractLocalX(mpc, ns ,x, i);
     lam.eqnonlin   = lambda(i*NCONSTR + (1:2*nb));
     lam.ineqnonlin = lambda(i*NCONSTR + 2*nb + (1:2*nl));
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
