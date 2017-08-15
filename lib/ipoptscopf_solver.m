@@ -268,7 +268,7 @@ results = struct('f', f, 'x', x);
 
 %% -----  helper functions  -----
 % extracts local solution from IPOPT's opt. vector
-% scenarios i are indexed 0..NS
+% scenarios i are indexed 0..NS-1
 function x = extractLocal(mpc, ns, x_ipopt, i)
 nb = size(mpc.bus, 1);          %% number of buses
 ng = size(mpc.gen, 1);          %% number of gens
@@ -276,6 +276,16 @@ nl = size(mpc.branch, 1);       %% number of branches
 
 x = [x_ipopt(i*2*nb + (1:2*nb));   % local [Vai Vmi]
      x_ipopt(ns*2*nb + (1:2*ng))]; % global [Pg Qg]
+ 
+% returns indices of local/global variables of sceanrio i in vector x_ipopt
+% scenarios i are nidexed 0..NS-1
+function [li, gi] = getIndices(mpc, ns, i)
+nb = size(mpc.bus, 1);          %% number of buses
+ng = size(mpc.gen, 1);          %% number of gens
+nl = size(mpc.branch, 1);       %% number of branches
+
+li = i*2*nb + (1:2*nb); %indices of local variables [Va Vm] of scenario i
+gi = ns*2*nb + (1:2*ng); %indices of global variables [Pg Qg]
 
 %% -----  callback functions  -----
 function f = objective(x, d)
@@ -331,7 +341,6 @@ NCONSTR = 2*nb + 2*nl;
 
 J = sparse(ns*(NCONSTR), size(x,1));
 
-
 for i = 0:ns-1
     cont = d.cont(i+1);
     xl = extractLocal(mpc, ns ,x, i);
@@ -342,8 +351,9 @@ for i = 0:ns-1
     
     %global variables are ordered to be last in x, need to insert local
     %jacobian accordingly into the global structure
-    J(i*NCONSTR + (1:NCONSTR), i*2*nb + (1:2*nb)) = [dgn(:,1:2*nb); dhn(:,1:2*nb)]; %dVai dVmi
-    J(i*NCONSTR + (1:2*nb), ns*2*nb + (1:2*ng)) = dgn(:,2*nb+(1:2*ng));%dPg dQg
+    [localIdx, globalIdx] = getIndices(mpc, ns, i);
+    J(i*NCONSTR + (1:NCONSTR), localIdx) = [dgn(:,1:2*nb); dhn(:,1:2*nb)]; %dVai dVmi
+    J(i*NCONSTR + (1:2*nb), globalIdx) = dgn(:,2*nb+(1:2*ng));%dPg dQg
 end
 J = [J; d.A]; %append Jacobian of linear constraints
 
@@ -364,12 +374,13 @@ for i = 0:ns-1
     lam.eqnonlin   = lambda(i*NCONSTR + (1:2*nb));
     lam.ineqnonlin = lambda(i*NCONSTR + 2*nb + (1:2*nl));
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
-    %compute hessian w.r.t local variables and insert in into the global one
     H_local = opf_hessfcn(xl, lam, sigma, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
-    H(i*2*nb+(1:2*nb), i*2*nb+(1:2*nb)) = H_local(1:2*nb, 1:2*nb);
+    
+    %insert hessian w.r.t local variables in into the full hessian
+    [localIdx, globalIdx] = getIndices(mpc, ns, i);
+    H(localIdx, localIdx) = H_local(1:2*nb, 1:2*nb);
 end
 %hessian w.r.t global variables goes to lower right corner
-H(ns*2*nb+1:end, ns*2*nb+1:end) = H_local(2*nb+1:end, 2*nb+1:end);
+H(globalIdx, globalIdx) = H_local(2*nb+1:end, 2*nb+1:end);
 
 H = tril(H);
-
