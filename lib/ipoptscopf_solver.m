@@ -120,7 +120,34 @@ il = [1:nl]';               %% every branch has implicit bounds
                              % do not satisfy condition above
 nl2 = length(il);           %% number of constrained lines
 
-%%-----  run opf  -----
+
+%% TODO
+%1.) build linear constraints l < A*x < u
+A = [];
+l = [];
+u = [];
+
+%% replace equality variable bounds with an equality constraint (all bounds except Va)
+%% (since IPOPT does not return shadow prices on variables that it eliminates)
+%% ((this was matpower's approach, we address this problem by setting xmax+=1e-10))
+kk = [];
+for i = 0:ns-1
+    k = find(xmin(i*2*nb + nb+1 : (i+1)*2*nb) == xmax(i*2*nb + nb+1 : (i+1)*2*nb)); %% bounds for Vm
+    kk = [kk; k + i*2*nb + nb]; %% adjust index and append
+end
+k = find(xmin(ns*2*nb+1:end) == xmax(ns*2*nb+1:end)); %% bounds for global variables
+kk = [kk; k + ns*2*nb];
+
+nk = length(kk);
+if nk
+    A = [ A; sparse((1:nk)', kk, 1, nk, nx) ];
+    l = [ l; xmin(kk) ];
+    u = [ u; xmax(kk) ];
+    xmin(kk) = -Inf;
+    xmax(kk) = Inf;
+end
+
+
 %% build Jacobian and Hessian structure
 f = branch(:, F_BUS);                           %% list of "from" buses
 t = branch(:, T_BUS);                           %% list of "to" buses
@@ -154,6 +181,7 @@ CG = [
 
 Js = kron(eye(ns), Js_local); %replicate jac. w.r.t local variables
 Js = [Js kron(ones(ns,1), CG)]; % replicate and append jac w.r.t global variables
+Js = [Js; A]; %append linear constraints
 
 % Hessian of lagrangian
 % Hs = f(x)_dxx + c(x)_dxx + h(x)_dxx
@@ -184,14 +212,15 @@ options.auxdata = struct( ...
     'cont',     cont, ...
     'mpopt',    mpopt, ...
     'il',       il, ...
+    'A',        A, ...
     'Js',       Js, ...
     'Hs',       Hs    );
 
 %% define variable and constraint bounds
 options.lb = xmin;
 options.ub = xmax;
-options.cl = repmat([zeros(2*nb, 1);  -Inf(2*nl2, 1)], [ns, 1]);
-options.cu = repmat([zeros(2*nb, 1); zeros(2*nl2, 1)], [ns, 1]);
+options.cl = [repmat([zeros(2*nb, 1);  -Inf(2*nl2, 1)], [ns, 1]); l];
+options.cu = [repmat([zeros(2*nb, 1); zeros(2*nl2, 1)], [ns, 1]); u+1e10]; %add 1e10 so that ipopt doesn't remove l==u case
 
 %% assign function handles
 funcs.objective         = @objective;
@@ -296,6 +325,10 @@ for i = 0:ns-1
     constr(i*(NCONSTR) + (1:NCONSTR)) = [gn_local; hn_local];
 end
 
+if ~isempty(d.A)
+    constr = [constr; d.A*x]; %append linear constraints
+end
+
 
 function J = jacobian(x, d)
 mpc = get_mpc(d.om);
@@ -320,6 +353,7 @@ for i = 0:ns-1
     J(i*NCONSTR + (1:NCONSTR), i*2*nb + (1:2*nb)) = [dgn(:,1:2*nb); dhn(:,1:2*nb)];
     J(i*NCONSTR + (1:2*nb), ns*2*nb + (1:2*ng)) = dgn(:,2*nb+(1:2*ng));
 end
+J = [J; d.A]; %append Jacobian of linear constraints
 
 
 function H = hessian(x, sigma, lambda, d)
