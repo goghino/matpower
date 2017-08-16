@@ -74,8 +74,12 @@ if nargin < 5
 end
 
 %%-----  add nominal case to the list of contingencies  -----
+if ~isempty(cont) && (size(cont, 1) > 1 && size(cont, 2) > 1)
+    error('List of contingencies must be a vector.');
+end
+
 if size(cont, 2) > 1
-   error('List of contingencies must be column vector'); 
+   cont = cont'; %scopf expects a column vector
 end
 cont = [-1; cont];
 
