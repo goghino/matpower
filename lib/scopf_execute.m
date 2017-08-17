@@ -1,4 +1,4 @@
-function [results, success, raw] = scopf_execute(om, cont, mpopt)
+function [results, success, raw] = scopf_execute(om, model, mpopt)
 %OPF_EXECUTE  Executes the OPF specified by an OPF model object.
 %   [RESULTS, SUCCESS, RAW] = OPF_EXECUTE(OM, MPOPT)
 %
@@ -58,12 +58,13 @@ end
   %% run specific AC OPF solver
   switch alg
     case 'MIPS'
-      [results, success, raw] = mipsscopf_solver(om, cont, mpopt);
+       error('MIPS interface not yet implemented with new SCOPF model');
+      [results, success, raw] = mipsscopf_solver(om, model, mpopt);
     case 'IPOPT'
       if ~have_fcn('ipopt')
         error('opf_execute: MPOPT.opf.ac.solver = ''%s'' requires IPOPT (see http://www.coin-or.org/projects/Ipopt.xml)', alg);
       end
-      [results, success, raw] = ipoptscopf_solver(om, cont, mpopt);
+      [results, success, raw] = ipoptscopf_solver(om, model, mpopt);
     otherwise
       error('opf_execute: MPOPT.opf.ac.solver = ''%s'' is not a valid AC OPF solver selection', alg);
   end

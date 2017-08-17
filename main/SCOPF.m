@@ -13,6 +13,6 @@ mpc = loadcase('case9');
 
 %%
 
-cont = [8];
+cont = [2];
 
 runscopf(mpc, cont, mpopt);

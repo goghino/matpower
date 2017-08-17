@@ -9,11 +9,13 @@ addpath('/Users/Juraj/Documents/Code/PowerGrid/matrices/'); %readcsr
 mpopt = mpoption('opf.ac.solver', 'IPOPT', 'verbose', 2);
 
 %load MATPOWER case struct, see help caseformat
-mpc = loadcase('case118');
+mpc = loadcase('case9');
 
 nbus = size(mpc.bus, 1);
 nbrch = size(mpc.branch, 1);
 ngen = size(mpc.gen, 1);
+
+delete *.iajaa;
 
 
 %%
@@ -23,8 +25,6 @@ contingencies = [2 3 5 6 8 9];
 
 %condition number for the full IPOPT system
 cond_KKT = zeros(nbrch,1);
-%condition number of the small diagonal blocks before reordering
-cond_hess = zeros(nbrch,2);
 %condition number of the big diagonal blocks after reordering
 cond_block = zeros(nbrch,2);
 cond_pblock = zeros(nbrch,2);
@@ -33,14 +33,22 @@ cond_bblock1 = zeros(nbrch,2); %SC w.r.t smaller block
 cond_bblock2 = zeros(nbrch,2); %SC w.r.t bigger block
 cond_bblock3 = zeros(nbrch,2); %SC w.r.t bigger block, extra level of SC
 
-for i = 1 %contingencies
+for i = contingencies
     
     % specify list of branch contingencies, equals to OPF if empty
-    cont = [1 2]'; 
+    cont = [i]; 
     ns = size(cont,1) + 1; %number of scenarios (ncont + nominal)
  
      %runopf(mpc, mpopt);
      runscopf(mpc, cont, mpopt);
+    
+    %compute sizes in order to split the KKT 
+    BUS_TYPE = 2;
+    PV = 2;
+    busPV = find(mpc.bus(:,BUS_TYPE) == PV); %find PV buses
+    nPV = size(busPV,1); %number of PV buses
+    npart = (2*nbus + ngen + 1) + (2*nbrch) + (2*nbus) + (2*nbrch); %#equations in hess/jac of bus power flow/line limits
+    N = ns*npart + ngen-1 + 2*(ns-1)*nPV;
 
     % read-in IPOPT hessian and permute it
     name = ls('mat-ipopt_004-*');
@@ -51,55 +59,30 @@ for i = 1 %contingencies
         name = name(1:end-1); % delete trailing ' '
     end
     
-    A = readcsr(name, 0, 1); 
-    [P Pinv] = KKTpermute(nbus, nbrch, ngen, ns);
-    AP = A(P,P'); 
+    A = readcsr(name, 0, 1);
+    cond_KKT(i,1) = cond(full(A));
     
-%     figure; spy(AP)
-%     figure; spy(A)
+    [P Pinv] = KKTpermute(mpc, ns);
+    AP = A(P,P'); 
+    if (A - AP(Pinv, Pinv') ~= sparse(size(A,1),size(A,2)))
+       error('Inverse permutation does not result in original matrix.') 
+    end
 
     %condition num of full IPOPT KKT system
     cond_KKT(i,1) = cond(full(A));
-
-    %local hessians wrt primal variables for nominal and contingency
-    nH = 2*nbus;
-    for j = 1:ns
-        cond_hess(i,j) = cond(full(A((j-1)*nH+(1:nH),(j-1)*nH+(1:nH))));
-    end
     
     %diagonal blocks after permutation
-    npart = 2*nbus + 2*nbus + 2*nbrch + 2*nbrch;
-    nppart = 2*nbus + 2*nbus + 2*nbrch;
     for j = 1:ns
         block = AP((j-1)*npart+(1:npart),(j-1)*npart+(1:npart));
         cond_block(i,j) = cond(full(block));
         
         %preprocess block
-        d = abs(diag(block));
+        d = abs(max(block,[],2));
         idx = find(d < 1e-12);
         d(idx) = 1;
         S = diag(1./sqrt(d));
         cond_pblock(i,j) = cond(full(S*block*S));
-        
-        %break down the block into more blocks
-        block11 = block(1:nppart,1:nppart);
-        block22 = block(nppart+(1:2*nbrch),nppart+(1:2*nbrch));
-        B = block(nppart+(1:2*nbrch),1:nppart);
-        BT = block(1:nppart,nppart+(1:2*nbrch));
-        
-        SC = block11 - BT*(block22\B); %SC w.r.t block 1,1
-        
-        cond_bblock1(i,j) = cond(full(block11));
-        cond_bblock2(i,j) = cond(full(SC));
-        
-        %do 3-rd level of SC
-        block11 = SC(1:18,1:18);
-        block22 = SC(19:end, 19:end);
-        BT = SC(1:18, 19:end);
-        B = SC(19:end, 1:18);
-        
-        SC = block22 - B*(block11\BT);
-        cond_bblock3(i,j) = cond(full(SC));
+     
     end
     
     %remove IPOPT matrices
@@ -107,11 +90,8 @@ for i = 1 %contingencies
 end
 
 cond_KKT
-cond_hess
 cond_block
 cond_pblock
-cond_bblock1
-cond_bblock2
 
 %isolating bus by contingency creates singular Cb, zero on diagonal
 % -> singular local hessian and fucked up condition numbers!!!

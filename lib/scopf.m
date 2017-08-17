@@ -1,7 +1,7 @@
 function [results, success, info] = ...
     scopf(mpc, cont, mpopt)
-%OPF  Solves an optimal power flow with security constraints.
-%   [RESULTS, SUCCESS] = OPF(MPC, CONT, MPOPT)
+%SCOPF  Solves an optimal power flow with security constraints.
+%   [RESULTS, SUCCESS] = SCOPF(MPC, CONT, MPOPT)
 %
 %   Returns either a RESULTS struct and an optional SUCCESS flag, or individual
 %   data matrices, the objective function value and a SUCCESS flag. In the
@@ -11,139 +11,7 @@ function [results, success, info] = ...
 %   Examples:
 %       Output argument options:
 %
-%       results = opf(...)
-%       [results, success] = opf(...)
-%       [bus, gen, branch, f, success] = opf(...)
-%       [bus, gen, branch, f, success, info, et, g, jac, xr, pimul] = opf(...)
-%
-%       Input arguments options:
-%
-%       opf(mpc)
-%       opf(mpc, cont)
-%       opf(mpc, cont, mpopt)
-%
-%       opf(baseMVA, bus, gen, branch, areas, gencost)
-%       opf(baseMVA, bus, gen, branch, areas, gencost, mpopt)
-%       opf(baseMVA, bus, gen, branch, areas, gencost, userfcn, mpopt)
-%       opf(baseMVA, bus, gen, branch, areas, gencost, A, l, u)
-%       opf(baseMVA, bus, gen, branch, areas, gencost, A, l, u, mpopt)
-%       opf(baseMVA, bus, gen, branch, areas, gencost, A, l, u, ...
-%                                   mpopt, N, fparm, H, Cw)
-%       opf(baseMVA, bus, gen, branch, areas, gencost, A, l, u, ...
-%                                   mpopt, N, fparm, H, Cw, z0, zl, zu)
-%
-%   The data for the problem can be specified in one of three ways:
-%   (1) a string (mpc) containing the file name of a MATPOWER case
-%     which defines the data matrices baseMVA, bus, gen, branch, and
-%     gencost (areas is not used at all, it is only included for
-%     backward compatibility of the API).
-%   (2) a struct (mpc) containing the data matrices as fields.
-%   (3) the individual data matrices themselves.
-%   
-%   The optional user parameters for user constraints (A, l, u), user costs
-%   (N, fparm, H, Cw), user variable initializer (z0), and user variable
-%   limits (zl, zu) can also be specified as fields in a case struct,
-%   either passed in directly or defined in a case file referenced by name.
-%   
-%   When specified, A, l, u represent additional linear constraints on the
-%   optimization variables, l <= A*[x; z] <= u. If the user specifies an A
-%   matrix that has more columns than the number of "x" (OPF) variables,
-%   then there are extra linearly constrained "z" variables. For an
-%   explanation of the formulation used and instructions for forming the
-%   A matrix, see the manual.
-%
-%   A generalized cost on all variables can be applied if input arguments
-%   N, fparm, H and Cw are specified.  First, a linear transformation
-%   of the optimization variables is defined by means of r = N * [x; z].
-%   Then, to each element of r a function is applied as encoded in the
-%   fparm matrix (see manual). If the resulting vector is named w,
-%   then H and Cw define a quadratic cost on w: (1/2)*w'*H*w + Cw * w .
-%   H and N should be sparse matrices and H should also be symmetric.
-%
-%   The optional mpopt vector specifies MATPOWER options. If the OPF
-%   algorithm is not explicitly set in the options MATPOWER will use
-%   the default solver, based on a primal-dual interior point method.
-%   For the AC OPF this is opf.ac.solver = 'MIPS', unless the TSPOPF optional
-%   package is installed, in which case the default is 'PDIPM'. For the
-%   DC OPF, the default is opf.dc.solver = 'MIPS'. See MPOPTION for
-%   more details on the available OPF solvers and other OPF options
-%   and their default values.
-%
-%   The solved case is returned either in a single results struct (described
-%   below) or in the individual data matrices, bus, gen and branch. Also
-%   returned are the final objective function value (f) and a flag which is
-%   true if the algorithm was successful in finding a solution (success).
-%   Additional optional return values are an algorithm specific return status
-%   (info), elapsed time in seconds (et), the constraint vector (g), the
-%   Jacobian matrix (jac), and the vector of variables (xr) as well 
-%   as the constraint multipliers (pimul).
-%
-%   The single results struct is a MATPOWER case struct (mpc) with the
-%   usual baseMVA, bus, branch, gen, gencost fields, along with the
-%   following additional fields:
-%
-%       .order      see 'help ext2int' for details of this field
-%       .et         elapsed time in seconds for solving OPF
-%       .success    1 if solver converged successfully, 0 otherwise
-%       .om         OPF model object, see 'help opf_model'
-%       .x          final value of optimization variables (internal order)
-%       .f          final objective function value
-%       .mu         shadow prices on ...
-%           .var
-%               .l  lower bounds on variables
-%               .u  upper bounds on variables
-%           .nln
-%               .l  lower bounds on nonlinear constraints
-%               .u  upper bounds on nonlinear constraints
-%           .lin
-%               .l  lower bounds on linear constraints
-%               .u  upper bounds on linear constraints
-%       .raw        raw solver output in form returned by MINOS, and more
-%           .xr     final value of optimization variables
-%           .pimul  constraint multipliers
-%           .info   solver specific termination code
-%           .output solver specific output information
-%              .alg algorithm code of solver used
-%           .g      (optional) constraint values
-%           .dg     (optional) constraint 1st derivatives
-%           .df     (optional) obj fun 1st derivatives (not yet implemented)
-%           .d2f    (optional) obj fun 2nd derivatives (not yet implemented)
-%       .var
-%           .val    optimization variable values, by named block
-%               .Va     voltage angles
-%               .Vm     voltage magnitudes (AC only)
-%               .Pg     real power injections
-%               .Qg     reactive power injections (AC only)
-%               .y      constrained cost variable (only if have pwl costs)
-%               (other) any user defined variable blocks
-%           .mu     variable bound shadow prices, by named block
-%               .l  lower bound shadow prices
-%                   .Va, Vm, Pg, Qg, y, (other)
-%               .u  upper bound shadow prices
-%                   .Va, Vm, Pg, Qg, y, (other)
-%       .nln    (AC only)
-%           .mu     shadow prices on nonlinear constraints, by named block
-%               .l  lower bounds
-%                   .Pmis   real power mismatch equations
-%                   .Qmis   reactive power mismatch equations
-%                   .Sf     flow limits at "from" end of branches
-%                   .St     flow limits at "to" end of branches
-%               .u  upper bounds
-%                   .Pmis, Qmis, Sf, St
-%       .lin
-%           .mu     shadow prices on linear constraints, by named block
-%               .l  lower bounds
-%                   .Pmis   real power mistmatch equations (DC only)
-%                   .Pf     flow limits at "from" end of branches (DC only)
-%                   .Pt     flow limits at "to" end of branches (DC only)
-%                   .PQh    upper portion of gen PQ-capability curve (AC only)
-%                   .PQl    lower portion of gen PQ-capability curve (AC only)
-%                   .vl     constant power factor constraint for loads (AC only)
-%                   .ycon   basin constraints for CCV for pwl costs
-%                   (other) any user defined constraint blocks
-%               .u  upper bounds
-%                   .Pmis, Pf, Pt, PQh, PQl, vl, ycon, (other)
-%       .cost       user defined cost values, by named block
+%       [results, success, info] = scopf(mpc, cont, mpopt)
 %
 %   See also RUNOPF, DCOPF, UOPF, CASEFORMAT.
 
@@ -190,80 +58,147 @@ mpc = ext2int(mpc);
 %%-----  construct OPF model object  -----
 om = scopf_setup(mpc, mpopt);
 
+%%----- build scopf model -----
+%pass index functions to solvers in order to properly construct x and evaluate callbacks
+index = struct('getGlobalIndices', @getGlobalIndices, ...
+               'getLocalIndicesSCOPF', @getLocalIndicesSCOPF, ...
+               'getLocalIndicesOPF', @getLocalIndicesOPF);
+           
+scopf_m = struct('cont', cont, 'index', index);
+
 %%-----  execute the OPF  -----
-if nargout > 7
-    mpopt.opf.return_raw_der = 1;
-end
-[results, success, raw] = scopf_execute(om, cont, mpopt);
+[results, success, raw] = scopf_execute(om, scopf_m, mpopt);
+info = raw.info;
 
 %% verify feasibility of the results 
-nb = size(mpc.bus, 1);          %% number of buses
-ng = size(mpc.gen, 1);          %% number of gens
-nl = size(mpc.branch, 1);       %% number of branches
 ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
+
+[VAscopf, VMscopf, PGscopf, QGscopf] = getLocalIndicesSCOPF(mpc);
+[VAopf, VMopf, PGopf, QGopf] = getLocalIndicesOPF(mpc);
+
+BUS_TYPE = 2;
+REF = 3;
+GEN_BUS = 1;
+ref_bus = find(mpc.bus(:,BUS_TYPE) == REF);
+ref_gen = find(mpc.gen(:,GEN_BUS) == ref_bus); %index of gen connected to ref_bus
 
 %compute bus voltages and check bounds
 for i = 1:ns
     %get contingency
     c = cont(i);
     
-    %extract local solution vector [Va_i Vm_i Pg Qg]
-    xb = results.x((i-1)*2*nb + (1:2*nb)); %[Va Vm]
-    V = xb(nb+1:2*nb) .* exp(1j*xb(1:nb)); %complex V
-    xg = results.x(ns*2*nb + (1:2*ng)); %[Pg Qg]
-    
-    x_i = [xb; xg];
+    %compute local indices and its parts
+    idx = getGlobalIndices(mpc, ns, i-1);
+        
+    %extract local solution vector [Va Vm Pg Qg]
+    xl = results.x(idx([VAscopf VMscopf PGscopf QGscopf]));
+    xg = xl([PGopf QGopf]); %[Pg Qg]
     
     %update admittance matrices
     [Ybus, Yf, Yt] = updateYbus(mpc.branch, raw.meta.Ybus, raw.meta.Yf, raw.meta.Yt, c);
     
     %check power generation bounds
-    %[raw.output.lb(ns*2*nb + (1:2*ng)) xg raw.output.ub(ns*2*nb + (1:2*ng))]
-    idx = find(xg < raw.meta.lb(ns*2*nb + (1:2*ng)));
-    if(not(isempty(idx)))
+    err = find(xg < raw.meta.lb(idx([PGscopf QGscopf])));
+    if (not(isempty(err)))
         error('violated lower Pg/Qg limit');
     end
-    idx = find(xg > raw.meta.ub(ns*2*nb + (1:2*ng)));
-    if(not(isempty(idx)))
+    err = find(xg > raw.meta.ub(idx([PGscopf QGscopf])));
+    if (not(isempty(err)))
         error('violated upper Pg/Qg limit');
     end
     
     %bus voltages magnitude bounds p.u.
-    %[mpc.bus(:, VMIN) xb(nb+1:2*nb) mpc.bus(:, VMAX) ]
-    idx = find(xb(nb+1:2*nb) < mpc.bus(:, VMIN));
-    if(not(isempty(idx)))
-        error('violated lower Vm limit');
+    err = find(xl(VMopf) < raw.meta.lb(idx(VMscopf)));
+    if (not(isempty(err)))
+        error('violated lower Vm limit %e', max(mpc.bus(err,VMIN) - xl(VMopf(err))));
     end
     
-    idx = find(xb(nb+1:2*nb) > mpc.bus(:, VMAX));
-    if(not(isempty(idx)))
-        error('violated upper Vm limit');
+    err = find(xl(VMopf) > raw.meta.ub(idx(VMscopf)));
+    if (not(isempty(err)))
+        error('violated upper Vm limit %e', max(xl(VMopf(err)) - mpc.bus(err,VMAX)));
     end
     
     %bus voltage angles limits only reference bus Val = Va = Vau
-    %[xb(1:nb)]
-    %%refs = find(mpc.bus(:, BUS_TYPE) == REF);
-    %%Va   = xb(refs) * (pi/180);
-    
+    err_lb = abs(xl(VAopf(ref_bus)) * (pi/180) - raw.meta.lb(idx(VAscopf(ref_bus))));
+    err_ub = abs(xl(VAopf(ref_bus)) * (pi/180) - raw.meta.ub(idx(VAscopf(ref_bus))));
+    if (err_lb > 1e-5 || err_ub > 1e-5)
+        error('violated Va limits on reference bus %e %e', err_lb, err_ub);
+    end
     
     %power flows equations and branch power flows
-    [hn_local, gn_local] = opf_consfcn(x_i, om, Ybus, Yf, Yt, mpopt);
+    [hn_local, gn_local] = opf_consfcn(xl, om, Ybus, Yf, Yt, mpopt);
     
     %g(x) = 0, g(x) = V .* conj(Ybus * V) - Sbus;
-    idx = find(abs(gn_local) > 1e-7);
-    if(not(isempty(idx)))
-        error('violated PF equations');
+    err = find(abs(gn_local) > 1e-4);
+    if (not(isempty(err)))
+        error('violated PF equations %e', max(abs(gn_local(err))));
     end
     
     %h(x) <= 0, h(x) = Sf .* conj(Sf) - flow_max.^2
     %h(x) for lines with contingency is - flow_max.^2 which satisfy limits implicitly
-    idx = find(hn_local > 0);
-    if(not(isempty(idx)))
-        error('violated branch power flow limits');
+    err = find(hn_local > 0);
+    if(not(isempty(err)))
+        error('violated branch power flow limits %e', max(abs(hn_local(err))));
+    end
+    
+    %linear constraints
+    if ~isempty(raw.meta.A)
+        lin_constr = raw.meta.A * results.x;
+        err = find(abs(lin_constr) > 2e-1);
+        if(not(isempty(err)))
+            error('violated linear constraints %e', max(abs(lin_constr(err))));
+        end
     end
 end
 
-info = raw.info;
-
 %% -----  DO NOT revert to original ordering, we are returnting SCOPF solution, not OPF  -----
 %results = int2ext(results);
+
+%% -----  helper functions  ----- 
+function idx = getGlobalIndices(mpc, ns, i)
+% returns indices of local OPF variables of sceanrio i in vector x_ipopt
+% OPF variables are ordered local first, global variables then: [Va Vm Qg Pg_ref] [Pg]
+% scenarios i are indexed 0..NS-1
+nb = size(mpc.bus, 1);          %% number of buses
+ng = size(mpc.gen, 1);          %% number of gens
+nl = size(mpc.branch, 1);       %% number of branches
+
+nPart = 2*nb+ng+1; %number of local variables for each scenario
+
+li1 = i*nPart + (1:2*nb); %indices of local variables [Va Vm] of scenario i
+li2 = i*nPart + 2*nb + (1:ng); %indices of local variables [Qg] of scenario i
+li3 = i*nPart + 2*nb + ng + 1; %index of local variable Pg_ref at BUS_ref
+gi = ns*nPart + (1:ng-1); %indices of global variables [Pg], Pg not at BUS_ref
+
+idx = [li1 li2 li3 gi]; %return in order [Va Vm Qg Pg_ref] [Pg]
+
+function [VAi, VMi, PGi, QGi] = getLocalIndicesSCOPF(mpc)
+%extracts OPF variables from local SCOPF variables vector x
+%usage: x_local = getGlobalIndices(..., ..., scenario_i)
+%       x(x_local([VAi VMi PGi QGi]))
+nb = size(mpc.bus, 1);          %% number of buses
+ng = size(mpc.gen, 1);          %% number of gens
+nl = size(mpc.branch, 1);       %% number of branches
+
+BUS_TYPE = 2;
+REF = 3;
+GEN_BUS = 1;
+ref_bus = find(mpc.bus(:,BUS_TYPE) == REF);
+ref_gen = find(mpc.gen(:,GEN_BUS) == ref_bus); %index of gen connected to ref_bus
+
+VAi = 1:nb;
+VMi = nb + (1:nb);
+PGi = 2*nb + ng + 1 + [(1:ref_gen-1), 0 ,(ref_gen:ng-1)];
+QGi = 2*nb + (1:ng);
+
+function [VAi, VMi, PGi, QGi] = getLocalIndicesOPF(mpc)
+%extracts variables from OPF variables vector x
+%usage: x([VAi VMi PGi QGi])
+nb = size(mpc.bus, 1);          %% number of buses
+ng = size(mpc.gen, 1);          %% number of gens
+nl = size(mpc.branch, 1);       %% number of branches
+
+VAi = 1:nb;
+VMi = nb + (1:nb);
+PGi = 2*nb + (1:ng);
+QGi = 2*nb + ng + (1:ng);

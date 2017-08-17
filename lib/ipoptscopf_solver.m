@@ -1,15 +1,21 @@
-function [results, success, raw] = ipoptscopf_solver(om, cont, mpopt)
+function [results, success, raw] = ipoptscopf_solver(om, model, mpopt)
 %IPOPTOPF_SOLVER  Solves AC optimal power flow with security constraints using IPOPT.
 %
-%   [RESULTS, SUCCESS, RAW] = IPOPTSCOPF_SOLVER(OM, CONT, MPOPT)
+%   [RESULTS, SUCCESS, RAW] = IPOPTSCOPF_SOLVER(OM, MODEL, MPOPT)
 %
-%   Inputs are an OPF model object, list of branch contingencies CONT
-%   and a MATPOWER options struct.
+%   Inputs are an OPF model object, SCOPF model and a MATPOWER options struct.
+%
+%   Model is a struct with following fields:
+%       .cont Containts a list of contingencies
+%       .index Contains functions to handle proper indexing of SCOPF variables
+%           .getGlobalIndices
+%           .getLocalIndicesOPF
+%           .getLocalIndicesSCOPF
 %
 %   Outputs are a RESULTS struct, SUCCESS flag and RAW output struct.
 %
 %   The internal x that ipopt works with has structure
-%   [Va1 Vm1 ... VaN VmN Pg Qg] for all contingency scenarios 1..N
+%   [Va1 Vm1 Qg1 Pg_ref1... VaN VmN QgN Pg_refN Pg] for all contingency scenarios 1..N
 %   with corresponding bounds xmin < x < xmax
 %
 %   We impose nonlinear equality and inequality constraints g(x) and h(x)
@@ -53,32 +59,40 @@ mpc = get_mpc(om);
     deal(mpc.baseMVA, mpc.bus, mpc.gen, mpc.branch, mpc.gencost);
 [vv, ll, nn] = get_idx(om);
 
+cont = model.cont;
+
+
 %% problem dimensions
 nb = size(bus, 1);          %% number of buses
 ng = size(gen, 1);          %% number of gens
 nl = size(branch, 1);       %% number of branches
 ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 
+% reference bus and generator
+ref_bus = find(mpc.bus(:,BUS_TYPE) == REF);
+ref_gen = find(mpc.gen(:,BUS_I) == ref_bus); %index of gen connected to ref_bus
+
 % indices of local parts of solution vector x = [VA VM PG QG]
-[VAi, VMi, PGi, QGi] = getLocalIndices(mpc);
-
-%% bounds on optimization vars
-[x0, xmin, xmax] = getv(om); %[Va Vm Pg Qg]
-xmax = xmax + 1e-10;
-
-% replicate bounds for all scenarios and append global PG/QG limits
-xl = xmin([VAi VMi]);
-xg = xmin([PGi QGi]);
-xmin = [repmat(xl, [ns, 1]); xg];
-
-xl = xmax([VAi VMi]);
-xg = xmax([PGi QGi]);
-xmax = [repmat(xl, [ns, 1]); xg];
+[VAscopf, VMscopf, PGscopf, QGscopf] = model.index.getLocalIndicesSCOPF(mpc);
+[VAopf, VMopf, PGopf, QGopf] = model.index.getLocalIndicesOPF(mpc);
 
 %% build admittance matrices for nominal case
 [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
 
-%% try to select an interior initial point
+%% bounds on optimization vars xmin <= x <= xmax 
+[x0, xmin, xmax] = getv(om); %returns standard OPF form [Va Vm Pg Qg]
+xmax = xmax + 1e-10;
+
+% replicate bounds for all scenarios and append global limits
+xl = xmin([VAopf VMopf QGopf PGopf(ref_gen)]); %local variables
+xg = xmin(PGopf([1:ref_gen-1 ref_gen+1:ng])); %global variables
+xmin = [repmat(xl, [ns, 1]); xg];
+
+xl = xmax([VAopf VMopf QGopf PGopf(ref_gen)]); %local variables
+xg = xmax(PGopf([1:ref_gen-1 ref_gen+1:ng])); %global variables
+xmax = [repmat(xl, [ns, 1]); xg];
+
+%% try to select an interior initial point based on bounds
 if mpopt.opf.init_from_mpc ~= 1
     ll = xmin; uu = xmax;
     ll(xmin == -Inf) = -1e10;               %% replace Inf with numerical proxies
@@ -88,49 +102,52 @@ if mpopt.opf.init_from_mpc ~= 1
     x0(k) = xmax(k) - 1;                    %% set just below upper bound
     k = find(xmin > -Inf & xmax == Inf);    %% if only bounded below
     x0(k) = xmin(k) + 1;                    %% set just above lower bound
-    Varefs = bus(bus(:, BUS_TYPE) == REF, VA) * (pi/180);
     
+    % adjust voltage angles to match reference bus
+    Varefs = bus(ref_bus, VA) * (pi/180);
     for i = 0:ns-1
-        idx = getGlobalIndices(mpc, ns, i);
-        x0(idx(VAi)) = Varefs(1);      %% angles set to first reference angle
+        idx = model.index.getGlobalIndices(mpc, ns, i);
+        x0(idx(VAscopf)) = Varefs(1);      %% set 1 if
     end
 end
 
 %% find branches with flow limits
-il = [1:nl]';               %% every branch has implicit bounds
-                             % find(branch(:, RATE_A) ~= 0 & branch(:, RATE_A) < 1e10);
+il_ = find(branch(:, RATE_A) ~= 0 & branch(:, RATE_A) < 1e10);
+il = [1:nl]';               %% we assume every branch has implicit bounds
                              % TODO insert default limits to branches that
                              % do not satisfy condition above
 nl2 = length(il);           %% number of constrained lines
 
-
-%% TODO
-%1.) build linear constraints l < A*x < u
-A = [];
-l = [];
-u = [];
-
-%% replace equality variable bounds with an equality constraint (all bounds except Va)
-%% (since IPOPT does not return shadow prices on variables that it eliminates)
-%% ((this was matpower's approach, we address this problem by setting xmax+=1e-10))
-kk = [];
-for i = 0:ns-1
-    idx = getGlobalIndices(mpc, ns, i);
-    k = find(xmin(idx(VMi)) == xmax(idx(VMi))); %% bounds for Vm
-    kk = [kk; k + idx(VMi(1))-1]; %% adjust index and append (-1 to compute offset to VM, not the first index of VM)
+if size(il_, 1) ~= nl2
+   error('Not all branches have specified RATE_A field.'); 
 end
-idx = getGlobalIndices(mpc, ns, 0);
-k = find(xmin(idx([PGi QGi])) == xmax(idx([PGi QGi]))); %% bounds for global variables
-kk = [kk; k + idx(PGi(1))-1];
 
-nk = length(kk);
-if nk
-    A = [ A; sparse((1:nk)', kk, 1, nk, nx) ];
-    l = [ l; xmin(kk) ];
-    u = [ u; xmax(kk) ];
-    xmin(kk) = -Inf;
-    xmax(kk) = Inf;
-end
+
+%% build linear constraints l <= A*x <= u
+% for all PV buses: 0 <= Vm0 - Vmi <= 0 for all contingencies i
+
+busPV = find(mpc.bus(:,BUS_TYPE) == 2); %find PV buses
+nPV = size(busPV,1); %number of PV buses
+nPart = 2*nb+ng+1; %number of local variables for each scenario [Va Vm Qg Pg_ref]
+
+%build "identity" matrix for Vm0 (nominal case)
+A1 = sparse(1:nPV*(ns-1),...
+            kron(ones(ns-1,1),busPV) + nb,... replicate column indices and add offest nb
+            1,...
+            nPV*(ns-1),...
+            nPart,...
+            nPV*(ns-1));
+%build "-identity" matrix for -Vmi (all contingency scenarios)
+An = sparse(1:nPV*(ns-1),...
+            kron(ones(ns-1,1),busPV) + kron([0:ns-2]',nPart*ones(nPV,1)) + nb,... skip previous local variables (excl. nominal case)
+            -1,...
+            nPV*(ns-1),...
+            nPart*(ns-1),...
+            nPV*(ns-1));
+
+A = [A1 An sparse(size(A1,1), ng-1)]; %put together constraints for local and global variables
+l = zeros(size(A,1),1);
+u = zeros(size(A,1),1);
 
 
 %% build local connectivity matrices
@@ -144,24 +161,25 @@ Cl2 = Cl(il, :);                                %% branches with active flow lim
 Cg = sparse(gen(:, GEN_BUS), (1:ng)', 1, nb, ng); %%locations where each gen. resides
 
 % Jacobian for the power flow and branch flow constraints:
-%    | Cb   Cb  Cg 0| 
-%    |              |
-%    | Cb   Cb  0 Cg|
-%    |              |
-%    | Cl   Cl  0  0| 
-%    |              |
-%    | Cl   Cl  0  0|
+%     dVa  dVm  dQg dPg_ref   <- local variables for each scenario
+%    | Cb   Cb  0   1 | ('one' at appropriate row, otherwise zeros) 
+%    |                |
+%    | Cb   Cb  Cg  0 |
+%    |                |
+%    | Cl   Cl  0   0 | 
+%    |                |
+%    | Cl   Cl  0   0 |
 Js_local = [
-    Cb      Cb;
-    Cb      Cb;
-    Cl2     Cl2;
-    Cl2     Cl2;
+    Cb      Cb    sparse(nb, ng)   sparse(ref_bus, 1, 1, nb, 1, 1);
+    Cb      Cb     Cg              sparse(nb, 1);
+    Cl2     Cl2   sparse(nl2, ng+1);
+    Cl2     Cl2   sparse(nl2, ng+1);
 ];
 
 CG = [
- Cg sparse(nb, ng);
- sparse(nb, ng) Cg;
- sparse(2*nl2, 2*ng);
+ Cg(:,[1:ref_gen-1 ref_gen+1:ng]); %skip column of ref_gen, it is local var.
+ sparse(nb, ng-1);
+ sparse(2*nl2, ng-1);
 ];
 
 Js = kron(eye(ns), Js_local); %replicate jac. w.r.t local variables
@@ -170,24 +188,28 @@ Js = [Js; A]; %append linear constraints
 
 % Hessian of lagrangian
 % Hs = f(x)_dxx + c(x)_dxx + h(x)_dxx
-% | Cb   Cb  0  0| 
-% |              |
-% | Cb   Cb  0  0|
+
+%  dVa  dVm  dQg dPg_ref
+% | Cb   Cb   0    0| (nominal case has dPg_ref 1)
+% |                 |
+% | Cb   Cb   0    0|
 %
 % h(x)_dxx = zeros(nl2,:)
 
 Hs_local =[
-    Cb  Cb
-    Cb  Cb
+    Cb  Cb sparse(nb, ng+1);
+    Cb  Cb sparse(nb, ng+1);
+    sparse(ng+1, 2*nb+ng+1);
 ];
 Hs = kron(eye(ns), Hs_local);
+Hs(2*nb+ng+1, 2*nb+ng+1) = 1; %set d2Pg_ref to 1 in nominal case
 
-idx_nom = getGlobalIndices(mpc, ns, 0); %evaluate cost of nominal case (only Pg/Qg are relevant) 
-[f, df, d2f] = opf_costfcn(x0(idx_nom), om);
+%set structure of objective hessian (cost = f(Pg))
+d2f = eye(ng-1); %d2 wrt Pg except Pg_ref
 
 %append hessian w.r.t global variables to lower right corner
-Hs = [Hs              zeros(size(Hs,1), 2*ng);
-      zeros(2*ng, size(Hs,2)) d2f([PGi QGi], [PGi QGi])]; %assuming that d2f has nonzeros only wrt Pg/Qg
+Hs = [Hs              zeros(size(Hs,1), ng-1);
+      zeros(ng-1, size(Hs,2)) d2f];
 Hs = tril(Hs);
 
 %% set options struct for IPOPT
@@ -197,6 +219,7 @@ options.ipopt = ipopt_options([], mpopt);
 options.auxdata = struct( ...
     'om',       om, ...
     'cont',     cont, ...
+    'index',    model.index, ...
     'mpopt',    mpopt, ...
     'il',       il, ...
     'A',        A, ...
@@ -238,8 +261,8 @@ else
     meta.iterations = [];
 end
 
-idx_nom = getGlobalIndices(mpc, ns, 0); %evaluate cost of nominal case (only Pg/Qg are relevant) 
-f = opf_costfcn(x(idx_nom), om); %assuming only pg/qg are relevant
+idx_nom = model.index.getGlobalIndices(mpc, ns, 0); %evaluate cost of nominal case (only Pg/Qg are relevant) 
+f = opf_costfcn(x(idx_nom([VAscopf VMscopf PGscopf QGscopf])), om);
 
 % %% update solution data for nominal senario and global vars
 % Va = x(vv.i1.Va:vv.iN.Va);
@@ -271,32 +294,10 @@ meta.Yf = Yf;
 meta.Yt = Yt;
 meta.lb = options.lb;
 meta.ub = options.ub;
+meta.A = A;
     
 raw = struct('info', info.status, 'meta', meta);
 results = struct('f', f, 'x', x);
-
-%% -----  helper functions  ----- 
-% returns indices of local/global variables of sceanrio i in vector x_ipopt
-% scenarios i are nidexed 0..NS-1
-function idx = getGlobalIndices(mpc, ns, i)
-nb = size(mpc.bus, 1);          %% number of buses
-ng = size(mpc.gen, 1);          %% number of gens
-nl = size(mpc.branch, 1);       %% number of branches
-
-li = i*2*nb + (1:2*nb); %indices of local variables [Va Vm] of scenario i
-gi = ns*2*nb + (1:2*ng); %indices of global variables [Pg Qg]
-
-idx = [li gi];
-
-function [VAi, VMi, PGi, QGi] = getLocalIndices(mpc) %!!! VA VM PG QG are defined in idx_bus
-nb = size(mpc.bus, 1);          %% number of buses
-ng = size(mpc.gen, 1);          %% number of gens
-nl = size(mpc.branch, 1);       %% number of branches
-
-VAi = 1:nb;
-VMi = nb + (1:nb);
-PGi = 2*nb + (1:ng);
-QGi = 2*nb + ng + (1:ng);
 
 %% -----  callback functions  -----
 function f = objective(x, d)
@@ -304,22 +305,27 @@ mpc = get_mpc(d.om);
 ns = size(d.cont, 1);           %% number of scenarios (nominal + ncont)
 
 % use nominal case to evaluate cost fcn (only pg/qg are relevant)
-idx_nom = getGlobalIndices(mpc, ns, 0);
-x_nom = x(idx_nom);
+idx_nom = d.index.getGlobalIndices(mpc, ns, 0);
+[VAscopf, VMscopf, PGscopf, QGscopf] = d.index.getLocalIndicesSCOPF(mpc);
 
-f = opf_costfcn(x_nom, d.om); %assuming only pg/qg are relevant
+f = opf_costfcn(x(idx_nom([VAscopf VMscopf PGscopf QGscopf])), d.om); %assuming only pg/qg are relevant
 
-function df = gradient(x, d)
+function grad = gradient(x, d)
 mpc = get_mpc(d.om);
 nb = size(mpc.bus, 1);          %% number of buses
+ng = size(mpc.gen, 1);          %% number of gens
 ns = size(d.cont, 1);           %% number of scenarios (nominal + ncont)
 
-% use nominal case to evaluate cost fcn
-idx_nom = getGlobalIndices(mpc, ns, 0);
-x_nom = x(idx_nom);
+%evaluate grad of nominal case
+idx_nom = d.index.getGlobalIndices(mpc, ns, 0);
+[VAscopf, VMscopf, PGscopf, QGscopf] = d.index.getLocalIndicesSCOPF(mpc);
+[VAopf, VMopf, PGopf, QGopf] = d.index.getLocalIndicesOPF(mpc);
 
-[f, df] = opf_costfcn(x_nom, d.om); %assuming only pg/qg are relevant
-df = [zeros((ns-1)*2*nb, 1); df];
+[f, df] = opf_costfcn(x(idx_nom([VAscopf VMscopf PGscopf QGscopf])), d.om);
+
+grad = zeros(size(x,1),1);
+grad(idx_nom(PGscopf)) = df(PGopf); %nonzero only nominal case Pg
+
 
 function constr = constraints(x, d)
 mpc = get_mpc(d.om);
@@ -331,11 +337,14 @@ NCONSTR = 2*nb + 2*nl;
 
 constr = zeros(ns*(NCONSTR), 1);
 
+[VAscopf, VMscopf, PGscopf, QGscopf] = d.index.getLocalIndicesSCOPF(mpc);
+[VAopf, VMopf, PGopf, QGopf] = d.index.getLocalIndicesOPF(mpc);
+
 for i = 0:ns-1
     cont = d.cont(i+1);
-    idx = getGlobalIndices(mpc, ns, i);
+    idx = d.index.getGlobalIndices(mpc, ns, i);
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
-    [hn_local, gn_local] = opf_consfcn(x(idx), d.om, Ybus, Yf, Yt, d.mpopt, d.il);
+    [hn_local, gn_local] = opf_consfcn(x(idx([VAscopf VMscopf PGscopf QGscopf])), d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     constr(i*(NCONSTR) + (1:NCONSTR)) = [gn_local; hn_local];
 end
 
@@ -354,21 +363,29 @@ NCONSTR = 2*nb + 2*nl;
 
 J = sparse(ns*(NCONSTR), size(x,1));
 
+BUS_TYPE = 2;
+REF = 3;
+GEN_BUS = 1;
+ref_bus = find(mpc.bus(:,BUS_TYPE) == REF);
+ref_gen = find(mpc.gen(:,GEN_BUS) == ref_bus); %index of gen connected to ref_bus
+
+[VAscopf, VMscopf, PGscopf, QGscopf] = d.index.getLocalIndicesSCOPF(mpc);
+[VAopf, VMopf, PGopf, QGopf] = d.index.getLocalIndicesOPF(mpc);
+
 for i = 0:ns-1
     %compute local indices and its parts
-    idx = getGlobalIndices(mpc, ns, i);
-    [VAi, VMi, PGi, QGi] = getLocalIndices(mpc);
+    idx = d.index.getGlobalIndices(mpc, ns, i);
     
     cont = d.cont(i+1);
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
-    [hn, gn, dhn, dgn] = opf_consfcn(x(idx), d.om, Ybus, Yf, Yt, d.mpopt, d.il);
+    [hn, gn, dhn, dgn] = opf_consfcn(x(idx([VAscopf VMscopf PGscopf QGscopf])), d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     dgn = dgn';
     dhn = dhn';
     
     %global variables are ordered to be last in x, need to insert local
     %jacobian accordingly into the global structure
-    J(i*NCONSTR + (1:NCONSTR), idx([VAi VMi])) = [dgn(:,[VAi VMi]); dhn(:,[VAi VMi])]; %dVai dVmi
-    J(i*NCONSTR + [VAi VMi], idx([PGi QGi])) = dgn(:, [PGi QGi]);%dPg dQg
+    J(i*NCONSTR + (1:NCONSTR), idx([VAscopf VMscopf QGscopf PGscopf(ref_gen)])) = [dgn(:,[VAopf VMopf QGopf PGopf(ref_gen)]); dhn(:,[VAopf VMopf QGopf PGopf(ref_gen)])]; %dVai dVmi dQg dPg_ref
+    J(i*NCONSTR + (1:size(dgn,1)), idx(PGscopf([1:ref_gen-1 ref_gen+1:ng]))) = dgn(:, PGopf([1:ref_gen-1 ref_gen+1:ng]));%dPg 
 end
 J = [J; d.A]; %append Jacobian of linear constraints
 
@@ -383,22 +400,36 @@ NCONSTR = 2*nb + 2*nl;
 
 H = sparse(size(x,1), size(x,1));
 
+BUS_TYPE = 2;
+REF = 3;
+GEN_BUS = 1;
+ref_bus = find(mpc.bus(:,BUS_TYPE) == REF);
+ref_gen = find(mpc.gen(:,GEN_BUS) == ref_bus); %index of gen connected to ref_bus
+
+[VAscopf, VMscopf, PGscopf, QGscopf] = d.index.getLocalIndicesSCOPF(mpc);
+[VAopf, VMopf, PGopf, QGopf] = d.index.getLocalIndicesOPF(mpc);
+
 for i = 0:ns-1
     %compute local indices and its parts
-    idx = getGlobalIndices(mpc, ns, i);
-    [VAi, VMi, PGi, QGi] = getLocalIndices(mpc);
+    idx = d.index.getGlobalIndices(mpc, ns, i);
     
     cont = d.cont(i+1);
     [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
     
     lam.eqnonlin   = lambda(i*NCONSTR + (1:2*nb));
     lam.ineqnonlin = lambda(i*NCONSTR + 2*nb + (1:2*nl));
-    H_local = opf_hessfcn(x(idx), lam, sigma, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
+    H_local = opf_hessfcn(x(idx([VAscopf VMscopf PGscopf QGscopf])), lam, sigma, d.om, Ybus, Yf, Yt, d.mpopt, d.il);
     
     %insert hessian w.r.t local variables in into the full hessian
-    H(idx([VAi VMi]), idx([VAi VMi])) = H_local([VAi VMi], [VAi VMi]);
+    if i == 0
+        %include derivative w.r.t Pg_ref in nominal case, because only this is considered in the cost function
+        H(idx([VAscopf VMscopf QGscopf PGscopf(ref_gen)]), idx([VAscopf VMscopf QGscopf PGscopf(ref_gen)])) = H_local([VAopf VMopf QGopf PGopf(ref_gen)], [VAopf VMopf QGopf PGopf(ref_gen)]);
+        %hessian w.r.t global variables goes to lower right corner
+        H(idx(PGscopf([1:ref_gen-1 ref_gen+1:ng])), idx(PGscopf([1:ref_gen-1 ref_gen+1:ng]))) = H_local(PGopf([1:ref_gen-1 ref_gen+1:ng]), PGopf([1:ref_gen-1 ref_gen+1:ng]));
+    else
+        %skip Pg_ref in contingency scenarios, it is not used in objective function
+        H(idx([VAscopf VMscopf QGscopf]), idx([VAscopf VMscopf QGscopf])) = H_local([VAopf VMopf QGopf], [VAopf VMopf QGopf]);
+    end
 end
-%hessian w.r.t global variables goes to lower right corner
-H(idx([PGi QGi]), idx([PGi QGi])) = H_local([PGi QGi], [PGi QGi]);
 
 H = tril(H);
