@@ -9,7 +9,7 @@ addpath('/Users/Juraj/Documents/Code/PowerGrid/matrices/'); %readcsr
 mpopt = mpoption('opf.ac.solver', 'IPOPT', 'verbose', 2);
 
 %load MATPOWER case struct, see help caseformat
-mpc = loadcase('case9');
+mpc = loadcase('case118');
 
 nbus = size(mpc.bus, 1);
 nbrch = size(mpc.branch, 1);
@@ -21,17 +21,14 @@ delete *.iajaa;
 %%
 
 %list of case9 branches that do not leave isolated bus if cut
-contingencies = [2 3 5 6 8 9];
+%contingencies = [2 3 5 6 8 9];
+contingencies = [1:5];
 
 %condition number for the full IPOPT system
-cond_KKT = zeros(nbrch,1);
-%condition number of the big diagonal blocks after reordering
-cond_block = zeros(nbrch,2);
-cond_pblock = zeros(nbrch,2);
-%condition of part of the diagonal block from cond_block
-cond_bblock1 = zeros(nbrch,2); %SC w.r.t smaller block
-cond_bblock2 = zeros(nbrch,2); %SC w.r.t bigger block
-cond_bblock3 = zeros(nbrch,2); %SC w.r.t bigger block, extra level of SC
+cond_KKT = zeros(length(contingencies),1);
+%condition number of the diagonal blocks after reordering
+cond_block = zeros(length(contingencies),2);
+cond_pblock = zeros(length(contingencies),2);
 
 for i = contingencies
     
@@ -39,16 +36,8 @@ for i = contingencies
     cont = [i]; 
     ns = size(cont,1) + 1; %number of scenarios (ncont + nominal)
  
-     %runopf(mpc, mpopt);
-     runscopf(mpc, cont, mpopt);
-    
-    %compute sizes in order to split the KKT 
-    BUS_TYPE = 2;
-    PV = 2;
-    busPV = find(mpc.bus(:,BUS_TYPE) == PV); %find PV buses
-    nPV = size(busPV,1); %number of PV buses
-    npart = (2*nbus + ngen + 1) + (2*nbrch) + (2*nbus) + (2*nbrch); %#equations in hess/jac of bus power flow/line limits
-    N = ns*npart + ngen-1 + 2*(ns-1)*nPV;
+    %runopf(mpc, mpopt);
+    runscopf(mpc, cont, mpopt);
 
     % read-in IPOPT hessian and permute it
     name = ls('mat-ipopt_004-*');
@@ -62,7 +51,7 @@ for i = contingencies
     A = readcsr(name, 0, 1);
     cond_KKT(i,1) = cond(full(A));
     
-    [P Pinv] = KKTpermute(mpc, ns);
+    [P Pinv, npart] = KKTpermute(mpc, ns);
     AP = A(P,P'); 
     if (A - AP(Pinv, Pinv') ~= sparse(size(A,1),size(A,2)))
        error('Inverse permutation does not result in original matrix.') 

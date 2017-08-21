@@ -9,10 +9,10 @@ addpath('/Users/Juraj/Documents/Code/PowerGrid/matrices/'); %readcsr
 mpopt = mpoption('opf.ac.solver', 'IPOPT', 'verbose', 2);
 
 %load MATPOWER case struct, see help caseformat
-mpc = loadcase('case9');
+mpc = loadcase('case118');
 
 %%
 
-cont = [2];
+cont = [1:10];
 
 runscopf(mpc, cont, mpopt);
