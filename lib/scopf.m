@@ -62,7 +62,9 @@ om = scopf_setup(mpc, mpopt);
 %pass index functions to solvers in order to properly construct x and evaluate callbacks
 index = struct('getGlobalIndices', @getGlobalIndices, ...
                'getLocalIndicesSCOPF', @getLocalIndicesSCOPF, ...
-               'getLocalIndicesOPF', @getLocalIndicesOPF);
+               'getLocalIndicesOPF', @getLocalIndicesOPF, ...
+               'getXbuses', @getXbuses, ...
+               'getREFgens', @getREFgens);
            
 scopf_m = struct('cont', cont, 'index', index);
 
@@ -76,14 +78,16 @@ ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 [VAscopf, VMscopf, PGscopf, QGscopf] = getLocalIndicesSCOPF(mpc);
 [VAopf, VMopf, PGopf, QGopf] = getLocalIndicesOPF(mpc);
 
-BUS_TYPE = 2;
-REF = 3;
-GEN_BUS = 1;
-ref_bus = find(mpc.bus(:,BUS_TYPE) == REF);
-ref_gen = find(mpc.gen(:,GEN_BUS) == ref_bus); %index of gen connected to ref_bus
+[REFbus_idx,nREFbus_idx] = getXbuses(mpc,3);%3==REF
 
-%compute bus voltages and check bounds
+TOL_EQ = 1e-6;
+TOL_LIN = 1e-6;
+
+%verigy feasibility and check bounds
+fprintf('\nVerifing feasibility of the SCOPF solution with tolerance %e\n', TOL_EQ);
 for i = 1:ns
+    fprintf('\tscenario %d ...', i-1);
+    
     %get contingency
     c = cont(i);
     
@@ -92,64 +96,69 @@ for i = 1:ns
         
     %extract local solution vector [Va Vm Pg Qg]
     xl = results.x(idx([VAscopf VMscopf PGscopf QGscopf]));
-    xg = xl([PGopf QGopf]); %[Pg Qg]
     
     %update admittance matrices
     [Ybus, Yf, Yt] = updateYbus(mpc.branch, raw.meta.Ybus, raw.meta.Yf, raw.meta.Yt, c);
     
-    %check power generation bounds
-    err = find(xg < raw.meta.lb(idx([PGscopf QGscopf])));
-    if (not(isempty(err)))
-        error('violated lower Pg/Qg limit');
+    %check power generation bounds l < [Pg Qg] < u
+    err = find(xl([PGopf QGopf]) < raw.meta.lb(idx([PGscopf QGscopf])));
+    if (~isempty(err))
+        error('violated lower Pg/Qg limit %e', max(raw.meta.lb(idx([PGscopf QGscopf])) - xl([PGopf QGopf])));
     end
-    err = find(xg > raw.meta.ub(idx([PGscopf QGscopf])));
-    if (not(isempty(err)))
-        error('violated upper Pg/Qg limit');
+    err = find(xl([PGopf QGopf]) > raw.meta.ub(idx([PGscopf QGscopf])));
+    if (~isempty(err))
+        error('violated upper Pg/Qg limit %e', max(xl([PGopf QGopf]) - raw.meta.ub(idx([PGscopf QGscopf]))));
     end
     
-    %bus voltages magnitude bounds p.u.
+    %bus voltages magnitude bounds p.u. l < Vm < u
     err = find(xl(VMopf) < raw.meta.lb(idx(VMscopf)));
-    if (not(isempty(err)))
-        error('violated lower Vm limit %e', max(mpc.bus(err,VMIN) - xl(VMopf(err))));
+    if (~isempty(err))
+        error('violated lower Vm limit %e', max(raw.meta.lb(idx(VMscopf)) - xl(VMopf)));
     end
     
     err = find(xl(VMopf) > raw.meta.ub(idx(VMscopf)));
-    if (not(isempty(err)))
-        error('violated upper Vm limit %e', max(xl(VMopf(err)) - mpc.bus(err,VMAX)));
+    if (~isempty(err))
+        error('violated upper Vm limit %e', max(xl(VMopf) - raw.meta.ub(idx(VMscopf))));
     end
     
-    %bus voltage angles limits only reference bus Val = Va = Vau
-    err_lb = abs(xl(VAopf(ref_bus)) * (pi/180) - raw.meta.lb(idx(VAscopf(ref_bus))));
-    err_ub = abs(xl(VAopf(ref_bus)) * (pi/180) - raw.meta.ub(idx(VAscopf(ref_bus))));
-    if (err_lb > 1e-5 || err_ub > 1e-5)
-        error('violated Va limits on reference bus %e %e', err_lb, err_ub);
+    %bus voltage angles limits only reference bus l = Va = u
+    err_lb = abs(xl(VAopf(REFbus_idx)) - raw.meta.lb(idx(VAscopf(REFbus_idx))));
+    err_ub = abs(xl(VAopf(REFbus_idx)) - raw.meta.ub(idx(VAscopf(REFbus_idx))));
+    if (err_lb > TOL_EQ)
+        error('violated lower Va limit on reference bus %e', err_lb);
+    end
+    if (err_ub > TOL_EQ)
+        error('violated upper Va limit on reference bus %e', err_ub);
     end
     
-    %power flows equations and branch power flows
+    %evaluate power flows equations and branch power flows g(x), h(x)
     [hn_local, gn_local] = opf_consfcn(xl, om, Ybus, Yf, Yt, mpopt);
     
     %g(x) = 0, g(x) = V .* conj(Ybus * V) - Sbus;
-    err = find(abs(gn_local) > 1e-4);
-    if (not(isempty(err)))
+    err = find(abs(gn_local) > TOL_EQ);
+    if (~isempty(err))
         error('violated PF equations %e', max(abs(gn_local(err))));
     end
     
     %h(x) <= 0, h(x) = Sf .* conj(Sf) - flow_max.^2
-    %h(x) for lines with contingency is - flow_max.^2 which satisfy limits implicitly
+    %h(x) for lines with contingency is (- flow_max.^2) which satisfy limits implicitly
     err = find(hn_local > 0);
     if(not(isempty(err)))
         error('violated branch power flow limits %e', max(abs(hn_local(err))));
     end
     
     %linear constraints
-    if ~isempty(raw.meta.A)
+    if (~isempty(raw.meta.A))
         lin_constr = raw.meta.A * results.x;
-        err = find(abs(lin_constr) > 2e-1);
+        err = find(abs(lin_constr) > TOL_LIN);
         if(not(isempty(err)))
             error('violated linear constraints %e', max(abs(lin_constr(err))));
         end
     end
+    
+    fprintf('\tPASSED\n');
 end
+fprintf('\n');
 
 %% -----  DO NOT revert to original ordering, we are returnting SCOPF solution, not OPF  -----
 %results = int2ext(results);
@@ -163,14 +172,37 @@ nb = size(mpc.bus, 1);          %% number of buses
 ng = size(mpc.gen, 1);          %% number of gens
 nl = size(mpc.branch, 1);       %% number of branches
 
-nPart = 2*nb+ng+1; %number of local variables for each scenario
+[PVbus_idx, nPVbus_idx] = getXbuses(mpc,2);%2==PV
+nPV = size(PVbus_idx,1); %number of PV buses
+nnPV = nb - nPV; %number of non PV buses
 
-li1 = i*nPart + (1:2*nb); %indices of local variables [Va Vm] of scenario i
-li2 = i*nPart + 2*nb + (1:ng); %indices of local variables [Qg] of scenario i
-li3 = i*nPart + 2*nb + ng + 1; %index of local variable Pg_ref at BUS_ref
-gi = ns*nPart + (1:ng-1); %indices of global variables [Pg], Pg not at BUS_ref
+nPart = nb+nnPV+ng+1; %number of local variables for each scenario [Va Vm_npv Qg Pg_ref]
 
-idx = [li1 li2 li3 gi]; %return in order [Va Vm Qg Pg_ref] [Pg]
+li1 = i*nPart + (1:nb); %indices of local variables [Va] of scenario i
+li2 = i*nPart + nb + (1:nnPV); %indices of local variables [Vm not at BUS_PV] of scenario i
+li3 = i*nPart + nb + nnPV + (1:ng); %indices of local variables [Qg] of scenario i
+li4 = i*nPart + nb + nnPV + ng + 1; %index of local variable [Pg] at BUS_ref
+gi1 = ns*nPart + (1:nPV); %indices of global variables [Vm] Vm at BUS_PV
+gi2 = ns*nPart + nPV + (1:ng-1); %indices of global variables [Pg], Pg not at BUS_ref
+
+idx = [li1 li2 li3 li4 gi1 gi2]; %return in order [Va Vm_npv Qg Pg_ref] [Vm_pv Pg_nref]
+
+function [Xbus_idx, nXbus_idx] = getXbuses(mpc, type)
+%returns indices of buses with specified type and its complement to the full bus set
+BUS_TYPE = 2;
+Xbus_idx = find(mpc.bus(:,BUS_TYPE) == type);
+nXbus_idx = find(mpc.bus(:,BUS_TYPE) ~= type);
+
+function [REFgen_idx, nREFgen_idx] = getREFgens(mpc)
+%returns indices of generators connected to reference bus and its
+%complement to the full generator set
+BUS_TYPE = 2;
+REF = 3;
+GEN_BUS = 1;
+REFbus_idx = find(mpc.bus(:,BUS_TYPE) == REF);
+REFgen_idx = find(mpc.gen(:,GEN_BUS) == REFbus_idx); %index of gen connected to ref_bus
+nREFgen_idx = find(mpc.gen(:,GEN_BUS) ~= REFbus_idx); %index of gens not connected to ref_bus
+
 
 function [VAi, VMi, PGi, QGi] = getLocalIndicesSCOPF(mpc)
 %extracts OPF variables from local SCOPF variables vector x
@@ -180,16 +212,40 @@ nb = size(mpc.bus, 1);          %% number of buses
 ng = size(mpc.gen, 1);          %% number of gens
 nl = size(mpc.branch, 1);       %% number of branches
 
-BUS_TYPE = 2;
-REF = 3;
-GEN_BUS = 1;
-ref_bus = find(mpc.bus(:,BUS_TYPE) == REF);
-ref_gen = find(mpc.gen(:,GEN_BUS) == ref_bus); %index of gen connected to ref_bus
+[REFgen_idx, nREFgen_idx] = getREFgens(mpc);
+[PVbus_idx, nPVbus_idx] = getXbuses(mpc, 2);%2==PV
+[REFbus_idx, nREFbus_idx] = getXbuses(mpc,3);%3==ref
+
+nPV = size(PVbus_idx,1); %number of PV buses
+nnPV = size(nPVbus_idx,1); %number of non PV buses
+
+nPart = nb+nnPV+ng+1; %number of local variables for each scenario [Va Vm_npv Qg Pg_ref]
+
+%do some tests
+if (nPV + nnPV ~= nb)
+   error('PV and nonPV buses are not equal to the whole bus set'); 
+end
+if (length(REFbus_idx) > 1)
+   error('multiple REF buses'); 
+end
+
+if(length(REFgen_idx) > 1)
+    error('reference bus has multiple generators')
+end
+if(isempty(REFgen_idx))
+    error('reference bus has no connected generators')
+end
+
+tmp = [find(mpc.bus(mpc.gen(:,1), 2) == 1); %1==PQ
+       find(mpc.bus(mpc.gen(:,1), 2) == 4)];%4==isolated
+if(~isempty(tmp))
+    error('generator conected to non-PV bus (not considering REF buses)')
+end
 
 VAi = 1:nb;
-VMi = nb + (1:nb);
-PGi = 2*nb + ng + 1 + [(1:ref_gen-1), 0 ,(ref_gen:ng-1)];
-QGi = 2*nb + (1:ng);
+VMi = zeros(1,nb); VMi(nPVbus_idx) = nb + (1:nnPV); VMi(PVbus_idx) = nPart + (1:nPV);
+PGi = zeros(1,ng); PGi(nREFgen_idx) = nPart+nPV + (1:ng-1); PGi(REFgen_idx) = nb+nnPV+ng + (1);
+QGi = nb + nnPV + (1:ng);
 
 function [VAi, VMi, PGi, QGi] = getLocalIndicesOPF(mpc)
 %extracts variables from OPF variables vector x
