@@ -139,82 +139,138 @@ t = branch(:, T_BUS);                           %% list of "to" buses
 Cf = sparse(1:nl, f, ones(nl, 1), nl, nb);      %% connection matrix for line & from buses
 Ct = sparse(1:nl, t, ones(nl, 1), nl, nb);      %% connection matrix for line & to buses
 Cl = Cf + Ct;                                   %% for each line - from & to 
-Cb = Cl' * Cl + speye(nb);                      %% for each bus - contains adjacent buses
-Cl2 = Cl(il, :);                                %% branches with active flow limit
+Cb_nominal = Cl' * Cl + speye(nb);              %% for each bus - contains adjacent buses
+Cl2_nominal = Cl(il, :);                        %% branches with active flow limit
 Cg = sparse(gen(:, GEN_BUS), (1:ng)', 1, nb, ng); %%locations where each gen. resides
 
 %% Jacobian of constraints
+Js = sparse(0,0);
 
-% Jacobian wrt local variables
-%     dVa  dVm(nPV)   dQg   dPg(REF)   <- local variables for each scenario
-%    | Cb     Cb'      0     Cg' | ('one' at row of REF bus, otherwise zeros) 
-%    |                           |
-%    | Cb     Cb'      Cg     0  |
-%    |                           |
-%    | Cl     Cl'      0      0  | 
-%    |                           |
-%    | Cl     Cl'      0      0  |
-Js_local = [
-    Cb      Cb(:, nPVbus_idx)    sparse(nb, ng)   Cg(:, REFgen_idx);
-    Cb      Cb(:, nPVbus_idx)     Cg              sparse(nb, 1);
-    Cl2     Cl2(:, nPVbus_idx)   sparse(nl2, ng+1);
-    Cl2     Cl2(:, nPVbus_idx)   sparse(nl2, ng+1);
-];
-% Jacobian wrt global variables
-%     dVm(PV) dPg(nREF)   <- global variables for all scenarios
-%    | Cb'        Cg'  | ('one' at row of REF bus, otherwise zeros) 
-%    |                 |
-%    | Cb'        Cg'  |  
-Js_global = [
- Cb(:, PVbus_idx)  Cg(:, nREFgen_idx);
- Cb(:, PVbus_idx)  sparse(nb, ng-1);
- Cl2(:, PVbus_idx) sparse(nl2, ng-1);
- Cl2(:, PVbus_idx) sparse(nl2, ng-1);
-];
+for i = 0:ns-1
+    %update Cb to reflect the bus connectivity caused by contingency
+    Cb = Cb_nominal;
+    if (i > 0)
+        c = model.cont(i+1);
+        f = branch(c, F_BUS);                           %% "from" bus
+        t = branch(c, T_BUS);                           %% "to" bus
+        Cb(f,t) = 0;
+        Cb(t,f) = 0;
+    end
+    
+    %update Cl to reflect the contingency
+    Cl2 = Cl2_nominal;
+    if (i > 0)
+        c = model.cont(i+1);
+        Cl2(c, :) = 0;
+    end
+    
+    % Jacobian wrt local variables
+    %     dVa  dVm(nPV)   dQg   dPg(REF)   <- local variables for each scenario
+    %    | Cb     Cb'      0     Cg' | ('one' at row of REF bus, otherwise zeros) 
+    %    |                           |
+    %    | Cb     Cb'      Cg     0  |
+    %    |                           |
+    %    | Cl     Cl'      0      0  | 
+    %    |                           |
+    %    | Cl     Cl'      0      0  |
+    Js_local = [
+        Cb      Cb(:, nPVbus_idx)    sparse(nb, ng)   Cg(:, REFgen_idx);
+        Cb      Cb(:, nPVbus_idx)     Cg              sparse(nb, 1);
+        Cl2     Cl2(:, nPVbus_idx)   sparse(nl2, ng+1);
+        Cl2     Cl2(:, nPVbus_idx)   sparse(nl2, ng+1);
+    ];
+    % Jacobian wrt global variables
+    %     dVm(PV) dPg(nREF)   <- global variables for all scenarios
+    %    | Cb'        Cg'  | ('one' at row of REF bus, otherwise zeros) 
+    %    |                 |
+    %    | Cb'         0   |
+    %    |                 |
+    %    | Cl'         0   |
+    %    |                 |
+    %    | Cl'         0   |
+    Js_global = [
+     Cb(:, PVbus_idx)  Cg(:, nREFgen_idx);
+     Cb(:, PVbus_idx)  sparse(nb, ng-1);
+     Cl2(:, PVbus_idx) sparse(nl2, ng-1);
+     Cl2(:, PVbus_idx) sparse(nl2, ng-1);
+    ];
 
-Js = kron(eye(ns), Js_local); %replicate jac. w.r.t local variables
-Js = [Js kron(ones(ns,1), Js_global)]; % replicate and append jac w.r.t global variables
+    Js = [Js;
+          sparse(size(Js_local,1), i*size(Js_local,2)) Js_local sparse(size(Js_local,1), (ns-1-i)*size(Js_local,2)) Js_global];
+
+%     Js = kron(eye(ns), Js_local); %replicate jac. w.r.t local variables
+%     Js = [Js kron(ones(ns,1), Js_global)]; % replicate and append jac w.r.t global variables
+end
 Js = [Js; A]; %append linear constraints
 
 %% Hessian of lagrangian Hs = f(x)_dxx + c(x)_dxx + h(x)_dxx
+Hs = sparse(0,0);
+Hs_gl = sparse(0,0);
 
-%--- hessian wrt. scenario local variables ---
+for i = 0:ns-1
+    %update Cb to reflect the bus connectivity caused by contingency
+    Cb = Cb_nominal;
+    if (i > 0)
+        c = model.cont(i+1);
+        f = branch(c, F_BUS);                           %% "from" bus
+        t = branch(c, T_BUS);                           %% "to" bus
+        Cb(f,t) = 0;
+        Cb(t,f) = 0;
+    end
+    
+    %update Cl to reflect the contingency
+    Cl2 = Cl2_nominal;
+    if (i > 0)
+        c = model.cont(i+1);
+        Cl2(c, :) = 0;
+    end
 
-%          dVa  dVm(nPV)  dQg dPg(REF)
-% dVa     | Cb     Cb'     0     0  | 
-%         |                         |
-% dVm(nPV)| Cb'    Cb'     0     0  |
-%         |                         |
-% dQg     |  0      0      0     0  |
-%         |                         |
-% dPg(REF)|  0      0      0    Cg' | (only nominal case has Cg', because it is used in cost function)
+    %--- hessian wrt. scenario local variables ---
 
-Hs_ll =[
-    Cb                Cb(:, nPVbus_idx)          sparse(nb, ng+1);%assuming 1 REF gen
-    Cb(nPVbus_idx,:)  Cb(nPVbus_idx, nPVbus_idx) sparse(length(nPVbus_idx), ng+1);
-               sparse(ng+1, nb+length(nPVbus_idx)+ng+1);
-];
-%replicate hess. w.r.t local variables
-Hs = kron(eye(ns), Hs_ll); 
-%set d2Pg(REF) to 1 in nominal case
-Hs(nb+length(nPVbus_idx)+ng+1, nb+length(nPVbus_idx)+ng+1) = 1;
+    %          dVa  dVm(nPV)  dQg dPg(REF)
+    % dVa     | Cb     Cb'     0     0  | 
+    %         |                         |
+    % dVm(nPV)| Cb'    Cb'     0     0  |
+    %         |                         |
+    % dQg     |  0      0      0     0  |
+    %         |                         |
+    % dPg(REF)|  0      0      0    Cg' | (only nominal case has Cg', because it is used in cost function)
 
-%--- hessian w.r.t local-global variables ---
+    Hs_ll =[
+        Cb                Cb(:, nPVbus_idx)          sparse(nb, ng+1);%assuming 1 REF gen
+        Cb(nPVbus_idx,:)  Cb(nPVbus_idx, nPVbus_idx) sparse(length(nPVbus_idx), ng+1);
+                   sparse(ng+1, nb+length(nPVbus_idx)+ng+1);
+    ];
+    %replicate hess. w.r.t local variables
+    %Hs = kron(eye(ns), Hs_ll); 
+    
+    %set d2Pg(REF) to 1 in nominal case
+    if (i==0)
+        Hs_ll(nb+length(nPVbus_idx)+ng+1, nb+length(nPVbus_idx)+ng+1) = 1;
+    end
 
-%          dVm(PV)  dPg(nREF)
-% dVa     | Cb'     0    | 
-%         |              |
-% dVm(nPV)| Cb'     0    |
-%         |              |
-% dQg     |  0      0    |
-%         |              |
-% dPg(REF)|  0      0    | 
-Hs_lg  = [
-   Cb(:, PVbus_idx)           sparse(nb, ng-1);
-   Cb(nPVbus_idx, PVbus_idx)  sparse(length(nPVbus_idx), ng-1);
-   sparse(ng+length(REFgen_idx), length(PVbus_idx)+ng-1)
-];
-Hs_lg = kron(ones(ns,1), Hs_lg);
+    %--- hessian w.r.t local-global variables ---
+
+    %          dVm(PV)  dPg(nREF)
+    % dVa     | Cb'     0    | 
+    %         |              |
+    % dVm(nPV)| Cb'     0    |
+    %         |              |
+    % dQg     |  0      0    |
+    %         |              |
+    % dPg(REF)|  0      0    | 
+    Hs_lg  = [
+       Cb(:, PVbus_idx)           sparse(nb, ng-1);
+       Cb(nPVbus_idx, PVbus_idx)  sparse(length(nPVbus_idx), ng-1);
+       sparse(ng+length(REFgen_idx), length(PVbus_idx)+ng-1)
+    ];
+    %Hs_lg = kron(ones(ns,1), Hs_lg);
+    
+    Hs = [Hs;
+          sparse(size(Hs_ll,1), i*size(Hs_ll,2)) Hs_ll sparse(size(Hs_ll,1), (ns-1-i)*size(Hs_ll,2)) Hs_lg];
+    Hs_gl = [Hs_gl Hs_lg'];
+    
+end
 
 % --- hessian w.r.t global variables ---
 
@@ -223,7 +279,7 @@ Hs_lg = kron(ones(ns,1), Hs_lg);
 %          |          |
 % dPg(nREF)| 0  f_xx' |
 Hs_gg =[
-    Cb(PVbus_idx, PVbus_idx)          sparse(length(PVbus_idx), ng-1);
+    Cb_nominal(PVbus_idx, PVbus_idx)          sparse(length(PVbus_idx), ng-1);
     sparse(ng-1, length(PVbus_idx))               eye(ng-1);
 ];
 
@@ -235,8 +291,10 @@ Hs_gg =[
 % (l) | Hs_ll    Hs_lg |
 %     |                |
 % (g) | Hs_gl    Hs_gg |
-Hs = [Hs       Hs_lg;
-      Hs_lg'   Hs_gg];
+Hs = [Hs;
+      Hs_gl   Hs_gg];
+      
+
 Hs = tril(Hs);
 
 %% set options struct for IPOPT
