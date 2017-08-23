@@ -42,6 +42,8 @@ t0 = clock;         %% start timer
 nb   = size(mpc.bus, 1);    %% number of buses
 nl   = size(mpc.branch, 1); %% number of branches
 ng   = size(mpc.gen, 1);    %% number of dispatchable injections
+ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
+
 if size(mpc.bus,2) < MU_VMIN
   mpc.bus = [mpc.bus zeros(nb, MU_VMIN-size(mpc.bus,2)) ];
 end
@@ -54,6 +56,29 @@ end
 
 %%-----  convert to internal numbering, remove out-of-service stuff  -----
 mpc = ext2int(mpc);
+
+%%----- analyze contingencies if some creates islands or isolated buses
+for i = 1:ns
+
+    %get contingency
+    c = cont(i);
+    
+    %remove branch for non-nominal case
+    mpc_test = mpc;
+    if(c > 0)
+        mpc_test.branch(c,:) = [];
+    end
+    
+    [islands, isolated] = find_islands(mpc_test);
+    
+    if (~isempty(isolated))
+        error('Removing branch %d leaves bus %d isolated', c, isolated);
+    end
+    
+    if (size(islands,2) > 1)
+       error('Network has %d separate islands after removing branch %d', size(islands,2), c); 
+    end
+end
 
 %%-----  construct OPF model object  -----
 om = scopf_setup(mpc, mpopt);
@@ -73,14 +98,13 @@ scopf_m = struct('cont', cont, 'index', index);
 info = raw.info;
 
 %% verify feasibility of the results 
-ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 
 [VAscopf, VMscopf, PGscopf, QGscopf] = getLocalIndicesSCOPF(mpc);
 [VAopf, VMopf, PGopf, QGopf] = getLocalIndicesOPF(mpc);
 
 [REFbus_idx,nREFbus_idx] = getXbuses(mpc,3);%3==REF
 
-TOL_EQ = 1e-6;
+TOL_EQ = 1e-5;
 TOL_LIN = 1e-6;
 
 %verigy feasibility and check bounds
