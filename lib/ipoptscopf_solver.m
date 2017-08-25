@@ -149,7 +149,7 @@ Js = sparse(0,0);
 for i = 0:ns-1
     %update Cb to reflect the bus connectivity caused by contingency
     Cb = Cb_nominal;
-    if (i > 0)
+    if (model.cont(i+1) > 0)
         c = model.cont(i+1);
         f = branch(c, F_BUS);                           %% "from" bus
         t = branch(c, T_BUS);                           %% "to" bus
@@ -159,7 +159,7 @@ for i = 0:ns-1
     
     %update Cl to reflect the contingency
     Cl2 = Cl2_nominal;
-    if (i > 0)
+    if (model.cont(i+1) > 0)
         c = model.cont(i+1);
         Cl2(c, :) = 0;
     end
@@ -210,7 +210,7 @@ Hs_gl = sparse(0,0);
 for i = 0:ns-1
     %update Cb to reflect the bus connectivity caused by contingency
     Cb = Cb_nominal;
-    if (i > 0)
+    if (model.cont(i+1) > 0)
         c = model.cont(i+1);
         f = branch(c, F_BUS);                           %% "from" bus
         t = branch(c, T_BUS);                           %% "to" bus
@@ -220,7 +220,7 @@ for i = 0:ns-1
     
     %update Cl to reflect the contingency
     Cl2 = Cl2_nominal;
-    if (i > 0)
+    if (model.cont(i+1) > 0)
         c = model.cont(i+1);
         Cl2(c, :) = 0;
     end
