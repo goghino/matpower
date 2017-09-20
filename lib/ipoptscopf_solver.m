@@ -85,11 +85,14 @@ ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 %% bounds on optimization vars xmin <= x <= xmax 
 [x0, xmin, xmax] = getv(om); %returns standard OPF form [Va Vm Pg Qg]
 
-% add small pertubation to UB so that we prevent ipopt removing variables
-% for which LB=UB, except the Va of the reference bus
-tmp = xmax(REFbus_idx);
-xmax = xmax + 1e-10;
-xmax(REFbus_idx) = tmp;
+% Note that variables with equal upper and lower bounds are removed by IPOPT
+% so we add small perturbation to x_u[], we don't want them removed
+% because the Schur solver assumes particular structure that would
+% be changed by removing variables.
+% Exept for the Va at the refernece bus which we want to remove.
+idx = find(xmin == xmax);
+xmax(idx) = xmax(idx) + 1e-10;
+xmax(REFbus_idx) = xmin(REFbus_idx);
 
 % replicate bounds for all scenarios and append global limits
 xl = xmin([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx)]); %local variables
