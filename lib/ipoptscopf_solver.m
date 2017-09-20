@@ -84,7 +84,12 @@ ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 
 %% bounds on optimization vars xmin <= x <= xmax 
 [x0, xmin, xmax] = getv(om); %returns standard OPF form [Va Vm Pg Qg]
+
+% add small pertubation to UB so that we prevent ipopt removing variables
+% for which LB=UB, except the Va of the reference bus
+tmp = xmax(REFbus_idx);
 xmax = xmax + 1e-10;
+xmax(REFbus_idx) = tmp;
 
 % replicate bounds for all scenarios and append global limits
 xl = xmin([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx)]); %local variables

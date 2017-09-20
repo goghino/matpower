@@ -8,7 +8,7 @@ function [P Pinv npart] = KKTpermute(mpc, nc)
     [REFgen_idx, nREFgen_idx] = getREFgens(mpc);
     
     %local and global primal variables
-    nprimal_l = nbus + length(nPVbus_idx) + ngen + 1;
+    nprimal_l = (nbus - 1) + length(nPVbus_idx) + ngen + 1;
     nprimal_g = length(PVbus_idx) + length(nREFgen_idx);
     
     %primal variables, slack variables, equality and inequality constraints
@@ -33,7 +33,7 @@ function [P Pinv npart] = KKTpermute(mpc, nc)
         offset = offset + 2*nbrch;
     end
 
-    %[Pg] global
+    %[Vm_PV Pg_nREF] global
     P(offset:offset-1+nprimal_g) = (1:nprimal_g) + nc*nprimal_l;
     offset = offset + nprimal_g;
     
