@@ -58,7 +58,6 @@ end
   %% run specific AC OPF solver
   switch alg
     case 'MIPS'
-       error('MIPS interface not yet implemented with new SCOPF model');
       [results, success, raw] = mipsscopf_solver(om, model, mpopt);
     case 'IPOPT'
       if ~have_fcn('ipopt')
