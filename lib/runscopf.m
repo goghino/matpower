@@ -1,5 +1,5 @@
 function [results, success, info] = ...
-                runscopf(casedata, cont, mpopt, fname, solvedcase)
+                runscopf(casedata, cont, mpopt, tol)
 %RUNOPF  Runs a security constrained optimal power flow.
 %   [RESULTS, SUCCESS] = RUNOPF(CASEDATA, MPOPT, CONT, FNAME, SOLVEDCASE)
 %
@@ -84,7 +84,7 @@ end
 cont = [-1; cont];
 
 %%-----  run the optimal power flow  -----
-[results, success, info] = scopf(casedata, cont, mpopt);
+[results, success, info] = scopf(casedata, cont, mpopt, tol);
 
 
 end
