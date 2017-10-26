@@ -1,5 +1,5 @@
 function [results, success, info] = ...
-    scopf(mpc, cont, mpopt)
+    scopf(mpc, cont, mpopt, tol)
 %SCOPF  Solves an optimal power flow with security constraints.
 %   [RESULTS, SUCCESS] = SCOPF(MPC, CONT, MPOPT)
 %
@@ -107,10 +107,18 @@ info = raw.info;
 TOL_EQ = 1e-5;
 TOL_LIN = 1e-6;
 
+if nargin==4
+    TOL_EQ = tol;
+    TOL_LIN = tol;
+end
+
 %verigy feasibility and check bounds
-fprintf('\nVerifing feasibility of the SCOPF solution with tolerance %e\n', TOL_EQ);
+fprintf('\n--------------------------------------------------------------\n');
+fprintf('--------------------------------------------------------------\n');
+fprintf('Verifing feasibility of the SCOPF solution with tolerance %e.\n', TOL_EQ);
+errors = 0;
 for i = 1:ns
-    fprintf('\tscenario %d ...', i-1);
+    fprintf('\tscenario %d ...\n', i-1);
     
     %get contingency
     c = cont(i);
@@ -127,32 +135,38 @@ for i = 1:ns
     %check power generation bounds l < [Pg Qg] < u
     err = find(xl([PGopf QGopf]) < raw.meta.lb(idx([PGscopf QGscopf])));
     if (~isempty(err))
-        error('violated lower Pg/Qg limit %e', max(raw.meta.lb(idx([PGscopf QGscopf])) - xl([PGopf QGopf])));
+        fprintf('violated %d lower Pg/Qg limits %e\n', length(err), max(raw.meta.lb(idx([PGscopf QGscopf])) - xl([PGopf QGopf])));
+        errors = errors + 1;
     end
     err = find(xl([PGopf QGopf]) > raw.meta.ub(idx([PGscopf QGscopf])));
     if (~isempty(err))
-        error('violated upper Pg/Qg limit %e', max(xl([PGopf QGopf]) - raw.meta.ub(idx([PGscopf QGscopf]))));
+        fprintf('violated %d upper Pg/Qg limits %e\n', length(err), max(xl([PGopf QGopf]) - raw.meta.ub(idx([PGscopf QGscopf]))));
+        errors = errors + 1;
     end
     
     %bus voltages magnitude bounds p.u. l < Vm < u
     err = find(xl(VMopf) < raw.meta.lb(idx(VMscopf)));
     if (~isempty(err))
-        error('violated lower Vm limit %e', max(raw.meta.lb(idx(VMscopf)) - xl(VMopf)));
+        fprintf('violated %d lower Vm limits %e\n', length(err), max(raw.meta.lb(idx(VMscopf)) - xl(VMopf)));
+        errors = errors + 1;
     end
     
     err = find(xl(VMopf) > raw.meta.ub(idx(VMscopf)));
     if (~isempty(err))
-        error('violated upper Vm limit %e', max(xl(VMopf) - raw.meta.ub(idx(VMscopf))));
+        fprintf('violated %d upper Vm limits %e\n', length(err), max(xl(VMopf) - raw.meta.ub(idx(VMscopf))));
+        errors = errors + 1;
     end
     
     %bus voltage angles limits only reference bus l = Va = u
     err_lb = abs(xl(VAopf(REFbus_idx)) - raw.meta.lb(idx(VAscopf(REFbus_idx))));
     err_ub = abs(xl(VAopf(REFbus_idx)) - raw.meta.ub(idx(VAscopf(REFbus_idx))));
     if (err_lb > TOL_EQ)
-        error('violated lower Va limit on reference bus %e', err_lb);
+        fprintf('violated lower Va limit on reference bus %e\n', err_lb);
+        errors = errors + 1;
     end
     if (err_ub > TOL_EQ)
-        error('violated upper Va limit on reference bus %e', err_ub);
+        fprintf('violated upper Va limit on reference bus %e\n', err_ub);
+        errors = errors + 1;
     end
     
     %evaluate power flows equations and branch power flows g(x), h(x)
@@ -161,14 +175,16 @@ for i = 1:ns
     %g(x) = 0, g(x) = V .* conj(Ybus * V) - Sbus;
     err = find(abs(gn_local) > TOL_EQ);
     if (~isempty(err))
-        error('violated PF equations %e', max(abs(gn_local(err))));
+        fprintf('violated %d PF equations with max %e\n', length(err), max(abs(gn_local(err))));
+        errors = errors + 1;
     end
     
     %h(x) <= 0, h(x) = Sf .* conj(Sf) - flow_max.^2
     %h(x) for lines with contingency is (- flow_max.^2) which satisfy limits implicitly
     err = find(hn_local > 0);
     if(not(isempty(err)))
-        error('violated branch power flow limits %e', max(abs(hn_local(err))));
+        fprintf('violated %d branch power flow limits %e\n', length(err), max(abs(hn_local(err))));
+        errors = errors + 1;
     end
     
     %linear constraints
@@ -176,13 +192,20 @@ for i = 1:ns
         lin_constr = raw.meta.A * results.x;
         err = find(abs(lin_constr) > TOL_LIN);
         if(not(isempty(err)))
-            error('violated linear constraints %e', max(abs(lin_constr(err))));
+            fprintf('violated %d linear constraints %e\n', length(err), max(abs(lin_constr(err))));
+            errors = errors + 1;
         end
     end
     
-    fprintf('\tPASSED\n');
+    if (errors == 0)
+        fprintf('\tPASSED\n');
+    else
+        fprintf('\tFAILED with %d errors\n', errors);
+        errors = 0;
+    end
 end
-fprintf('\n');
+fprintf('\n--------------------------------------------------------------\n');
+fprintf('--------------------------------------------------------------\n');
 
 %% -----  DO NOT revert to original ordering, we are returnting SCOPF solution, not OPF  -----
 %results = int2ext(results);
