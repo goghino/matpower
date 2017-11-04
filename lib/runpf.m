@@ -197,7 +197,6 @@ else                                %% AC formulation
 
     %% build admittance matrices
     [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch); %addmitance matrix is build here
-    figure; spy(Ybus);
     
     repeat = 1;
     while (repeat)
