@@ -120,17 +120,46 @@ if mpopt.opf.init_from_mpc ~= 1
         idx = model.index.getGlobalIndices(mpc, ns, i);
         x0(idx(VAscopf)) = Varefs(1);
     end
+else
+    %solve local OPFs and use it as an initial guess
+    x0 = ones(length(xmin),1);
+    for i = 1:ns
+        %update mpc first by removing a line
+        c = cont(i);
+        mpc_test = mpc;
+        if(c > 0)
+            mpc_test.branch(c,BR_STATUS) = 0;
+        end
+    
+    %run opf
+    mpopt0 = mpoption('verbose', 0, 'out.all', 0);
+    mpopt_test = mpoption(mpopt0, 'opf.ac.solver', 'IPOPT');
+    [results, success] = runopf(mpc_test, mpopt_test);
+    
+    %embed local OPF solution into the x0
+    idx = model.index.getGlobalIndices(mpc, ns, i-1);
+    x0(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])) = results.x([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx)]);
+    if i == 1
+       x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = results.x([VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
+    end
+    end
+   
 end
 
 %% find branches with flow limits
-il_ = find(branch(:, RATE_A) ~= 0 & branch(:, RATE_A) < 1e10);
-il = [1:nl]';               %% we assume every branch has implicit bounds
-                             % TODO insert default limits to branches that
-                             % do not satisfy condition above
+
+%insert default limits to branches that do not have this value
+default_rateA = 250; %value in case118
+il_missing = find(branch(:, RATE_A) <= 0 | branch(:, RATE_A) >= 1e10);
+branch(il_missing, RATE_A) =  default_rateA;
+
+il = [1:nl]';               
 nl2 = length(il);           %% number of constrained lines
 
-if size(il_, 1) ~= nl2
-   error('Not all branches have specified RATE_A field.'); 
+if size(il_missing, 1) > 0
+    if (mpopt.verbose >= 1)
+        fprintf('Inserted default values of RATE_A %f for %d branches\n', default_rateA, length(il_missing));
+    end
 end
 
 
@@ -349,37 +378,13 @@ else
 end
 
 if isfield(info, 'iter')
-    meta.iterations = info.iter;
+    output.iterations = info.iter;
 else
-    meta.iterations = [];
+    output.iterations = [];
 end
 
 idx_nom = model.index.getGlobalIndices(mpc, ns, 0); %evaluate cost of nominal case (only Pg/Qg are relevant) 
 f = opf_costfcn(x(idx_nom([VAscopf VMscopf PGscopf QGscopf])), om);
-
-% %% update solution data for nominal senario and global vars
-% Va = x(vv.i1.Va:vv.iN.Va);
-% Vm = x(vv.i1.Vm:vv.iN.Vm);
-% Pg = x(ns*2*nb + (1:ng));
-% Qg = x(ns*2*nb + ng + (1:ng));
-% V = Vm .* exp(1j*Va);
-% 
-% %%-----  calculate return values  -----
-% %% update voltages & generator outputs
-% bus(:, VA) = Va * 180/pi;
-% bus(:, VM) = Vm;
-% gen(:, PG) = Pg * baseMVA;
-% gen(:, QG) = Qg * baseMVA;
-% gen(:, VG) = Vm(gen(:, GEN_BUS));
-% 
-% %% compute branch flows
-% [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
-% Sf = V(branch(:, F_BUS)) .* conj(Yf * V);  %% cplx pwr at "from" bus, p.u.
-% St = V(branch(:, T_BUS)) .* conj(Yt * V);  %% cplx pwr at "to" bus, p.u.
-% branch(:, PF) = real(Sf) * baseMVA;
-% branch(:, QF) = imag(Sf) * baseMVA;
-% branch(:, PT) = real(St) * baseMVA;
-% branch(:, QT) = imag(St) * baseMVA;
     
 %pack some additional info to output so that we can verify the solution
 meta.Ybus = Ybus;
@@ -388,9 +393,13 @@ meta.Yt = Yt;
 meta.lb = options.lb;
 meta.ub = options.ub;
 meta.A = A;
+meta.lenX = length(x); %no. of variables
+meta.lenG = ns*2*nb;   %total no. of eq constraints
+meta.lenH = ns*2*nl2;  %total no. of ineq constraints
+meta.lenA = 0;         %total no. of lin constraints
     
-raw = struct('info', info.status, 'meta', meta);
-results = struct('f', f, 'x', x);
+raw = struct('xr', x, 'info', info.status, 'output', output, 'meta', meta);
+results = struct('f', f, 'x', x, 'om', om);
 
 %% -----  callback functions  -----
 function f = objective(x, d)

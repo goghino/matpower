@@ -84,7 +84,8 @@ end
 cont = [-1; cont];
 
 %%-----  run the optimal power flow  -----
-[results, success, info] = scopf(casedata, cont, mpopt, tol);
+[results, success] = scopf(casedata, cont, mpopt, tol);
+info = results.raw.info;
 
 
 end

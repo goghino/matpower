@@ -59,6 +59,8 @@ end
   switch alg
     case 'MIPS'
       [results, success, raw] = mipsscopf_solver(om, model, mpopt);
+    case 'OPTIZELLE'
+      [results, success, raw] = optizellescopf_solver(om, model, mpopt);
     case 'IPOPT'
       if ~have_fcn('ipopt')
         error('opf_execute: MPOPT.opf.ac.solver = ''%s'' requires IPOPT (see http://www.coin-or.org/projects/Ipopt.xml)', alg);

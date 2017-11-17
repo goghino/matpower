@@ -1,4 +1,4 @@
-function [results, success, info] = ...
+function [results, success] = ...
     scopf(mpc, cont, mpopt, tol)
 %SCOPF  Solves an optimal power flow with security constraints.
 %   [RESULTS, SUCCESS] = SCOPF(MPC, CONT, MPOPT)
@@ -23,9 +23,6 @@ function [results, success, info] = ...
 %   This file is part of MATPOWER.
 %   Covered by the 3-clause BSD License (see LICENSE file for details).
 %   See http://www.pserc.cornell.edu/matpower/ for more info.
-
-%%----- initialization -----
-t0 = clock;         %% start timer
 
 %% define named indices into data matrices
 [PQ, PV, REF, NONE, BUS_I, BUS_TYPE, PD, QD, GS, BS, BUS_AREA, VM, ...
@@ -93,9 +90,13 @@ index = struct('getGlobalIndices', @getGlobalIndices, ...
            
 scopf_m = struct('cont', cont, 'index', index);
 
-%%-----  execute the OPF  -----
+%%-----  execute the SCOPF  -----
+t0 = clock;         %% start timer
+
 [results, success, raw] = scopf_execute(om, scopf_m, mpopt);
 info = raw.info;
+
+et = etime(clock, t0);      %% compute elapsed time
 
 %% verify feasibility of the results 
 
@@ -113,102 +114,114 @@ if nargin==4
 end
 
 %verigy feasibility and check bounds
-fprintf('\n--------------------------------------------------------------\n');
-fprintf('--------------------------------------------------------------\n');
-fprintf('Verifing feasibility of the SCOPF solution with tolerance %e.\n', TOL_EQ);
-errors = 0;
-for i = 1:ns
-    fprintf('\tscenario %d ...\n', i-1);
-    
-    %get contingency
-    c = cont(i);
-    
-    %compute local indices and its parts
-    idx = getGlobalIndices(mpc, ns, i-1);
-        
-    %extract local solution vector [Va Vm Pg Qg]
-    xl = results.x(idx([VAscopf VMscopf PGscopf QGscopf]));
-    
-    %update admittance matrices
-    [Ybus, Yf, Yt] = updateYbus(mpc.branch, raw.meta.Ybus, raw.meta.Yf, raw.meta.Yt, c);
-    
-    %check power generation bounds l < [Pg Qg] < u
-    err = find(xl([PGopf QGopf]) < raw.meta.lb(idx([PGscopf QGscopf])));
-    if (~isempty(err))
-        fprintf('violated %d lower Pg/Qg limits %e\n', length(err), max(raw.meta.lb(idx([PGscopf QGscopf])) - xl([PGopf QGopf])));
-        errors = errors + 1;
-    end
-    err = find(xl([PGopf QGopf]) > raw.meta.ub(idx([PGscopf QGscopf])));
-    if (~isempty(err))
-        fprintf('violated %d upper Pg/Qg limits %e\n', length(err), max(xl([PGopf QGopf]) - raw.meta.ub(idx([PGscopf QGscopf]))));
-        errors = errors + 1;
-    end
-    
-    %bus voltages magnitude bounds p.u. l < Vm < u
-    err = find(xl(VMopf) < raw.meta.lb(idx(VMscopf)));
-    if (~isempty(err))
-        fprintf('violated %d lower Vm limits %e\n', length(err), max(raw.meta.lb(idx(VMscopf)) - xl(VMopf)));
-        errors = errors + 1;
-    end
-    
-    err = find(xl(VMopf) > raw.meta.ub(idx(VMscopf)));
-    if (~isempty(err))
-        fprintf('violated %d upper Vm limits %e\n', length(err), max(xl(VMopf) - raw.meta.ub(idx(VMscopf))));
-        errors = errors + 1;
-    end
-    
-    %bus voltage angles limits only reference bus l = Va = u
-    err_lb = abs(xl(VAopf(REFbus_idx)) - raw.meta.lb(idx(VAscopf(REFbus_idx))));
-    err_ub = abs(xl(VAopf(REFbus_idx)) - raw.meta.ub(idx(VAscopf(REFbus_idx))));
-    if (err_lb > TOL_EQ)
-        fprintf('violated lower Va limit on reference bus %e\n', err_lb);
-        errors = errors + 1;
-    end
-    if (err_ub > TOL_EQ)
-        fprintf('violated upper Va limit on reference bus %e\n', err_ub);
-        errors = errors + 1;
-    end
-    
-    %evaluate power flows equations and branch power flows g(x), h(x)
-    [hn_local, gn_local] = opf_consfcn(xl, om, Ybus, Yf, Yt, mpopt);
-    
-    %g(x) = 0, g(x) = V .* conj(Ybus * V) - Sbus;
-    err = find(abs(gn_local) > TOL_EQ);
-    if (~isempty(err))
-        fprintf('violated %d PF equations with max %e\n', length(err), max(abs(gn_local(err))));
-        errors = errors + 1;
-    end
-    
-    %h(x) <= 0, h(x) = Sf .* conj(Sf) - flow_max.^2
-    %h(x) for lines with contingency is (- flow_max.^2) which satisfy limits implicitly
-    err = find(hn_local > 0);
-    if(not(isempty(err)))
-        fprintf('violated %d branch power flow limits %e\n', length(err), max(abs(hn_local(err))));
-        errors = errors + 1;
-    end
-    
-    %linear constraints
-    if (~isempty(raw.meta.A))
-        lin_constr = raw.meta.A * results.x;
-        err = find(abs(lin_constr) > TOL_LIN);
-        if(not(isempty(err)))
-            fprintf('violated %d linear constraints %e\n', length(err), max(abs(lin_constr(err))));
+if (mpopt.verbose >= 1)
+    fprintf('\n--------------------------------------------------------------\n');
+    fprintf('--------------------------------------------------------------\n');
+    fprintf('Verifing feasibility of the SCOPF solution with tolerance %e.\n', TOL_EQ);
+    errors = 0;
+    for i = 1:ns
+        fprintf('\tscenario %d ...\n', i-1);
+
+        %get contingency
+        c = cont(i);
+
+        %compute local indices and its parts
+        idx = getGlobalIndices(mpc, ns, i-1);
+
+        %extract local solution vector [Va Vm Pg Qg]
+        xl = results.x(idx([VAscopf VMscopf PGscopf QGscopf]));
+
+        %update admittance matrices
+        [Ybus, Yf, Yt] = updateYbus(mpc.branch, raw.meta.Ybus, raw.meta.Yf, raw.meta.Yt, c);
+
+        %check power generation bounds l < [Pg Qg] < u
+        err = find(xl([PGopf QGopf]) < raw.meta.lb(idx([PGscopf QGscopf])));
+        if (~isempty(err))
+            fprintf('violated %d lower Pg/Qg limits %e\n', length(err), max(raw.meta.lb(idx([PGscopf QGscopf])) - xl([PGopf QGopf])));
             errors = errors + 1;
         end
+        err = find(xl([PGopf QGopf]) > raw.meta.ub(idx([PGscopf QGscopf])));
+        if (~isempty(err))
+            fprintf('violated %d upper Pg/Qg limits %e\n', length(err), max(xl([PGopf QGopf]) - raw.meta.ub(idx([PGscopf QGscopf]))));
+            errors = errors + 1;
+        end
+
+        %bus voltages magnitude bounds p.u. l < Vm < u
+        err = find(xl(VMopf) < raw.meta.lb(idx(VMscopf)));
+        if (~isempty(err))
+            fprintf('violated %d lower Vm limits %e\n', length(err), max(raw.meta.lb(idx(VMscopf)) - xl(VMopf)));
+            errors = errors + 1;
+        end
+
+        err = find(xl(VMopf) > raw.meta.ub(idx(VMscopf)));
+        if (~isempty(err))
+            fprintf('violated %d upper Vm limits %e\n', length(err), max(xl(VMopf) - raw.meta.ub(idx(VMscopf))));
+            errors = errors + 1;
+        end
+
+        %bus voltage angles limits only reference bus l = Va = u
+        err_lb = abs(xl(VAopf(REFbus_idx)) - raw.meta.lb(idx(VAscopf(REFbus_idx))));
+        err_ub = abs(xl(VAopf(REFbus_idx)) - raw.meta.ub(idx(VAscopf(REFbus_idx))));
+        if (err_lb > TOL_EQ)
+            fprintf('violated lower Va limit on reference bus %e\n', err_lb);
+            errors = errors + 1;
+        end
+        if (err_ub > TOL_EQ)
+            fprintf('violated upper Va limit on reference bus %e\n', err_ub);
+            errors = errors + 1;
+        end
+
+        %evaluate power flows equations and branch power flows g(x), h(x)
+        [hn_local, gn_local] = opf_consfcn(xl, om, Ybus, Yf, Yt, mpopt);
+
+        %g(x) = 0, g(x) = V .* conj(Ybus * V) - Sbus;
+        err = find(abs(gn_local) > TOL_EQ);
+        if (~isempty(err))
+            fprintf('violated %d PF equations with max %e\n', length(err), max(abs(gn_local(err))));
+            errors = errors + 1;
+        end
+
+        %h(x) <= 0, h(x) = Sf .* conj(Sf) - flow_max.^2
+        %h(x) for lines with contingency is (- flow_max.^2) which satisfy limits implicitly
+        err = find(hn_local > 0);
+        if(not(isempty(err)))
+            fprintf('violated %d branch power flow limits %e\n', length(err), max(abs(hn_local(err))));
+            errors = errors + 1;
+        end
+
+        %linear constraints
+        if (~isempty(raw.meta.A))
+            lin_constr = raw.meta.A * results.x;
+            err = find(abs(lin_constr) > TOL_LIN);
+            if(not(isempty(err)))
+                fprintf('violated %d linear constraints %e\n', length(err), max(abs(lin_constr(err))));
+                errors = errors + 1;
+            end
+        end
+
+        if (errors == 0)
+            fprintf('\tPASSED\n');
+        else
+            fprintf('\tFAILED with %d errors\n', errors);
+            errors = 0;
+        end
     end
-    
-    if (errors == 0)
-        fprintf('\tPASSED\n');
-    else
-        fprintf('\tFAILED with %d errors\n', errors);
-        errors = 0;
-    end
+    fprintf('\n--------------------------------------------------------------\n');
+    fprintf('--------------------------------------------------------------\n');
 end
-fprintf('\n--------------------------------------------------------------\n');
-fprintf('--------------------------------------------------------------\n');
 
 %% -----  DO NOT revert to original ordering, we are returnting SCOPF solution, not OPF  -----
 %results = int2ext(results);
+
+%% prepare output
+
+if nargout <= 2
+    results.et = et;
+    results.success = success;
+    results.raw = raw;
+else
+    error('scopf.m: Incorrect number of output arguments\n')
+end
 
 %% -----  helper functions  ----- 
 function idx = getGlobalIndices(mpc, ns, i)
