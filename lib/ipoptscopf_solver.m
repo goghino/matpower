@@ -149,17 +149,12 @@ end
 %% find branches with flow limits
 
 %insert default limits to branches that do not have this value
-default_rateA = 250; %value in case118
-il_missing = find(branch(:, RATE_A) <= 0 | branch(:, RATE_A) >= 1e10);
-branch(il_missing, RATE_A) =  default_rateA;
-
+il_ = find(branch(:, RATE_A) ~= 0 & branch(:, RATE_A) < 1e10);
 il = [1:nl]';               
 nl2 = length(il);           %% number of constrained lines
 
-if size(il_missing, 1) > 0
-    if (mpopt.verbose >= 1)
-        fprintf('Inserted default values of RATE_A %f for %d branches\n', default_rateA, length(il_missing));
-    end
+if size(il_, 1) ~= nl2
+    error('Not all branches have specified RATE_A field.');
 end
 
 
