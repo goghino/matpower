@@ -19,33 +19,20 @@ addpath('/Users/Juraj/Documents/Code/PowerGrid/matrices/'); %readcsr
 define_constants;
 %%
 cases = {
-%     'case_ieee30',
-%     'case_RTS_GMLC',
-%     'case5',
-%     'case6ww',
-    'case9',
 %     'case9Q',
-%     'case14',
 %     'case24_ieee_rts',
-%     'case30',
-%     'case30pwl',
+%     'case_RTS_GMLC',
 %     'case30Q',
-%     'case39',
-%     'case57',
-     'case89pegase',
-    'case118',
-%    'case300',
-%     'case1354pegase',
 %     'case1888rte',
 %     'case1951rte',
-%     'case2383wp',
 %     'case2736sp',
+%     'case2848rte',
 %     'case2737sop',
 %     'case2746wop',
 %     'case2746wp',
-%     'case2848rte',
+%     'case21k',
+%     'case42k'
 %     'case2868rte',
-%     'case2869pegase',
 %     'case3012wp',
 %     'case3120sp',
 %     'case3375wp',
@@ -53,14 +40,28 @@ cases = {
 %     'case6470rte',
 %     'case6495rte',
 %     'case6515rte',
+%-------------------
+    'case_ieee30',
+    'case5',
+    'case6ww',
+    'case9',
+    'case14',
+    'case30',
+    'case30pwl',
+    'case39',
+    'case57',
+    'case89pegase',
+    'case118',
+    'case300',
+    'case1354pegase',
+    'case2383wp',
+    'case2869pegase',
+    'case_ACTIVSg200',
+    'case_ACTIVSg500',
+    'case_ACTIVSg2000',
 %     'case_ACTIVSg10k',
-%     'case_ACTIVSg200',
-%     'case_ACTIVSg500',
-%     'case_ACTIVSg2000',
 %     'case9241pegase',
 %     'case13659pegase',
-%     'case21k',
-%     'case42k'
 };
 
 mpopt0 = mpoption('verbose', 0, 'out.all', 0);
@@ -81,10 +82,61 @@ for c = 1:nc
     end
 end
 
-%% case statistics
-sts = zeros(nc, 12);   %% nb, ng, nl, nlc, ndc, ni, nib, p,q, P,L,Q
+%% run benchmarks
+
+fprintf('\nResults%s       Ipopt-flat         Ipopt-opf       total secs\n',  repmat(' ', 1, maxlen+5-length('Results')));
+fprintf(  '       %s    iter   C   secs     iter   C   secs     elapsed\n',   repmat(' ', 1, maxlen+5-length('Results')));
+fprintf(  '-------%s   ------- - --------  ------- - -------- -----------\n', repmat(' ', 1, maxlen+5-length('Results')));
+sts = zeros(nc, 16); % [nb, ng, nl, nlc, ndc, ni, nib, p,q, P,L,Q] and [X, G, H, A]
+na = length(mpopt);
+res.success = zeros(nc, na);
+res.it = zeros(nc, na);
+res.et = zeros(nc, na);
+
+t0 = tic;
 for c = 1:nc
-    fprintf('.');
+    spacers = repmat(' ', 1, maxlen+3-length(cases{c}));
+    fprintf('%s %s', cases{c}, spacers);
+    mpc = loadcase(cases{c});
+    if isfield(mpc, 'dcline')
+        mpc = toggle_dcline(mpc, 'on');
+    end
+    %insert missing branch limits
+    no_limit = find(mpc.branch(:,RATE_A) < 1e-10);
+    mpc.branch(no_limit,RATE_A) = 1e5;
+    if isfield(mpc, 'gencost')
+        for a = 1:length(mpopt)
+            %------------------------------------
+            r = runscopf(mpc, [], mpopt{a}, 1e-4);
+            %------------------------------------
+            sts(c, 13:16) = [r.raw.meta.lenX r.raw.meta.lenG r.raw.meta.lenH r.raw.meta.lenA];
+            res.success(c,a) = r.success;
+            res.it(c,a) = r.raw.output.iterations;
+            res.et(c,a) = r.et;
+            fprintf('  %7d', res.it(c, a));
+            if res.success(c,a)
+                fprintf('  ');
+            else
+                fprintf(' x');
+            end
+            if res.et(c, a) < 0.1
+                fprintf(' %8.3f', res.et(c, a));
+            elseif res.et(c, a) < 10
+                fprintf(' %8.2f', res.et(c, a));
+            elseif res.et(c, a) < 100
+                fprintf(' %8.1f', res.et(c, a));
+            else
+                fprintf(' %8.0f', res.et(c, a));
+            end
+        end
+    else
+        fprintf('no gencost');
+    end
+    fprintf('%10.1f\n', toc(t0));
+end
+
+%% case statistics
+for c = 1:nc
     mpc = loadcase(cases{c});
     nb = size(mpc.bus, 1);
     ng = size(mpc.gen, 1);
@@ -123,64 +175,18 @@ for c = 1:nc
     sts(c, 10:12) = costtype;
 end
 
-%% sort cases
-[junk, k] = sort(sts(:,1) + sts(:,2) + sts(:,4) + sts(:,5));    %% nb+ng+nlc+ndc
-sorted_cases = cases(k);
-sts = sts(k,:);
-
-fprintf('\n\nCase Statistics%s  nb    ng    nl   nlc  ndc  ni nib pq PLQ\n', repmat(' ', 1, maxlen-10));
-fprintf(    '---------------%s----- ----- ----- ----- --- --- --- -- ---\n', repmat(' ', 1, maxlen-10));
+fprintf('\n\nCase Statistics%s  nb    ng    nl   nlc    X     G     H    ndc  ni  nib pq PLQ\n', repmat(' ', 1, maxlen-10));
+fprintf(    '---------------%s----- ----- ----- ----- ----- ----- ----- ----- --- --- -- ---\n', repmat(' ', 1, maxlen-10));
 for c = 1:nc
-    spacers = repmat('.', 1, maxlen+3-length(sorted_cases{c}));
-    fprintf('%s %s ', sorted_cases{c}, spacers);
-    fprintf('%5d %5d %5d %5d %3d %3d %3d %1s%1s %1s%1s%1s\n', sts(c, 1:7), sts(c, 8), sts(c, 9), sts(c, 10), sts(c, 11), sts(c, 12));
+    spacers = repmat('.', 1, maxlen+3-length(cases{c}));
+    fprintf('%s %s ', cases{c}, spacers);
+    fprintf('%5d %5d %5d %5d %5d %5d %5d %3d %3d %3d %1s%1s %1s%1s%1s\n', sts(c, 1:4), sts(c, 13:15), sts(c, 5:7), sts(c, 8), sts(c, 9), sts(c, 10), sts(c, 11), sts(c, 12));
 end
 
 %%
-fprintf('\nResults%s       Ipopt-flat         Ipopt-opf       total secs\n',  repmat(' ', 1, maxlen+5-length('Results')));
-fprintf(  '       %s    iter   C   secs     iter   C   secs     elapsed\n',   repmat(' ', 1, maxlen+5-length('Results')));
-fprintf(  '-------%s   ------- - --------  ------- - -------- -----------\n', repmat(' ', 1, maxlen+5-length('Results')));
-sts = [sts zeros(nc, 4)];   %% nv, nnle, nnli, nlin
-na = length(mpopt);
-res.success = zeros(nc, na);
-res.it = zeros(nc, na);
-res.et = zeros(nc, na);
-
-t0 = tic;
-for c = 1:nc
-    spacers = repmat(' ', 1, maxlen+3-length(sorted_cases{c}));
-    fprintf('%s %s', sorted_cases{c}, spacers);
-    mpc = loadcase(sorted_cases{c});
-    if isfield(mpc, 'dcline')
-        mpc = toggle_dcline(mpc, 'on');
-    end
-    if isfield(mpc, 'gencost')
-        for a = 1:length(mpopt)
-            %------------------------------------
-            r = runscopf(mpc, [], mpopt{a}, 1e-4);
-            %------------------------------------
-            sts(c, 13:16) = [r.raw.meta.lenX r.raw.meta.lenG r.raw.meta.lenH r.raw.meta.lenA];
-            res.success(c,a) = r.success;
-            res.it(c,a) = r.raw.output.iterations;
-            res.et(c,a) = r.et;
-            fprintf('  %7d', res.it(c, a));
-            if res.success(c,a)
-                fprintf('  ');
-            else
-                fprintf(' x');
-            end
-            if res.et(c, a) < 0.1
-                fprintf(' %8.3f', res.et(c, a));
-            elseif res.et(c, a) < 10
-                fprintf(' %8.2f', res.et(c, a));
-            elseif res.et(c, a) < 100
-                fprintf(' %8.1f', res.et(c, a));
-            else
-                fprintf(' %8.0f', res.et(c, a));
-            end
-        end
-    else
-        fprintf('no gencost');
-    end
-    fprintf('%10.1f\n', toc(t0));
-end
+plot(res.it(:,1)); hold on
+plot(res.it(:,2));
+legend('Flat start','OPF solution')
+xlabel('Matpower case')
+xticklabels(cases); xtickangle(45)
+ylabel('Number of iterations')
