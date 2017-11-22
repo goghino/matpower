@@ -20,6 +20,7 @@ define_constants;
 %%
 cases = {
 %     'case9Q',
+%     'case30pwl',
 %     'case24_ieee_rts',
 %     'case_RTS_GMLC',
 %     'case30Q',
@@ -47,7 +48,6 @@ cases = {
     'case9',
     'case14',
     'case30',
-    'case30pwl',
     'case39',
     'case57',
     'case89pegase',
@@ -70,7 +70,9 @@ mpopt = {
 %     mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 1),
 %     mpoption(mpopt0, 'opf.ac.solver', 'FMINCON'),
       mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 0),
-      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 1)
+      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 1),
+      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 2),
+      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 3)
 };
 
 %%
@@ -83,11 +85,11 @@ for c = 1:nc
 end
 
 %% run benchmarks
-
-fprintf('\nResults%s       Ipopt-flat         Ipopt-opf       total secs\n',  repmat(' ', 1, maxlen+5-length('Results')));
-fprintf(  '       %s    iter   C   secs     iter   C   secs     elapsed\n',   repmat(' ', 1, maxlen+5-length('Results')));
-fprintf(  '-------%s   ------- - --------  ------- - -------- -----------\n', repmat(' ', 1, maxlen+5-length('Results')));
 sts = zeros(nc, 16); % [nb, ng, nl, nlc, ndc, ni, nib, p,q, P,L,Q] and [X, G, H, A]
+
+fprintf('\nResults%s       Ipopt-flat        Ipopt-opf-nom     Ipopt-opf-local    Ipopt-pf-local     total secs\n',  repmat(' ', 1, maxlen+5-length('Results')));
+fprintf(  '       %s    iter   C   secs     iter   C   secs    iter   C   secs    iter   C   secs      elapsed \n',   repmat(' ', 1, maxlen+5-length('Results')));
+fprintf(  '-------%s   ------- - --------  ------- - -------- ------- - -------- ------- - -------- -----------\n', repmat(' ', 1, maxlen+5-length('Results')));
 na = length(mpopt);
 res.success = zeros(nc, na);
 res.it = zeros(nc, na);
@@ -185,8 +187,11 @@ end
 
 %%
 plot(res.it(:,1)); hold on
-plot(res.it(:,2));
-legend('Flat start','OPF solution')
+plot(res.it(:,2)); hold on
+plot(res.it(:,3)); hold on
+plot(res.it(:,4));
+legend('Flat start','OPF nominal solution', 'OPF local solutions', 'PF local solutions')
 xlabel('Matpower case')
-xticklabels(cases); xtickangle(45)
-ylabel('Number of iterations')
+xticks(1:length(cases)); xticklabels(cases); xtickangle(45);
+ylabel('Number of iterations');
+grid on;

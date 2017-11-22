@@ -104,7 +104,9 @@ xg = xmax([VMopf(PVbus_idx) PGopf(nREFgen_idx)]); %global variables
 xmax = [repmat(xl, [ns, 1]); xg];
 
 %% try to select an interior initial point based on bounds
-if mpopt.opf.init_from_mpc ~= 1
+%TODO - options init_from_mpc > 0 assume that there is no reordering inside mpc
+
+if mpopt.opf.init_from_mpc == 0
     ll = xmin; uu = xmax;
     ll(xmin == -Inf) = -1e10;               %% replace Inf with numerical proxies
     uu(xmax ==  Inf) =  1e10;
@@ -120,7 +122,40 @@ if mpopt.opf.init_from_mpc ~= 1
         idx = model.index.getGlobalIndices(mpc, ns, i);
         x0(idx(VAscopf)) = Varefs(1);
     end
-else
+    
+elseif mpopt.opf.init_from_mpc == 1
+    %solve nominal OPF and use it as an initial guess
+    x0 = ones(length(xmin),1);
+    
+    mpopt0 = mpoption('verbose', 0, 'out.all', 0);
+    mpopt_test = mpoption(mpopt0, 'opf.ac.solver', 'IPOPT');
+    [results, success] = runopf(mpc, mpopt_test);
+    
+    %external to internal permunation
+    Pgen = results.order.gen.e2i;
+    genON = find(results.gen(:,GEN_STATUS)==1); %ON generators
+    Pbus = results.order.bus.e2i;
+    x = [ results.bus(:,VA)/(180/pi); ...
+          results.bus(:,VM); ...
+          results.gen(genON(Pgen),PG)/results.baseMVA; ...
+          results.gen(genON(Pgen),QG)/results.baseMVA ];
+
+    % verify if we reconstructed x correctly
+    err = find(abs(x - results.x) > 1e-10);
+    if (~isempty(err))
+       error('Different ordering of internal/external MPC structure'); 
+    end
+    
+    for i = 1:ns
+        %embed local OPF solution into the x0
+        idx = model.index.getGlobalIndices(mpc, ns, i-1);
+        x0(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])) = x([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx)]);
+        if i == 1
+           x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = x([VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
+        end
+    end 
+    
+elseif mpopt.opf.init_from_mpc == 2
     %solve local OPFs and use it as an initial guess
     x0 = ones(length(xmin),1);
     for i = 1:ns
@@ -131,19 +166,65 @@ else
             mpc_test.branch(c,BR_STATUS) = 0;
         end
     
-    %run opf
-    mpopt0 = mpoption('verbose', 0, 'out.all', 0);
-    mpopt_test = mpoption(mpopt0, 'opf.ac.solver', 'IPOPT');
-    [results, success] = runopf(mpc_test, mpopt_test);
+        %run opf
+        mpopt0 = mpoption('verbose', 0, 'out.all', 0);
+        mpopt_test = mpoption(mpopt0, 'opf.ac.solver', 'IPOPT');
+        [results, success] = runopf(mpc_test, mpopt_test);
+        
+        %external to internal permunation
+        Pgen = results.order.gen.e2i;
+        genON = find(results.gen(:,GEN_STATUS)==1); %ON generators
+        Pbus = results.order.bus.e2i;
+        x = [ results.bus(:,VA)/(180/pi); ...
+              results.bus(:,VM); ...
+              results.gen(genON(Pgen),PG)/results.baseMVA; ...
+              results.gen(genON(Pgen),QG)/results.baseMVA ];
+        
+        % verify if we reconstructed x correctly
+        err = find(abs(x - results.x) > 1e-10);
+        if (~isempty(err))
+           error('Different ordering of internal/external MPC structure'); 
+        end
+
+        %embed local OPF solution into the x0
+        idx = model.index.getGlobalIndices(mpc, ns, i-1);
+        x0(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])) = x([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx)]);
+        if i == 1
+           x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = x([VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
+        end
+    end 
     
-    %embed local OPF solution into the x0
-    idx = model.index.getGlobalIndices(mpc, ns, i-1);
-    x0(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])) = results.x([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx)]);
-    if i == 1
-       x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = results.x([VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
-    end
-    end
-   
+elseif mpopt.opf.init_from_mpc == 3
+    %solve local PF and use it as an initial guess
+    x0 = ones(length(xmin),1);
+    
+    for i = 1:ns
+        %update mpc first by removing a line
+        c = cont(i);
+        mpc_test = mpc;
+        if(c > 0)
+            mpc_test.branch(c,BR_STATUS) = 0;
+        end    
+        
+        mpopt0 = mpoption('verbose', 0, 'out.all', 0);
+        [results, success] = runpf(mpc_test, mpopt0);
+    
+        %external to internal permunation
+        Pgen = results.order.gen.e2i;
+        genON = find(results.gen(:,GEN_STATUS)==1); %ON generators
+        Pbus = results.order.bus.e2i;
+        x = [ results.bus(:,VA)/(180/pi); ...
+              results.bus(:,VM); ...
+              results.gen(genON(Pgen),PG)/results.baseMVA; ...
+              results.gen(genON(Pgen),QG)/results.baseMVA ];
+        
+        %embed local PF solution into the x0
+        idx = model.index.getGlobalIndices(mpc, ns, i-1);
+        x0(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])) = x([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx)]);
+        if i == 1
+           x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = x([VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
+        end
+    end     
 end
 
 %% find branches with flow limits
