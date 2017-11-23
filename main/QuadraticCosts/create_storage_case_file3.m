@@ -1,6 +1,8 @@
 function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p_storage)
 
     define_constants
+    
+    %replicate mpc for each timeperiod, fix numbering
     mpcN_opf = create_multi_time_step_case_file4(mpc,load_scaling_profile);
 
 
@@ -37,7 +39,7 @@ function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p
     % max(max(abs(mpcN_opf_storage.l - mpcN_opf_storage2.l)))
     % max(max(abs(mpcN_opf_storage.u - mpcN_opf_storage2.u)))
 
-
+    %extends multiperiod mpc.gen and mpc.gencost by storages, adds linear constraints A
     clear mpcN_opf,nnodes,id_storage_location,P_storage_max_MW,P_storage_min_MW,E_storage_max_MWh,E_storage_init_MWh,c_discharge,c_charge;
     nb = size(mpcN_opf_storage.bus,1);
     ng = size(mpcN_opf_storage.gen,1);
@@ -58,6 +60,6 @@ function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p
     fprintf('N , %5d\n', N);
     fprintf('nstorage, %5d \n', nstorage);
 
-    adjust_ipopt_opt(N,nb/N,ng/N,nl/N,nstorage)
+    %adjust_ipopt_opt(N,nb/N,ng/N,nl/N,nstorage)
 
 end

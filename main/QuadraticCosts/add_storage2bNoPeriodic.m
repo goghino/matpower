@@ -7,12 +7,12 @@ function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_s
     end
     N                = nnodes_total/nnodes;
     nstorage         = length(storage_nodes);
-    storage_nodesN   = repmat(storage_nodes,[N,1])+kron( (0:(N-1))' , ones(nstorage,1)*nnodes );
+    storage_nodesN   = repmat(storage_nodes,[N,1])+kron( (0:(N-1))' , ones(nstorage,1)*nnodes ); %proper bus number for different periods N
     
     if find(mpc_storage.bus(storage_nodesN,2)==3)
         error('can not add storage to slack bus')
     end
-    mpc_storage.bus(storage_nodesN,2) = 2;
+    mpc_storage.bus(storage_nodesN,2) = 2; %BUS_TYPE = PV
 
 
     n_gen_cols = size(mpc_storage.gen,2);
@@ -21,16 +21,18 @@ function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_s
     mpc_storage.gen  = [mpc_storage.gen;
                        [storage_nodesN, repmat( [ones(nstorage,1)*[0 0 0 0 1 0 1],  P_storage_max_MW, 0*P_storage_max_MW, zeros(nstorage,n_gen_cols-10)], [N,1] )   ];   % discharger
                        [storage_nodesN, repmat( [ones(nstorage,1)*[0 0 0 0 1 0 1],0*P_storage_max_MW,   P_storage_min_MW, zeros(nstorage,n_gen_cols-10)], [N,1] )   ] ]; %  charger
-
+    %Pmin = 0 for charging
+    %Pmax = 0 for discharging
+                   
 % %% generator cost data
 % %   1   startup shutdown    n   x1  y1  ... xn  yn
 % %   2   startup shutdown    n   c(n-1)  ... c0
 %  mpc.gencost = ones(ngens,1)*[2 0 0 3 0 200 0];
 mpc_storage.gencost = [mpc_storage.gencost;
-                       ones(nstorage*N*2,1)*[2 0 0 3 0 0 0]];
+                       ones(nstorage*N*2,1)*[2 0 0 3 0 0 0]]; %polynomial cost, NCOST=3, c0=c1=c2=0 (no cost)
 
 
-%% add userconstraints
+%% add user constraints
 %% x                 = [theta_bus, Vm_bus, P_gen, Q_gen]
 %% P_gen             = [ Pgen_1  ...  Pgen_N, Pdischarge_1 ... Pdischarge_N , Pcharge_1 ... Pcharge_N]
 %% Pdischarge_i      = [ Pdischarge_1_i  ...   Pdischarge_nstorage_i]
@@ -52,6 +54,7 @@ M_diag_charge = sparse(1:nstorage,1:nstorage,c_charge);
 
 %% 0 < Einit + T*P1 < Emax
 %% 0 < Einit + T*(P1+P2) < Emax ...
+% T_timestep_hours = 1
 A(1:(N*nstorage),2*nnodes_total+ngen_nostorage_total+(1:(2*N*nstorage))  ) = ...
     [ -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_discharge), ...
       -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_charge)    ];

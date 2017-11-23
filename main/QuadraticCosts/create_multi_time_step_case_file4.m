@@ -18,22 +18,21 @@ mpcN.version       = mpc0.version ;
 mpcN.baseMVA       = mpc0.baseMVA;
 
 mpcN.bus           = repmat(mpc0.bus,[N,1]);
-mpcN.bus(:,1)      = 1:(nnodes*N);
-mpcN.bus(:,3:4)    = mpcN.bus(:,3:4).*repmat(kron(load_scaling_profile,ones(nnodes,1)),[1 2]) ; 
+mpcN.bus(:,1)      = 1:(nnodes*N); %fix bus IDs
+mpcN.bus(:,3:4)    = mpcN.bus(:,3:4).*repmat(kron(load_scaling_profile,ones(nnodes,1)),[1 2]) ; %Scale PD, QD for each N by load_profile
 
 mpcN.branch        = repmat(mpc0.branch,[N,1]);
-mpcN.branch(:,1:2) = mpcN.branch(:,1:2) + kron( (0:(N-1))' , ones(nbranches,2)*nnodes );
+mpcN.branch(:,1:2) = mpcN.branch(:,1:2) + kron( (0:(N-1))' , ones(nbranches,2)*nnodes ); %fix F_BUS, T_BUS
 
 
-mpcN.gen           = repmat(mpc0.gen,[N,1]);
+mpcN.gen           = repmat(mpc0.gen,[N,1]); %fix GEN_BUS
 mpcN.gen(:,1)      = mpcN.gen(:,1) + kron( (0:(N-1))' , ones(ngens,1)*nnodes );
 
 
-% mpcN.gencost       = [ones(ngens*N,1)*[2 0 0 3 0], kron(price_trajectory_CHFperMWTimeUnit,ones(ngens,1)), zeros(ngens*N,1)];
 mpcN.gencost = kron(ones(N,1),mpc0.gencost); %% same marginal cost for all time steps
 
 mpcN.load_scaling_profile              = load_scaling_profile;
-% mpcN.price_trajectory_CHFperMWTimeUnit = price_trajectory_CHFperMWTimeUnit;
+
 mpcN.id_gen_original_generators        = (1:(N*ngens))';
 
 mpcN.horizon       = N;
