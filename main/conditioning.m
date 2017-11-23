@@ -22,7 +22,7 @@ delete *.iajaa;
 
 %list of case9 branches that do not leave isolated bus if cut
 %contingencies = [2 3 5 6 8 9];
-contingencies = [1:5];
+contingencies = [1:6 8 10:50];
 
 %condition number for the full IPOPT system
 cond_KKT = zeros(length(contingencies),1);
@@ -30,11 +30,11 @@ cond_KKT = zeros(length(contingencies),1);
 cond_block = zeros(length(contingencies),2);
 cond_pblock = zeros(length(contingencies),2);
 
-for i = contingencies
+for i = 1:20
     
     % specify list of branch contingencies, equals to OPF if empty
-    cont = [i]; 
-    ns = size(cont,1) + 1; %number of scenarios (ncont + nominal)
+    cont = contingencies(1:2*i);
+    ns = length(cont) + 1; %number of scenarios (ncont + nominal)
  
     %runopf(mpc, mpopt);
     runscopf(mpc, cont, mpopt);
@@ -49,16 +49,15 @@ for i = contingencies
     end
     
     A = readcsr(name, 0, 1);
-    cond_KKT(i,1) = cond(full(A));
+    
+    %condition num of full IPOPT KKT system
+    cond_KKT(i,1) = cond((A));
     
     [P Pinv, npart] = KKTpermute(mpc, ns);
     AP = A(P,P'); 
     if (A - AP(Pinv, Pinv') ~= sparse(size(A,1),size(A,2)))
        error('Inverse permutation does not result in original matrix.') 
     end
-
-    %condition num of full IPOPT KKT system
-    cond_KKT(i,1) = cond(full(A));
     
     %diagonal blocks after permutation
     for j = 1:ns
@@ -66,11 +65,11 @@ for i = contingencies
         cond_block(i,j) = cond(full(block));
         
         %preprocess block
-        d = abs(max(block,[],2));
-        idx = find(d < 1e-12);
-        d(idx) = 1;
-        S = diag(1./sqrt(d));
-        cond_pblock(i,j) = cond(full(S*block*S));
+%         d = abs(max(block,[],2));
+%         idx = find(d < 1e-12);
+%         d(idx) = 1;
+%         S = diag(1./sqrt(d));
+%         cond_pblock(i,j) = cond(full(S*block*S));
      
     end
     
@@ -80,7 +79,7 @@ end
 
 cond_KKT
 cond_block
-cond_pblock
+%cond_pblock
 
 %isolating bus by contingency creates singular Cb, zero on diagonal
 % -> singular local hessian and fucked up condition numbers!!!

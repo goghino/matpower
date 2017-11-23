@@ -18,7 +18,7 @@ addpath('/Users/Juraj/Documents/Code/PowerGrid/matrices/'); %readcsr
 
 define_constants;
 %% Select and configure the solver
-SOLVER = 1;
+SOLVER = 3;
 if (SOLVER == 1)
     %for further options see ipopt.opt
     mpopt = mpoption('opf.ac.solver', 'IPOPT', 'verbose', 2);
@@ -35,12 +35,12 @@ else
     mpopt = mpoption('opf.ac.solver', 'OPTIZELLE');
 end
 
-%mpopt = mpoption(mpopt, 'opf.init_from_mpc', 1);
+mpopt = mpoption(mpopt, 'opf.init_from_mpc', 0);
 
 %% load MATPOWER case struct, see help caseformat
-%mpc = loadcase('case9');
+mpc = loadcase('case9');
 %mpc = loadcase('case118');
-mpc = loadcase('case300');
+%mpc = loadcase('case89pegase');
 %mpc = loadcase('case1354pegase');
 %mpc = loadcase('case9241pegase');
 %mpc = case231swiss;

@@ -458,25 +458,12 @@ while (~converged && i < opt.max_it)
     dh_zinv = dh * zinvdiag;
     M = Lxx + dh_zinv * mudiag * dh'; %this comes from elimination of variables [z mu]
     N = Lx + dh_zinv * (mudiag * h + gamma * e); %this comes from elimination of variables [z mu]
-    %call of the linear solver - PARDISO or backslash
-    dxdlam = mplinsolve([M dg; dg' sparse(neq, neq)], [-N; -g], opt.linsolver, []);
+    dxdlam = mplinsolve([M dg; dg' sparse(neq, neq)], [-N; -g], opt.linsolver, []); %call of the linear solver - PARDISO or backslash
 
-    %MY full MIPS matrix
+    %assemble the full MIPS matrix to see the structure
     %zdiag = sparse(1:niq, 1:niq, z, niq, niq);
     %KKT = [Lxx zeros(24, niq) dg dh; zeros(niq, 24) mudiag zeros(niq, neq) zdiag; dg' zeros(neq, niq+neq+niq); dh' speye(niq) zeros(niq,neq+niq)]    
 
-%     AAA = [
-%         M  dg;
-%         dg'  sparse(neq, neq)
-%     ];
-%     rc = 1/condest(AAA);
-%     if rc < 1e-22
-%         fprintf('my RCOND = %g\n', rc);
-%         n = size(AAA, 1);
-%         AAA = AAA + 1e-3 * speye(n,n);
-%     end
-%     bbb = [-N; -g];
-%     dxdlam = AAA \ bbb;
     if any(isnan(dxdlam)) || norm(dxdlam) > max_stepsize
         if opt.verbose
             fprintf('\nNumerically Failed\n');
@@ -498,7 +485,7 @@ while (~converged && i < opt.max_it)
         x1 = x + dx;
 
         %% evaluate cost, constraints, derivatives at x1
-        [f1, df1] = f_fcn(x1);          %% cost
+        [f1, df1] = f_fcn(x1);              %% cost
         f1 = f1 * opt.cost_mult;
         df1 = df1 * opt.cost_mult;
         if nonlinear
@@ -575,9 +562,6 @@ while (~converged && i < opt.max_it)
     end
     %update variables
     x = x + alphap * dx;        %primal
-    %TODO: this approach was not working
-    %it converged to unconstrained optima
-    %x = check_ramps(x, mpc);    %check and fix ramping limits
     z = z + alphap * dz;        %dual variables
     lam = lam + alphad * dlam;  %eq lagrange multipliers
     mu  = mu  + alphad * dmu;   %ineq lagrange multipliers
