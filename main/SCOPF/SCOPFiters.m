@@ -41,12 +41,12 @@ cases = {
 %     'case6470rte',
 %     'case6495rte',
 %     'case6515rte',
+%     'case5',
+%     'case6ww',
+%     'case9',
+%     'case14',
 %-------------------
     'case_ieee30',
-    'case5',
-    'case6ww',
-    'case9',
-    'case14',
     'case30',
     'case39',
     'case57',
@@ -109,7 +109,7 @@ for c = 1:nc
     if isfield(mpc, 'gencost')
         for a = 1:length(mpopt)
             %------------------------------------
-            r = runscopf(mpc, [], mpopt{a}, 1e-4);
+            r = runscopf(mpc, -5, mpopt{a}, 1e-4);
             %------------------------------------
             sts(c, 13:16) = [r.raw.meta.lenX r.raw.meta.lenG r.raw.meta.lenH r.raw.meta.lenA];
             res.success(c,a) = r.success;

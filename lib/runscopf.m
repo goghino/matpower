@@ -11,6 +11,8 @@ function [results, success, info] = ...
 %           the name of the file with the case data (default is 'case9')
 %           (see also CASEFORMAT and LOADCASE)
 %       CONT  : list of branch contingencies, empty for standard OPF
+%               OR number specifying number of contingencies to be selected
+%                  automatically iff CONT < 0 and length(CONT)==1
 %       MPOPT : MATPOWER options struct to override default options
 %           can be used to specify the solution algorithm, output options
 %           termination tolerances, and more (see also MPOPTION).
@@ -32,30 +34,12 @@ function [results, success, info] = ...
 %           a second output argument
 %
 %   Calling syntax options:
-%       results = runopf;
-%       results = runopf(casedata);
-%       results = runopf(casedata, mpopt, cont);
-%       results = runopf(casedata, mpopt, cont, fname);
-%       results = runopf(casedata, mpopt, cont, fname, solvedcase);
-%       [results, success] = runopf(...);
-%
-%       Alternatively, for compatibility with previous versions of MATPOWER,
-%       some of the results can be returned as individual output arguments:
-%
-%       [baseMVA, bus, gen, gencost, branch, f, success, et] = runopf(...);
+%       [RESULTS, SUCCESS] = runscopf(casedata, cont, mpopt, tol);
 %
 %   Example:
-%       results = runopf('case30');
+%       results = runscopf('case30',[1 2 3], mpopt, 1e-4);
 %
 %   See also RUNDCOPF, RUNOPF.
-
-%   MATPOWER
-%   Copyright (c) 1996-2016, Power Systems Engineering Research Center (PSERC)
-%   by Ray Zimmerman, PSERC Cornell
-%
-%   This file is part of MATPOWER.
-%   Covered by the 3-clause BSD License (see LICENSE file for details).
-%   See http://www.pserc.cornell.edu/matpower/ for more info.
 
 %%-----  initialize  -----
 %% default arguments
@@ -81,7 +65,14 @@ end
 if size(cont, 2) > 1
    cont = cont'; %scopf expects a column vector
 end
-cont = [-1; cont];
+
+% we were given a vector, add nominal case in this case;
+% else assume negative N, specifying no. of contingencies to be chosen automatically
+if ~(length(cont) == 1 && cont < 0)
+    if (sum(cont > 0) ~= length(cont))
+       error('List of contingencies must contain only positive integers\n'); 
+    end
+end 
 
 %%-----  run the optimal power flow  -----
 [results, success] = scopf(casedata, cont, mpopt, tol);

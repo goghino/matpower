@@ -15,15 +15,6 @@ function [results, success] = ...
 %
 %   See also RUNOPF, DCOPF, UOPF, CASEFORMAT.
 
-%   MATPOWER
-%   Copyright (c) 1996-2016, Power Systems Engineering Research Center (PSERC)
-%   by Ray Zimmerman, PSERC Cornell
-%   and Carlos E. Murillo-Sanchez, PSERC Cornell & Universidad Nacional de Colombia
-%
-%   This file is part of MATPOWER.
-%   Covered by the 3-clause BSD License (see LICENSE file for details).
-%   See http://www.pserc.cornell.edu/matpower/ for more info.
-
 %% define named indices into data matrices
 [PQ, PV, REF, NONE, BUS_I, BUS_TYPE, PD, QD, GS, BS, BUS_AREA, VM, ...
     VA, BASE_KV, ZONE, VMAX, VMIN, LAM_P, LAM_Q, MU_VMAX, MU_VMIN] = idx_bus;
@@ -54,28 +45,38 @@ end
 %%-----  convert to internal numbering, remove out-of-service stuff  -----
 mpc = ext2int(mpc);
 
-%%----- analyze contingencies if some creates islands or isolated buses
-for i = 1:ns
-
-    %get contingency
-    c = cont(i);
+%%----- analyze given list of contingencies or create them automatically
+if ns > 1
+    cont_filt = cont;
     
-    %remove branch for non-nominal case
-    mpc_test = mpc;
-    if(c > 0)
-        mpc_test.branch(c,:) = [];
-    end
+    %%-- remove contingencies outside bounds of the mpc.branch
+    cont_filt(cont_filt > size(mpc.branch,1)) = [];
+    N = length(cont_filt);
     
-    [islands, isolated] = find_islands(mpc_test);
+    %TODO - add warning when removing contingency from given list!!
+else
+    %cont specifies number of contingencies to create
+    N = abs(cont);
     
-    if (~isempty(isolated))
-        error('Removing branch %d leaves bus %d isolated', c, isolated);
-    end
-    
-    if (size(islands,2) > 1)
-       error('Network has %d separate islands after removing branch %d', size(islands,2), c); 
-    end
+    % generate ns-1 contingencies
+    nbranch = size(mpc.branch,1);
+    cont_filt = [1:nbranch]';
 end
+
+%%-- remove branches causing islands or isolated buses
+lines = findIslandBranches(mpc);
+cont_filt = setdiff(cont_filt, lines);
+
+%%-- remove duplicate lines
+duplicates = findDuplicateBranches(mpc);
+cont_filt = setdiff(cont_filt, duplicates);
+
+%%-- remove lines causing Qg violations
+critical = findQgCritical(mpc, 150); %max 150% violation wrt Qmax, Qmin
+cont_filt = setdiff(cont_filt, critical);
+
+cont = [-1; cont_filt(1:min(N,length(cont_filt)))]; %add nominal case and N contingencies
+ns = length(cont);
 
 %%-----  construct OPF model object  -----
 om = scopf_setup(mpc, mpopt);

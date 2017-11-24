@@ -18,7 +18,7 @@ addpath('/Users/Juraj/Documents/Code/PowerGrid/matrices/'); %readcsr
 
 define_constants;
 %% Select and configure the solver
-SOLVER = 3;
+SOLVER = 1;
 if (SOLVER == 1)
     %for further options see ipopt.opt
     mpopt = mpoption('opf.ac.solver', 'IPOPT', 'verbose', 2);
@@ -38,7 +38,7 @@ end
 mpopt = mpoption(mpopt, 'opf.init_from_mpc', 0);
 
 %% load MATPOWER case struct, see help caseformat
-mpc = loadcase('case9');
+mpc = loadcase('case89pegase');
 %mpc = loadcase('case118');
 %mpc = loadcase('case89pegase');
 %mpc = loadcase('case1354pegase');
@@ -50,17 +50,7 @@ no_limit = find(mpc.branch(:,RATE_A) < 1e-10);
 mpc.branch(no_limit,RATE_A) = 1e5;
 
 %% Specify contingencies case 118
-
-%cont = [1:6 8 10:65 67:112 114:132 135:175 178:182 185:186]; %case118 - ends up in restoration phase, already in 2nd iteration
-cont = [];
-%cont = [66 67 ]; %error in case118
-%cont = [1:6 8 10:65 ]; %works case 118
-
-%% Specify contingencies PEGASE
-%cont = [ 4 5 14 15 18 19 20 22 26 32 33 36 37  40 41 42 43 44 46 47 48 49 50 51 54 55 64 72 74 75 79 80 87 99 100]; %pegase 1354
-%cont = [1:34 37:92 94:121 124:173 176:203 206:219 222:225 227:320 323:366 368:433 436:16000]; %case pegase 9k
-%cont = [ 46 47]; %error in case1k
-
+cont = -5;
 
 %% Set required tolerance for satysfying PF equations (i.e. equality constraints |gx| < tol) and run SCOPF
 tol = 1e-4;
