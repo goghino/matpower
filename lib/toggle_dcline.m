@@ -48,11 +48,14 @@ if strcmp(upper(on_off), 'ON')
         error('toggle_dcline: number of rows in ''dcline'' field (%d) and ''dclinecost'' field (%d) do not match.', ...
             size(mpc.dcline, 1), size(mpc.dclinecost, 1));
     end
-%     k = find(mpc.dcline(:, c.LOSS1) < 0);
-%     if ~isempty(k)
-%         warning('toggle_dcline: linear loss term is negative for DC line from bus %d to %d\n', ...
-%             [mpc.dcline(k, c.F_BUS:c.T_BUS)]');
-%     end
+    l0 = mpc.dcline(:, c.LOSS0);
+    l1 = mpc.dcline(:, c.LOSS1);
+    k = find( (l0 + l1 .* mpc.dcline(:, c.PMIN) < 0) | ...
+              (l0 + l1 .* mpc.dcline(:, c.PMAX) < 0) );
+    if ~isempty(k)
+        warning('toggle_dcline: loss can be negative for DC line from bus %d to %d\n', ...
+            [mpc.dcline(k, c.F_BUS:c.T_BUS)]');
+    end
 
     %% add callback functions
     %% note: assumes all necessary data included in 1st arg (mpc, om, results)
@@ -277,9 +280,9 @@ end
 
 
 %%-----  formulation  --------------------------------------------------
-function om = userfcn_dcline_formulation(om, args)
+function om = userfcn_dcline_formulation(om, mpopt, args)
 %
-%   om = userfcn_dcline_formulation(om, args)
+%   om = userfcn_dcline_formulation(om, mpopt, args)
 %
 %   This is the 'formulation' stage userfcn callback that defines the
 %   user constraints for the dummy generators representing DC lines.
@@ -306,7 +309,7 @@ function om = userfcn_dcline_formulation(om, args)
 c = idx_dcline;
 
 %% initialize some things
-mpc = get_mpc(om);
+mpc = om.get_mpc();
 dc = mpc.dcline;
 ndc = size(dc, 1);              %% number of in-service DC lines
 ng  = size(mpc.gen, 1) - 2*ndc; %% number of original gens/disp loads
@@ -317,7 +320,7 @@ L1  =  dc(:, c.LOSS1);
 Adc = [sparse(ndc, ng) spdiags(1-L1, 0, ndc, ndc) speye(ndc, ndc)];
 
 %% add them to the model
-om = add_constraints(om, 'dcline', Adc, nL0, nL0, {'Pg'});
+om.add_lin_constraint('dcline', Adc, nL0, nL0, {'Pg'});
 
 
 %%-----  int2ext  ------------------------------------------------------
@@ -510,7 +513,7 @@ end
 %%-----  savecase  -----------------------------------------------------
 function mpc = userfcn_dcline_savecase(mpc, fd, prefix, args)
 %
-%   mpc = userfcn_dcline_savecase(mpc, fd, mpopt, args)
+%   mpc = userfcn_dcline_savecase(mpc, fd, prefix, args)
 %
 %   This is the 'savecase' stage userfcn callback that prints the M-file
 %   code to save the 'dcline' field in the case file. It expects a

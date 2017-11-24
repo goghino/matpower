@@ -114,6 +114,7 @@ if isstruct(bus)
             %% sizes
             nb = size(mpc.bus, 1);
             ng = size(mpc.gen, 1);
+            nb0 = nb;
             ng0 = ng;
             if isfield(mpc, 'A') && size(mpc.A, 2) < 2*nb + 2*ng
                 dc = 1;
@@ -166,12 +167,18 @@ if isstruct(bus)
 
             %% apply consecutive bus numbering
             o.bus.i2e = mpc.bus(:, BUS_I);
-            o.bus.e2i = sparse(max(o.bus.i2e), 1);
-            o.bus.e2i(o.bus.i2e) = (1:nb)';
-            mpc.bus(:, BUS_I)       = o.bus.e2i( mpc.bus(:, BUS_I)      );
-            mpc.gen(:, GEN_BUS)     = o.bus.e2i( mpc.gen(:, GEN_BUS)    );
-            mpc.branch(:, F_BUS)    = o.bus.e2i( mpc.branch(:, F_BUS)   );
-            mpc.branch(:, T_BUS)    = o.bus.e2i( mpc.branch(:, T_BUS)   );
+            if nb
+                o.bus.e2i = sparse(max(o.bus.i2e), 1);
+                o.bus.e2i(o.bus.i2e) = (1:nb)';
+            else
+                o.bus.e2i = sparse(0, 1);
+            end
+            if nb
+                mpc.bus(:, BUS_I)       = o.bus.e2i( mpc.bus(:, BUS_I)      );
+                mpc.gen(:, GEN_BUS)     = o.bus.e2i( mpc.gen(:, GEN_BUS)    );
+                mpc.branch(:, F_BUS)    = o.bus.e2i( mpc.branch(:, F_BUS)   );
+                mpc.branch(:, T_BUS)    = o.bus.e2i( mpc.branch(:, T_BUS)   );
+            end
 
             %% reorder gens in order of increasing bus number
             [tmp, o.gen.e2i] = sort(mpc.gen(:, GEN_BUS));
@@ -184,13 +191,22 @@ if isstruct(bus)
             o.state = 'i';
             mpc.order = o;
 
-            %% update gencost, A and N
+            %% update gencost, bus_name, gentype, genfuel, A and N
             if isfield(mpc, 'gencost')
                 ordering = {'gen'};         %% Pg cost only
                 if size(mpc.gencost, 1) == 2*ng0
                     ordering{2} = 'gen';    %% include Qg cost
                 end
                 mpc = e2i_field(mpc, 'gencost', ordering);
+            end
+            if isfield(mpc, 'bus_name')
+                mpc = e2i_field(mpc, 'bus_name', {'bus'});
+            end
+            if isfield(mpc, 'gentype')
+                mpc = e2i_field(mpc, 'gentype', {'gen'});
+            end
+            if isfield(mpc, 'genfuel')
+                mpc = e2i_field(mpc, 'genfuel', {'gen'});
             end
             if isfield(mpc, 'A') || isfield(mpc, 'N')
                 if dc
@@ -213,7 +229,7 @@ if isstruct(bus)
         end
 
         i2e = mpc;
-    else                    %% convert extra data
+    else                    %% convert extra data (DEPRECATED)
         ordering = branch;              %% rename argument
         if nargin < 4
             dim = 1;

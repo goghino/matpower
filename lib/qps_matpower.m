@@ -26,9 +26,9 @@ function [x, f, eflag, output, lambda] = qps_matpower(H, c, A, l, u, xmin, xmax,
 %           all of which are also optional (default values shown in
 %           parentheses)
 %           alg ('DEFAULT') : determines which solver to use, can be either
-%                   a (new-style) string or an (old-style) numerical alg code
+%                   a string (new-style) or a numerical alg code (old-style)
 %               'DEFAULT' : (or 0) automatic, first available of CPLEX,
-%                       Gurobi, MOSEK, Opt Tbx (if Matlab), GLPK (LPs only),
+%                       Gurobi, MOSEK, Opt Tbx (if MATLAB), GLPK (LPs only),
 %                       BPMPD, MIPS
 %               'MIPS'    : (or 200) MIPS, MATPOWER Interior Point Solver
 %                        pure MATLAB implementation of a primal-dual
@@ -194,7 +194,7 @@ if strcmp(alg, 'DEFAULT')
         alg = 'CPLEX';
     elseif have_fcn('mosek')    %% if not, then MOSEK, if available
         alg = 'MOSEK';
-    elseif have_fcn('quadprog') && have_fcn('matlab')   %% if not, then Opt Tbx, if available in Matlab
+    elseif have_fcn('quadprog') && have_fcn('matlab')   %% if not, then Opt Tbx, if available in MATLAB
         alg = 'OT';
     elseif (isempty(H) || ~any(any(H))) && have_fcn('glpk') %% if not, and
         alg = 'GLPK';           %% prob is LP (not QP), then GLPK, if available

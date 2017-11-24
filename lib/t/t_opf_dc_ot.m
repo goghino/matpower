@@ -36,7 +36,7 @@ else
     algs  = {'default'};
 end
 
-num_tests = 23 * length(algs);
+num_tests = 24 * length(algs);
 
 t_begin(num_tests, quiet);
 
@@ -82,7 +82,7 @@ if have_fcn('quadprog')
             end
         end
         if strcmp(algs{k}, 'dual-simplex') && strcmp(have_fcn('fmincon', 'vstr'), '7.1')
-            have_prices = 0;    %% dual-simplex did not return prices in Matlab R2014b!?!
+            have_prices = 0;    %% dual-simplex did not return prices in MATLAB R2014b!?!
         else
             have_prices = 1;
         end
@@ -193,6 +193,17 @@ if have_fcn('quadprog')
         success = 0;
     end
     t_ok(~success, [t 'no success']);
+
+    %% OPF with all buses isolated
+    t = [t0 'all buses isolated : '];
+    mpc = loadcase(casefile);
+    mpc.bus(:, BUS_TYPE) = NONE;
+    try
+        r = rundcopf(mpc, mpopt);
+        t_is(r.success, 0, 12, [t 'success = 0']);
+    catch
+        t_ok(0, [t 'unexpected fatal error']);
+    end
     end
 else
     t_skip(num_tests, 'Optimization Toolbox not available');

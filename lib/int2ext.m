@@ -61,10 +61,20 @@ if isstruct(i2e)
             %% convert back "extra" fields
             if isfield(mpc, 'gencost')
                 ordering = {'gen'};         %% Pg cost only
-                if size(mpc.gencost, 1) == 2*size(mpc.gen, 1)
+                if size(mpc.gencost, 1) == 2*size(mpc.gen, 1) && ...
+                        size(mpc.gencost, 1) ~= 0
                     ordering{2} = 'gen';    %% include Qg cost
                 end
                 mpc = i2e_field(mpc, 'gencost', ordering);
+            end
+            if isfield(mpc, 'bus_name')
+                mpc = i2e_field(mpc, 'bus_name', {'bus'});
+            end
+            if isfield(mpc, 'gentype')
+                mpc = i2e_field(mpc, 'gentype', {'gen'});
+            end
+            if isfield(mpc, 'genfuel')
+                mpc = i2e_field(mpc, 'genfuel', {'gen'});
             end
             %% assume A and N are "read-only"
             %% (otherwise need to convert back, using i2e_field() which

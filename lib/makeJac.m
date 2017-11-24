@@ -12,7 +12,8 @@ function [J, Ybus, Yf, Yt] = makeJac(baseMVA, bus, branch, gen, fullJac)
 %   at 1 (i.e. internal ordering). If the FULLJAC argument is present and
 %   true, it returns the full Jacobian (sensitivities of all bus injections
 %   w.r.t all voltage angles/magnitudes) as opposed to the reduced version
-%   used in the Newton power flow updates.
+%   used in the Newton power flow updates. The units for all quantities are
+%   in per unit with radians for voltage angles.
 %
 %   Note: This function builds the Jacobian from scratch, rebuilding the
 %         YBUS matrix in the process. You probably don't want to use this
@@ -21,7 +22,7 @@ function [J, Ybus, Yf, Yt] = makeJac(baseMVA, bus, branch, gen, fullJac)
 %   See also MAKEYBUS, EXT2INT
 
 %   MATPOWER
-%   Copyright (c) 1996-2016, Power Systems Engineering Research Center (PSERC)
+%   Copyright (c) 1996-2017, Power Systems Engineering Research Center (PSERC)
 %   by Ray Zimmerman, PSERC Cornell
 %
 %   This file is part of MATPOWER.
@@ -55,9 +56,12 @@ end
 
 %% extract voltage
 V = bus(:, VM) .* exp(sqrt(-1) * pi/180 * bus(:, VA));
+
+%% make sure we use generator setpoint voltage for PV and slack buses
 on = find(gen(:, GEN_STATUS) > 0);      %% which generators are on?
 gbus = gen(on, GEN_BUS);                %% what buses are they at?
-V(gbus) = gen(on, VG) ./ abs(V(gbus)).* V(gbus);
+k = find(bus(gbus, BUS_TYPE) == PV | bus(gbus, BUS_TYPE) == REF);
+V(gbus(k)) = gen(on(k), VG) ./ abs(V(gbus(k))).* V(gbus(k));
 
 %% build Jacobian
 [dSbus_dVm, dSbus_dVa] = dSbus_dV(Ybus, V);

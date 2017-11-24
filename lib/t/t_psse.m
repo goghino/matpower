@@ -13,12 +13,13 @@ if nargin < 1
     quiet = 0;
 end
 
-num_tests = 137;
+num_tests = 142;
 
 t_begin(num_tests, quiet);
 
 raw = 't_psse_case.raw';
 case_n = 't_psse_case%d';
+casefile = 't_case9_save2psse';
 if quiet
     verbose = 0;
 else
@@ -35,7 +36,7 @@ if have_fcn('octave')
 end
 
 if ~have_fcn('regexp_split')
-    t_skip(num_tests, 'PSSE2MPC requires newer Matlab/Octave with regexp split support');
+    t_skip(num_tests, 'PSSE2MPC requires newer MATLAB/Octave with regexp split support');
 else
     t = '[records, sections] = psse_read() : length(records)';
     [records, sections] = psse_read(raw, verbose);
@@ -108,6 +109,7 @@ else
         mpc = psse2mpc(rawname, tmpfname, 0);
         str = fileread(casename);
         str2 = fileread(tmpcasename);
+        str = strrep(str, char([13 10]), char(10));     %% Win to Unix EOL chars
         str2 = strrep(str2, char([13 10]), char(10));   %% Win to Unix EOL chars
         str2 = strrep(str2, 'e-005', 'e-05');           %% needed on Windoze, who knows why?
         str2 = strrep(str2, tmpfname, fname);
@@ -116,6 +118,18 @@ else
         delete(tmpcasename);
         t_ok(strcmp(str, str2), sprintf('%s : %s', t, fname));
     end
+
+    t = 'save2psse -> psse2mpc : ';
+    mpc0 = loadcase(casefile);
+    tmpfname = sprintf('t_save2psse_%d', fix(1e9*rand));
+    tmpfname = save2psse(tmpfname, mpc0);
+    mpc = psse2mpc(tmpfname, 0);
+    delete(tmpfname);
+    t_is(mpc.bus, mpc0.bus, 12, [t 'bus']);
+    t_is(mpc.branch, mpc0.branch, 12, [t 'branch']);
+    t_is(mpc.gen, mpc0.gen, 12, [t 'gen']);
+    t_is(mpc.dcline, mpc0.dcline, 4, [t 'dcline']);
+    t_ok(isequal(mpc.bus_name, mpc0.bus_name), [t 'bus_name']);
 end
 
 if have_fcn('octave')

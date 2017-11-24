@@ -9,6 +9,11 @@ function opt = ipopt_options(overrides, mpopt)
 %   Sets the values for the options.ipopt struct normally passed to
 %   IPOPT.
 %
+%   Please note that if there is a file named 'ipopt.opt' in your
+%   current working directory, it will override any options passed
+%   to the IPOPT MEX file, including any options returned by this
+%   function.
+%
 %   Inputs are all optional, second argument must be either a string
 %   (FNAME) or a struct (MPOPT):
 %
@@ -104,7 +109,7 @@ else
 end
 
 %% convergence
-opt.tol             = 1e-8;                %% default 1e-8
+opt.tol             = 1e-8;                 %% default 1e-8
 opt.max_iter        = 250;                  %% default 3000
 opt.dual_inf_tol    = 0.1;                  %% default 1
 if have_mpopt

@@ -6,7 +6,7 @@ function display(om)
 %   See also OPT_MODEL.
 
 %   MATPOWER
-%   Copyright (c) 2008-2016, Power Systems Engineering Research Center (PSERC)
+%   Copyright (c) 2008-2017, Power Systems Engineering Research Center (PSERC)
 %   by Ray Zimmerman, PSERC Cornell
 %
 %   This file is part of MATPOWER.
@@ -30,47 +30,55 @@ if om.var.NS
                     subsref(idx.i1, s), subsref(idx.iN, s), subsref(idx.N, s));
         end
     end
-    fprintf('%10d = var.NS%29d = var.N\n', om.var.NS, om.var.N);
-%     for k = 1:om.var.NS
-%         name = om.var.order(k).name;
-%         if isscalar(idx.N.(name))
-%             fprintf('%10d:%19s %8d %8d %8d\n', k, name, idx.i1.(name), idx.iN.(name), idx.N.(name));
-%         else
-%             d = size(idx.N.(name));     %% dimensions of this named set
-%             nn = prod(d);               %% total number of blocks in named set
-%             temp = cell(size(d));
-%             [temp{end:-1:1}] = ind2sub(d(end:-1:1), (1:nn)');
-%             ss = num2cell([temp{:}]);   %% table of indices
-%             str = '%d'; for m = 2:length(d), str = [str ',%d']; end
-%             for i = 1:nn
-%                 s = substruct('.', name, '()', {ss{i,:}});
-%                 nname = sprintf(['%s(' str, ')'], name, ss{i,:});
-%                 fprintf('%10d:%19s %8d %8d %8d\n', k, nname, ...
-%                     subsref(idx.i1, s), subsref(idx.iN, s), subsref(idx.N, s));
-%             end
-%         end
-%     end
-%     fprintf('%10s%38s\n', sprintf('var.NS = %d', om.var.NS), sprintf('var.N = %d', om.var.N));
-    fprintf('\n');
+    fprintf('%10d = var.NS%29d = var.N\n\n', om.var.NS, om.var.N);
 else
     fprintf('%s  :  <none>\n', 'VARIABLES');
 end
-if om.nln.NS
-    fprintf('\n%-17s %12s %8s %8s %8s\n', 'NON-LINEAR CONSTRAINTS', 'name', 'i1', 'iN', 'N');
-    fprintf('%-17s %12s %8s %8s %8s\n', '======================', '------', '-----', '-----', '------');
-    idx = om.nln.idx;
-    for k = 1:om.nln.NS
-        name = om.nln.order(k).name;
-        fprintf('%15d:%12s %8d %8d %8d\n', k, name, idx.i1.(name), idx.iN.(name), idx.N.(name));
+if om.nle.NS
+    fprintf('\n%-21s %8s %8s %8s %8s\n', 'NONLIN EQ CONSTRAINTS', 'name', 'i1', 'iN', 'N');
+    fprintf('%-21s %8s %8s %8s %8s\n', '=====================', '------', '-----', '-----', '------');
+    idx = om.nle.idx;
+    for k = 1:om.nle.NS
+        name = om.nle.order(k).name;
+        if isempty(om.nle.order(k).idx)
+            fprintf('%10d:%19s %8d %8d %8d\n', k, name, idx.i1.(name), idx.iN.(name), idx.N.(name));
+        else
+            vsidx = om.nle.order(k).idx;
+            str = '%d'; for m = 2:length(vsidx), str = [str ',%d']; end
+            s = substruct('.', name, '()', vsidx);
+            nname = sprintf(['%s(' str, ')'], name, vsidx{:});
+            fprintf('%10d:%19s %8d %8d %8d\n', k, nname, ...
+                    subsref(idx.i1, s), subsref(idx.iN, s), subsref(idx.N, s));
+        end
     end
-    fprintf('%10d = nln.NS%29d = nln.N\n', om.nln.NS, om.nln.N);
-    fprintf('\n');
+    fprintf('%10d = nle.NS%29d = nle.N\n\n', om.nle.NS, om.nle.N);
 else
-    fprintf('%s  :  <none>\n', 'NON-LINEAR CONSTRAINTS');
+    fprintf('%s  :  <none>\n', 'NONLIN EQ CONSTRAINTS');
+end
+if om.nli.NS
+    fprintf('\n%-23s %6s %8s %8s %8s\n', 'NONLIN INEQ CONSTRAINTS', 'name', 'i1', 'iN', 'N');
+    fprintf('%-23s %6s %8s %8s %8s\n', '=======================', '------', '-----', '-----', '------');
+    idx = om.nli.idx;
+    for k = 1:om.nli.NS
+        name = om.nli.order(k).name;
+        if isempty(om.nli.order(k).idx)
+            fprintf('%10d:%19s %8d %8d %8d\n', k, name, idx.i1.(name), idx.iN.(name), idx.N.(name));
+        else
+            vsidx = om.nli.order(k).idx;
+            str = '%d'; for m = 2:length(vsidx), str = [str ',%d']; end
+            s = substruct('.', name, '()', vsidx);
+            nname = sprintf(['%s(' str, ')'], name, vsidx{:});
+            fprintf('%10d:%19s %8d %8d %8d\n', k, nname, ...
+                    subsref(idx.i1, s), subsref(idx.iN, s), subsref(idx.N, s));
+        end
+    end
+    fprintf('%10d = nli.NS%29d = nli.N\n\n', om.nli.NS, om.nli.N);
+else
+    fprintf('%s  :  <none>\n', 'NONLIN INEQ CONSTRAINTS');
 end
 if om.lin.NS
-    fprintf('\n%-17s %12s %8s %8s %8s\n', 'LINEAR CONSTRAINTS', 'name', 'i1', 'iN', 'N');
-    fprintf('%-17s %12s %8s %8s %8s\n', '==================', '------', '-----', '-----', '------');
+    fprintf('\n%-18s %11s %8s %8s %8s\n', 'LINEAR CONSTRAINTS', 'name', 'i1', 'iN', 'N');
+    fprintf('%-18s %11s %8s %8s %8s\n', '==================', '------', '-----', '-----', '------');
     idx = om.lin.idx;
     for k = 1:om.lin.NS
         name = om.lin.order(k).name;
@@ -85,14 +93,55 @@ if om.lin.NS
                     subsref(idx.i1, s), subsref(idx.iN, s), subsref(idx.N, s));
         end
     end
-    fprintf('%10d = lin.NS%29d = lin.N\n', om.lin.NS, om.lin.N);
-    fprintf('\n');
+    fprintf('%10d = lin.NS%29d = lin.N\n\n', om.lin.NS, om.lin.N);
 else
     fprintf('%s  :  <none>\n', 'LINEAR CONSTRAINTS');
 end
+if om.qdc.NS
+    fprintf('\n%-17s %12s %8s %8s %8s\n', 'QUADRATIC COSTS', 'name', 'i1', 'iN', 'N');
+    fprintf('%-17s %12s %8s %8s %8s\n', '===============', '------', '-----', '-----', '------');
+    idx = om.qdc.idx;
+    for k = 1:om.qdc.NS
+        name = om.qdc.order(k).name;
+        if isempty(om.qdc.order(k).idx)
+            fprintf('%10d:%19s %8d %8d %8d\n', k, name, idx.i1.(name), idx.iN.(name), idx.N.(name));
+        else
+            vsidx = om.qdc.order(k).idx;
+            str = '%d'; for m = 2:length(vsidx), str = [str ',%d']; end
+            s = substruct('.', name, '()', vsidx);
+            nname = sprintf(['%s(' str, ')'], name, vsidx{:});
+            fprintf('%10d:%19s %8d %8d %8d\n', k, nname, ...
+                    subsref(idx.i1, s), subsref(idx.iN, s), subsref(idx.N, s));
+        end
+    end
+    fprintf('%10d = qdc.NS%28d = qdc.N\n\n', om.qdc.NS, om.qdc.N);
+else
+    fprintf('%s  :  <none>\n', 'QUADRATIC COSTS');
+end
+if om.nlc.NS
+    fprintf('\n%-17s %12s %8s %8s %8s\n', 'GEN NONLIN COSTS', 'name', 'i1', 'iN', 'N');
+    fprintf('%-17s %12s %8s %8s %8s\n', '================', '------', '-----', '-----', '------');
+    idx = om.nlc.idx;
+    for k = 1:om.nlc.NS
+        name = om.nlc.order(k).name;
+        if isempty(om.nlc.order(k).idx)
+            fprintf('%10d:%19s %8d %8d %8d\n', k, name, idx.i1.(name), idx.iN.(name), idx.N.(name));
+        else
+            vsidx = om.nlc.order(k).idx;
+            str = '%d'; for m = 2:length(vsidx), str = [str ',%d']; end
+            s = substruct('.', name, '()', vsidx);
+            nname = sprintf(['%s(' str, ')'], name, vsidx{:});
+            fprintf('%10d:%19s %8d %8d %8d\n', k, nname, ...
+                    subsref(idx.i1, s), subsref(idx.iN, s), subsref(idx.N, s));
+        end
+    end
+    fprintf('%10d = nlc.NS%28d = nlc.N\n\n', om.nlc.NS, om.nlc.N);
+else
+    fprintf('%s  :  <none>\n', 'GEN NONLIN COSTS');
+end
 if om.cost.NS
-    fprintf('\n%-17s %12s %8s %8s %8s\n', 'COSTS', 'name', 'i1', 'iN', 'N');
-    fprintf('%-17s %12s %8s %8s %8s\n', '=====', '------', '-----', '-----', '------');
+    fprintf('\n%-17s %12s %8s %8s %8s\n', 'LEGACY COSTS', 'name', 'i1', 'iN', 'N');
+    fprintf('%-17s %12s %8s %8s %8s\n', '============', '------', '-----', '-----', '------');
     idx = om.cost.idx;
     for k = 1:om.cost.NS
         name = om.cost.order(k).name;
@@ -107,10 +156,9 @@ if om.cost.NS
                     subsref(idx.i1, s), subsref(idx.iN, s), subsref(idx.N, s));
         end
     end
-    fprintf('%10d = cost.NS%28d = cost.N\n', om.cost.NS, om.cost.N);
-    fprintf('\n');
+    fprintf('%10d = cost.NS%28d = cost.N\n\n', om.cost.NS, om.cost.N);
 else
-    fprintf('%s  :  <none>\n', 'COSTS');
+    fprintf('%s  :  <none>\n', 'LEGACY COSTS');
 end
 
 fprintf('  userdata = ');

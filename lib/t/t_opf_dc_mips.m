@@ -13,7 +13,7 @@ if nargin < 1
     quiet = 0;
 end
 
-num_tests = 23;
+num_tests = 24;
 
 t_begin(num_tests, quiet);
 
@@ -45,6 +45,11 @@ end
 t0 = 'DC OPF (MIPS): ';
 mpopt = mpoption('out.all', 0, 'verbose', verbose);
 mpopt = mpoption(mpopt, 'opf.dc.solver', 'MIPS');
+
+%% reveals a bug introduced with summer 2017 OPF refactorization
+if have_fcn('pdipmopf')
+    mpopt = mpoption(mpopt, 'opf.ac.solver', 'PDIPM');
+end
 
 if have_fcn('octave')
     sing_matrix_warn_id = 'Octave:singular-matrix';
@@ -138,6 +143,17 @@ mpc.u = Inf;
 mpc.l = 600;
 [r, success] = rundcopf(mpc, mpopt);
 t_ok(~success, [t 'no success']);
+
+%% OPF with all buses isolated
+t = [t0 'all buses isolated : '];
+mpc = loadcase(casefile);
+mpc.bus(:, BUS_TYPE) = NONE;
+try
+    r = rundcopf(mpc, mpopt);
+    t_is(r.success, 0, 12, [t 'success = 0']);
+catch
+    t_ok(0, [t 'unexpected fatal error']);
+end
 
 if have_fcn('octave')
     warning(s1.state, file_in_path_warn_id);

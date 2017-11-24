@@ -66,6 +66,16 @@ function opt = mpoption(varargin)
 %                                       P & Q mismatch
 %   pf.nr.max_it            10          maximum number of iterations for
 %                                       Newton's method
+%   pf.nr.lin_solver        ''          linear solver passed to MPLINSOLVE to
+%                                       solve Newton update step
+%       [ ''      - default to '\' for small systems, 'LU3' for larger ones ]
+%       [ '\'     - built-in backslash operator                             ]
+%       [ 'LU'    - explicit default LU decomposition and back substitution ]
+%       [ 'LU3'   - 3 output arg form of LU, Gilbert-Peierls algorithm with ]
+%       [           approximate minimum degree (AMD) reordering             ]
+%       [ 'LU4'   - 4 output arg form of LU, UMFPACK solver (same as 'LU')  ]
+%       [ 'LU5'   - 5 output arg form of LU, UMFPACK solver, w/row scaling  ]
+%       [       (see MPLINSOLVE for complete list of all options)           ]
 %   pf.fd.max_it            30          maximum number of iterations for
 %                                       fast decoupled method
 %   pf.gs.max_it            1000        maximum number of iterations for
@@ -98,6 +108,12 @@ function opt = mpoption(varargin)
 %                                       expense of |V|
 %       [  0 - do NOT enforce limits                                        ]
 %       [  1 - enforce limits, simultaneous bus type conversion             ]
+%   cpf.enforce_v_lims      0           enforce bus voltage magnitude limits
+%       [  0 - do NOT enforce limits                                        ]
+%       [  1 - enforce limits, termination on detection                     ]
+%   cpf.enforce_flow_lims   0           enforce branch flow MVA limits
+%       [  0 - do NOT enforce limits                                        ]
+%       [  1 - enforce limits, termination on detection                     ]
 %   cpf.step                0.05        continuation power flow step size
 %   cpf.adapt_step          0           toggle adaptive step size feature
 %       [  0 - adaptive step size disabled                                  ]
@@ -113,6 +129,10 @@ function opt = mpoption(varargin)
 %                                       power limit enforcement (MW)
 %   cpf.q_lims_tol          0.01        tolerance for generator reactive
 %                                       power limit enforcement (MVAR)
+%   cpf.v_lims_tol          1e-4        tolerance for bus voltage
+%                                       magnitude enforcement (p.u)
+%   cpf.flow_lims_tol       0.01        tolerance for line MVA flow
+%                                       enforcement (MVA)
 %   cpf.plot.level          0           control plotting of noze curve
 %       [  0 - do not plot nose curve                                       ]
 %       [  1 - plot when completed                                          ]
@@ -131,10 +151,9 @@ function opt = mpoption(varargin)
 %   name                    default     description [options]
 %----------------------    ---------   ----------------------------------
 %   opf.ac.solver           'DEFAULT'   AC optimal power flow solver
-%       [ 'DEFAULT' - choose solver based on availability in the following  ]
-%       [             order: 'PDIPM', 'MIPS'                                ]
+%       [ 'DEFAULT' - choose default solver, i.e. 'MIPS'                    ]
 %       [ 'MIPS'    - MIPS, MATPOWER Interior Point Solver, primal/dual     ]
-%       [             interior point method (pure Matlab)                   ]
+%       [             interior point method (pure MATLAB/Octave)            ]
 %       [ 'FMINCON' - MATLAB Optimization Toolbox, FMINCON                  ]
 %       [ 'IPOPT'   - IPOPT, requires MEX interface to IPOPT solver         ]
 %       [             available from:                                       ]
@@ -161,7 +180,7 @@ function opt = mpoption(varargin)
 %       [             order: 'GUROBI', 'CPLEX', 'MOSEK', 'OT',              ]
 %       [             'GLPK' (linear costs only), 'BPMPD', 'MIPS'           ]
 %       [ 'MIPS'    - MIPS, MATPOWER Interior Point Solver, primal/dual     ]
-%       [             interior point method (pure Matlab)                   ]
+%       [             interior point method (pure MATLAB/Octave)            ]
 %       [ 'BPMPD'   - BPMPD, requires optional MEX-based BPMPD_MEX package  ]
 %       [             available from: http://www.pserc.cornell.edu/bpmpd/   ]
 %       [ 'CLP'     - CLP, requires interface to COIN-OP LP solver          ]
@@ -177,7 +196,7 @@ function opt = mpoption(varargin)
 %       [ 'IPOPT'   - IPOPT, requires MEX interface to IPOPT solver         ]
 %       [             available from:                                       ]
 %       [                 http://www.coin-or.org/projects/Ipopt.xml         ]
-%       [ 'MOSEK'   - MOSEK, requires Matlab interface to MOSEK solver      ]
+%       [ 'MOSEK'   - MOSEK, requires MATLAB interface to MOSEK solver      ]
 %       [             available from: http://www.mosek.com/                 ]
 %       [ 'OT'      - MATLAB Optimization Toolbox, QUADPROG, LINPROG        ]
 %   opf.violation           5e-6        constraint violation tolerance
@@ -194,13 +213,22 @@ function opt = mpoption(varargin)
 %   opf.ignore_angle_lim    0           angle diff limits for branches
 %       [ 0 - include angle difference limits, if specified                 ]
 %       [ 1 - ignore angle difference limits even if specified              ]
-%   opf.init_from_mpc       -1          specify whether to use current state
+%   opf.init_from_mpc       -1          (DEPRECATED: use opf.start instead)
+%                                       specify whether to use current state
 %                                       in MATPOWER case to initialize OPF
-%                                       (currently supported only for Ipopt,
-%                                        Knitro and MIPS solvers)
+%                                       (currently only supported by fmincon,
+%                                        Ipopt, Knitro and MIPS solvers,
+%                                        others always use mpc)
 %       [  -1 - MATPOWER decides, based on solver/algorithm                 ]
 %       [   0 - ignore current state when initializing OPF                  ]
 %       [   1 - use current state to initialize OPF                         ]
+%   opf.start               0           specify how to set OPF starting point
+%       [   0 - default, use interior point estimate for fmincon, Ipopt,    ]
+%       [       Knitro and MIPS; use current state for other solvers        ]
+%       [   1 - ignore current state when initializing OPF (only applies to ]
+%       [       fmincon, Ipopt, Knitro and MIPS), currently identical to 0  ]
+%       [   2 - use current state to initialize OPF                         ]
+%       [   3 - attempt to solve power flow to initialize OPF               ]
 %   opf.return_raw_der      0           for AC OPF, return constraint and
 %                                       derivative info in results.raw
 %                                       (in fields g, dg, df, d2f) [ 0 or 1 ]
@@ -532,8 +560,20 @@ if have_opt0
                 opt0.opf.use_vg = opt_d.opf.use_vg;
             end
             if opt0.v <= 12         %% convert version 12 to 13
-                opt0.radial.max_it  = opt_d.radial.max_it;
-                opt0.radial.vcorr   = opt_d.radial.vcorr;
+                opt0.pf.radial.max_it   = opt_d.pf.radial.max_it;
+                opt0.pf.radial.vcorr    = opt_d.pf.radial.vcorr;
+            end
+            if opt0.v <= 13         %% convert version 13 to 14
+                opt0.pf.nr.lin_solver   = opt_d.pf.nr.lin_solver;
+            end
+            if opt0.v <= 14         %% convert version 14 to 15
+                opt0.cpf.enforce_v_lims     = opt_d.cpf.enforce_v_lims;
+                opt0.cpf.enforce_flow_lims  = opt_d.cpf.enforce_flow_lims;
+                opt0.cpf.v_lims_tol         = opt_d.cpf.v_lims_tol;
+                opt0.cpf.flow_lims_tol      = opt_d.cpf.flow_lims_tol;
+            end
+            if opt0.v <= 15          %% convert version 15 to 16
+                opt0.opf.start  = opt_d.opf.start;
             end
             opt0.v = v;
         end
@@ -1454,11 +1494,12 @@ if ~isstruct(opt)
             'alg',                  'NR', ...
             'tol',                  1e-8, ...
             'nr',                   struct(...
-                'max_it',               10  ), ...
+                'max_it',               10, ...
+                'lin_solver',            '' ), ...
             'fd',                   struct(...
                 'max_it',               30  ), ...
             'gs',                   struct(...
-                'max_it',               1000  ), ...
+                'max_it',               1000    ), ...
             'radial',               struct(...
                 'max_it',               20   , ...
                 'vcorr',                 0  ), ...
@@ -1468,6 +1509,8 @@ if ~isstruct(opt)
             'stop_at',              'NOSE', ...     %% 'NOSE', <lam val>, 'FULL'
             'enforce_p_lims',       0, ...
             'enforce_q_lims',       0, ...
+            'enforce_v_lims',       0, ...
+            'enforce_flow_lims',    0, ...
             'step',                 0.05, ...
             'step_min',             1e-4, ...
             'step_max',             0.2, ...
@@ -1478,6 +1521,8 @@ if ~isstruct(opt)
             'nose_tol',             1e-5, ...
             'p_lims_tol',           0.01, ...
             'q_lims_tol',           0.01, ...
+            'v_lims_tol',           1e-4, ...
+            'flow_lims_tol',        0.01, ...
             'plot',                 struct(...
                 'level',                0, ...
                 'bus',                  []  ), ...
@@ -1492,6 +1537,7 @@ if ~isstruct(opt)
             'flow_lim',             'S', ...
             'ignore_angle_lim',     0, ...
             'init_from_mpc',        -1, ...
+            'start',                0, ...
             'return_raw_der',       0   ), ...
         'verbose',              1, ...
         'out',                  struct(...
@@ -1553,7 +1599,7 @@ optt = opt;
 %% globals
 %%-------------------------------------------------------------------
 function v = mpoption_version
-v = 13;     %% version number of MATPOWER options struct
+v = 16;     %% version number of MATPOWER options struct
             %% (must be incremented every time structure is updated)
             %% v1   - first version based on struct (MATPOWER 5.0b1)
             %% v2   - added 'linprog' and 'quadprog' fields
@@ -1577,6 +1623,10 @@ v = 13;     %% version number of MATPOWER options struct
             %%        removed option 'cpf.user_callback_args'
             %% v12  - added option 'opf.use_vg'
             %% v13  - added 'pf.radial.max_it', 'pf.radial.vcorr'
+            %% v14  - added 'pf.nr.lin_solver'
+            %% v15  - added 'cpf.enforce_v_lims', 'cpf.enforce_flow_lims',
+            %%        'cpf.v_lims_tol', and 'cpf.flow_lims_tol'
+            %% v16  - added 'opf.start' (deprecated 'opf.init_from_mpc')
 
 %%-------------------------------------------------------------------
 function db_level = DEBUG

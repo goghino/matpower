@@ -53,83 +53,25 @@ function [results, success, raw] = dcopf_solver(om, mpopt)
 [PW_LINEAR, POLYNOMIAL, MODEL, STARTUP, SHUTDOWN, NCOST, COST] = idx_cost;
 
 %% unpack data
-mpc = get_mpc(om);
+mpc = om.get_mpc();
 [baseMVA, bus, gen, branch, gencost] = ...
     deal(mpc.baseMVA, mpc.bus, mpc.gen, mpc.branch, mpc.gencost);
-cp = get_cost_params(om);
-[N, H, Cw] = deal(cp.N, cp.H, cp.Cw);
-fparm = [cp.dd cp.rh cp.kk cp.mm];
-Bf = userdata(om, 'Bf');
-Pfinj = userdata(om, 'Pfinj');
-[vv, ll] = get_idx(om);
+cp = om.get_cost_params();
+Bf = om.get_userdata('Bf');
+Pfinj = om.get_userdata('Pfinj');
+[vv, ll] = om.get_idx();
 
 %% problem dimensions
-ipol = find(gencost(:, MODEL) == POLYNOMIAL); %% polynomial costs
-ipwl = find(gencost(:, MODEL) == PW_LINEAR);  %% piece-wise linear costs
 nb = size(bus, 1);          %% number of buses
 nl = size(branch, 1);       %% number of branches
-nw = size(N, 1);            %% number of general cost vars, w
-ny = getN(om, 'var', 'y');  %% number of piece-wise linear costs
-nxyz = getN(om, 'var');     %% total number of control vars of all types
+ny = om.getN('var', 'y');   %% number of piece-wise linear costs
 
 %% linear constraints & variable bounds
-[A, l, u] = linear_constraints(om);
-[x0, xmin, xmax] = getv(om);
+[A, l, u] = om.params_lin_constraint();
+[x0, xmin, xmax] = om.params_var();
 
-%% set up objective function of the form: f = 1/2 * X'*HH*X + CC'*X
-%% where X = [x;y;z]. First set up as quadratic function of w,
-%% f = 1/2 * w'*HHw*w + CCw'*w, where w = diag(M) * (N*X - Rhat). We
-%% will be building on the (optionally present) user supplied parameters.
-
-%% piece-wise linear costs
-any_pwl = (ny > 0);
-if any_pwl
-    Npwl = sparse(ones(ny,1), vv.i1.y:vv.iN.y, 1, 1, nxyz);     %% sum of y vars
-    Hpwl = 0;
-    Cpwl = 1;
-    fparm_pwl = [1 0 0 1];
-else
-    Npwl = sparse(0, nxyz);
-    Hpwl = [];
-    Cpwl = [];
-    fparm_pwl = [];
-end
-
-%% quadratic costs
-npol = length(ipol);
-if any(find(gencost(ipol, NCOST) > 3))
-    error('DC opf cannot handle polynomial costs with higher than quadratic order.');
-end
-iqdr = find(gencost(ipol, NCOST) == 3);
-ilin = find(gencost(ipol, NCOST) == 2);
-polycf = zeros(npol, 3);                            %% quadratic coeffs for Pg
-if ~isempty(iqdr)
-  polycf(iqdr, :)   = gencost(ipol(iqdr), COST:COST+2);
-end
-polycf(ilin, 2:3) = gencost(ipol(ilin), COST:COST+1);
-polycf = polycf * diag([ baseMVA^2 baseMVA 1]);     %% convert to p.u.
-Npol = sparse(1:npol, vv.i1.Pg-1+ipol, 1, npol, nxyz);         %% Pg vars
-Hpol = sparse(1:npol, 1:npol, 2*polycf(:, 1), npol, npol);
-Cpol = polycf(:, 2);
-fparm_pol = ones(npol,1) * [ 1 0 0 1 ];
-
-%% combine with user costs
-NN = [ Npwl; Npol; N ];
-HHw = [ Hpwl, sparse(any_pwl, npol+nw);
-        sparse(npol, any_pwl), Hpol, sparse(npol, nw);
-        sparse(nw, any_pwl+npol), H   ];
-CCw = [Cpwl; Cpol; Cw];
-ffparm = [ fparm_pwl; fparm_pol; fparm ];
-
-%% transform quadratic coefficients for w into coefficients for X
-nnw = any_pwl+npol+nw;
-M   = sparse(1:nnw, 1:nnw, ffparm(:, 4), nnw, nnw);
-MR  = M * ffparm(:, 2);
-HMR = HHw * MR;
-MN  = M * NN;
-HH = MN' * HHw * MN;
-CC = full(MN' * (CCw - HMR));
-C0 = 1/2 * MR' * HMR + sum(polycf(:, 3));   %% constant term of cost
+%% get cost parameters
+[HH, CC, C0] = om.params_quad_cost();
 
 %% options
 if isempty(HH) || ~any(any(HH))
@@ -140,18 +82,18 @@ end
 opt = mpopt2qpopt(mpopt, model);
 
 %% try to select an interior initial point, unless requested not to
-if mpopt.opf.init_from_mpc ~= 1 && ...
+if mpopt.opf.start < 2 && ...
         (strcmp(opt.alg, 'MIPS') || strcmp(opt.alg, 'IPOPT'))
-    Varefs = bus(bus(:, BUS_TYPE) == REF, VA) * (pi/180);
-
+    s = 1e-3;                   %% set init point inside bounds by s
     lb = xmin; ub = xmax;
     lb(xmin == -Inf) = -1e10;   %% replace Inf with numerical proxies
     ub(xmax ==  Inf) =  1e10;
     x0 = (lb + ub) / 2;         %% set x0 mid-way between bounds
     k = find(xmin == -Inf & xmax < Inf);    %% if only bounded above
-    x0(k) = xmax(k) - 1;                    %% set just below upper bound
+    x0(k) = xmax(k) - s;                    %% set just below upper bound
     k = find(xmin > -Inf & xmax == Inf);    %% if only bounded below
-    x0(k) = xmin(k) + 1;                    %% set just above lower bound
+    x0(k) = xmin(k) + s;                    %% set just above lower bound
+    Varefs = bus(bus(:, BUS_TYPE) == REF, VA) * (pi/180);
     x0(vv.i1.Va:vv.iN.Va) = Varefs(1);  %% angles set to first reference angle
     if ny > 0
         ipwl = find(gencost(:, MODEL) == PW_LINEAR);

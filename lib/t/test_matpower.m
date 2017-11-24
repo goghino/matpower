@@ -7,7 +7,7 @@ function success = test_matpower(verbose, exit_on_fail)
 %
 %   Runs all of the MATPOWER tests. If VERBOSE is true (false by default),
 %   it prints the details of the individual tests. If EXIT_ON_FAIL is true
-%   (false by default), it will exit Matlab or Octave with a status of 1
+%   (false by default), it will exit MATLAB or Octave with a status of 1
 %   unless T_RUN_TESTS returns ALL_OK.
 %
 %   See also T_RUN_TESTS.
@@ -51,6 +51,8 @@ tests{end+1} = 't_pf_radial';
 tests{end+1} = 't_cpf';
 tests{end+1} = 't_islands';
 tests{end+1} = 't_opf_model';
+tests{end+1} = 't_opf_model_legacy';
+tests{end+1} = 't_opf_default';
 if have_fcn('fmincon')
     tests{end+1} = 't_opf_fmincon';
 end
@@ -101,12 +103,14 @@ if have_fcn('quadprog')
     tests{end+1} = 't_opf_dc_ot';
 end
 if have_fcn('sdp_pf')
-    tests{end+1} = 't_opf_sdpopf';
-    tests{end+1} = 't_testglobalopt';
-    tests{end+1} = 't_insolvablepf';
-    tests{end+1} = 't_insolvablepf_limitQ';
+    if have_fcn('mosek') || have_fcn('sdpt3') || have_fcn('sedumi')
+        tests{end+1} = 't_opf_sdpopf';
+        tests{end+1} = 't_insolvablepf';
+        tests{end+1} = 't_insolvablepf_limitQ';
+    end
     tests{end+1} = 't_insolvablepfsos';
     tests{end+1} = 't_insolvablepfsos_limitQ';
+    tests{end+1} = 't_testglobalopt';
 end
 tests{end+1} = 't_opf_userfcns';
 tests{end+1} = 't_opf_softlims';

@@ -17,9 +17,11 @@ function [results, success, raw] = ktropf_solver(om, mpopt)
 %           .var
 %               .l  lower bounds on variables
 %               .u  upper bounds on variables
-%           .nln
+%           .nln    (deprecated) 2*nb+2*nl - Pmis, Qmis, Sf, St
 %               .l  lower bounds on nonlinear constraints
 %               .u  upper bounds on nonlinear constraints
+%           .nle    nonlinear equality constraints
+%           .nli    nonlinear inequality constraints
 %           .lin
 %               .l  lower bounds on linear constraints
 %               .u  upper bounds on linear constraints
@@ -60,22 +62,22 @@ use_ktropts_file = 1;       %% use a KNITRO options file to pass options
 create_ktropts_file = 0;    %% generate a KNITRO options file on the fly
 
 %% unpack data
-mpc = get_mpc(om);
+mpc = om.get_mpc();
 [baseMVA, bus, gen, branch, gencost] = ...
     deal(mpc.baseMVA, mpc.bus, mpc.gen, mpc.branch, mpc.gencost);
-[vv, ll, nn] = get_idx(om);
+[vv, ll, nne, nni] = om.get_idx();
 
 %% problem dimensions
 nb = size(bus, 1);          %% number of buses
 ng = size(gen, 1);          %% number of gens
 nl = size(branch, 1);       %% number of branches
-ny = getN(om, 'var', 'y');  %% number of piece-wise linear costs
+ny = om.getN('var', 'y');   %% number of piece-wise linear costs
 
 %% bounds on optimization vars
-[x0, xmin, xmax] = getv(om);
+[x0, xmin, xmax] = om.params_var();
 
 %% linear constraints
-[A, l, u] = linear_constraints(om);
+[A, l, u] = om.params_lin_constraint();
 
 %% split l <= A*x <= u into less than, equal to, greater than, and
 %% doubly-bounded sets
@@ -91,25 +93,23 @@ bfeq = u(ieq);
 %% build admittance matrices
 [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
 
-%% try to select an interior initial point
-if mpopt.opf.init_from_mpc ~= 1
-    ll = xmin; uu = xmax;
-    ll(xmin == -Inf) = -1e10;   %% replace Inf with numerical proxies
-    uu(xmax ==  Inf) =  1e10;
-    x0 = (ll + uu) / 2;         %% set x0 mid-way between bounds
+%% try to select an interior initial point, unless requested not to
+if mpopt.opf.start < 2
+    s = 1e-3;                   %% set init point inside bounds by s
+    lb = xmin; ub = xmax;
+    lb(xmin == -Inf) = -1e10;   %% replace Inf with numerical proxies
+    ub(xmax ==  Inf) =  1e10;
+    x0 = (lb + ub) / 2;         %% set x0 mid-way between bounds
     k = find(xmin == -Inf & xmax < Inf);    %% if only bounded above
-    x0(k) = xmax(k) - 1;                    %% set just below upper bound
+    x0(k) = xmax(k) - s;                    %% set just below upper bound
     k = find(xmin > -Inf & xmax == Inf);    %% if only bounded below
-    x0(k) = xmin(k) + 1;                    %% set just above lower bound
+    x0(k) = xmin(k) + s;                    %% set just above lower bound
     Varefs = bus(bus(:, BUS_TYPE) == REF, VA) * (pi/180);
     x0(vv.i1.Va:vv.iN.Va) = Varefs(1);  %% angles set to first reference angle
     if ny > 0
         ipwl = find(gencost(:, MODEL) == PW_LINEAR);
-    %     PQ = [gen(:, PMAX); gen(:, QMAX)];
-    %     c = totcost(gencost(ipwl, :), PQ(ipwl));
         c = gencost(sub2ind(size(gencost), ipwl, NCOST+2*gencost(ipwl, NCOST)));    %% largest y-value in CCV data
         x0(vv.i1.y:vv.iN.y) = max(c) + 0.1 * abs(max(c));
-    %     x0(vv.i1.y:vv.iN.y) = c + 0.1 * abs(c);
     end
 end
 
@@ -118,30 +118,41 @@ il = find(branch(:, RATE_A) ~= 0 & branch(:, RATE_A) < 1e10);
 nl2 = length(il);           %% number of constrained lines
 
 %% build Jacobian and Hessian structure
-nA = size(A, 1);                %% number of original linear constraints
-nx = length(x0);
-f = branch(:, F_BUS);                           %% list of "from" buses
-t = branch(:, T_BUS);                           %% list of "to" buses
-Cf = sparse(1:nl, f, ones(nl, 1), nl, nb);      %% connection matrix for line & from buses
-Ct = sparse(1:nl, t, ones(nl, 1), nl, nb);      %% connection matrix for line & to buses
-Cl = Cf + Ct;
-Cb = Cl' * Cl + speye(nb);
-Cl2 = Cl(il, :);
-Cg = sparse(gen(:, GEN_BUS), (1:ng)', 1, nb, ng);
-nz = nx - 2*(nb+ng);
-nxtra = nx - 2*nb;
-Js = [
-    Cl2     Cl2     sparse(nl2, 2*ng)               sparse(nl2,nz);
-    Cl2     Cl2     sparse(nl2, 2*ng)               sparse(nl2,nz);
-    Cb      Cb      Cg              sparse(nb,ng)   sparse(nb,nz);
-    Cb      Cb      sparse(nb,ng)   Cg              sparse(nb,nz);
-];
-[f, df, d2f] = opf_costfcn(x0, om);
-Hs = d2f + [
-    Cb  Cb  sparse(nb,nxtra);
-    Cb  Cb  sparse(nb,nxtra);
-    sparse(nxtra,nx);
-];
+% nA = size(A, 1);                %% number of original linear constraints
+% nx = length(x0);
+% f = branch(:, F_BUS);                           %% list of "from" buses
+% t = branch(:, T_BUS);                           %% list of "to" buses
+% Cf = sparse(1:nl, f, ones(nl, 1), nl, nb);      %% connection matrix for line & from buses
+% Ct = sparse(1:nl, t, ones(nl, 1), nl, nb);      %% connection matrix for line & to buses
+% Cl = Cf + Ct;
+% Cb = Cl' * Cl + speye(nb);
+% Cl2 = Cl(il, :);
+% Cg = sparse(gen(:, GEN_BUS), (1:ng)', 1, nb, ng);
+% nz = nx - 2*(nb+ng);
+% nxtra = nx - 2*nb;
+% [h, g, dh, dg] = opf_consfcn(x0, om, Ybus, Yf(il,:), Yt(il,:), mpopt, il);
+% Js = [dh'; dg'];
+% Js = [
+%     Cl2     Cl2     sparse(nl2, 2*ng)               sparse(nl2,nz);
+%     Cl2     Cl2     sparse(nl2, 2*ng)               sparse(nl2,nz);
+%     Cb      Cb      Cg              sparse(nb,ng)   sparse(nb,nz);
+%     Cb      Cb      sparse(nb,ng)   Cg              sparse(nb,nz);
+% ];
+% lam = struct('eqnonlin', ones(size(dg,2),1), 'ineqnonlin', ones(size(dh,2),1) );
+% Hs = opf_hessfcn(x0, lam, 1, om, Ybus, Yf(il,:), Yt(il,:), mpopt, il);
+% [f, df, d2f] = opf_costfcn(x0, om);
+% Hs = d2f + [
+%     Cb  Cb  sparse(nb,nxtra);
+%     Cb  Cb  sparse(nb,nxtra);
+%     sparse(nxtra,nx);
+% ];
+randx = rand(size(x0));
+[h, g, dh, dg] = opf_consfcn(randx, om, Ybus, Yf(il,:), Yt(il,:), mpopt, il);
+Js = [dh'; dg'];
+lam = struct('eqnonlin', ones(size(dg,2),1), 'ineqnonlin', ones(size(dh,2),1) );
+Hs = opf_hessfcn(randx, lam, 1, om, Ybus, Yf(il,:), Yt(il,:), mpopt, il);
+neq = length(g);
+niq = length(h);
 
 %% basic optimset options needed for ktrlink
 hess_fcn = @(x, lambda)opf_hessfcn(x, lambda, 1, om, Ybus, Yf(il,:), Yt(il,:), mpopt, il);
@@ -231,11 +242,11 @@ muSf = zeros(nl, 1);
 muSt = zeros(nl, 1);
 if ~isempty(il)
     if upper(mpopt.opf.flow_lim(1)) == 'P'
-        muSf(il) = Lambda.ineqnonlin(1:nl2);
-        muSt(il) = Lambda.ineqnonlin((1:nl2)+nl2);
+        muSf(il) = Lambda.ineqnonlin(nni.i1.Sf:nni.iN.Sf);
+        muSt(il) = Lambda.ineqnonlin(nni.i1.St:nni.iN.St);
     else
-        muSf(il) = 2 * Lambda.ineqnonlin(1:nl2)       .* branch(il, RATE_A) / baseMVA;
-        muSt(il) = 2 * Lambda.ineqnonlin((1:nl2)+nl2) .* branch(il, RATE_A) / baseMVA;
+        muSf(il) = 2 * Lambda.ineqnonlin(nni.i1.Sf:nni.iN.Sf) .* branch(il, RATE_A) / baseMVA;
+        muSt(il) = 2 * Lambda.ineqnonlin(nni.i1.St:nni.iN.St) .* branch(il, RATE_A) / baseMVA;
     end
 end
 
@@ -255,13 +266,13 @@ gen(:, MU_PMAX)  = Lambda.upper(vv.i1.Pg:vv.iN.Pg) / baseMVA;
 gen(:, MU_PMIN)  = -Lambda.lower(vv.i1.Pg:vv.iN.Pg) / baseMVA;
 gen(:, MU_QMAX)  = Lambda.upper(vv.i1.Qg:vv.iN.Qg) / baseMVA;
 gen(:, MU_QMIN)  = -Lambda.lower(vv.i1.Qg:vv.iN.Qg) / baseMVA;
-bus(:, LAM_P)    = Lambda.eqnonlin(nn.i1.Pmis:nn.iN.Pmis) / baseMVA;
-bus(:, LAM_Q)    = Lambda.eqnonlin(nn.i1.Qmis:nn.iN.Qmis) / baseMVA;
+bus(:, LAM_P)    = Lambda.eqnonlin(nne.i1.Pmis:nne.iN.Pmis) / baseMVA;
+bus(:, LAM_Q)    = Lambda.eqnonlin(nne.i1.Qmis:nne.iN.Qmis) / baseMVA;
 branch(:, MU_SF) = muSf / baseMVA;
 branch(:, MU_ST) = muSt / baseMVA;
 
 %% package up results
-nlnN = getN(om, 'nln');
+nlnN = 2*nb + 2*nl;     %% because muSf and muSt are nl x 1, not nl2 x 1
 nlt = length(ilt);
 ngt = length(igt);
 nbx = length(ibx);
@@ -291,6 +302,8 @@ mu_u(ibx) = Lambda.ineqlin(nlt+ngt+(1:nbx));
 mu = struct( ...
   'var', struct('l', -Lambda.lower, 'u', Lambda.upper), ...
   'nln', struct('l', nl_mu_l, 'u', nl_mu_u), ...
+  'nle', Lambda.eqnonlin, ...
+  'nli', Lambda.ineqnonlin, ...
   'lin', struct('l', mu_l, 'u', mu_u) );
 
 results = mpc;

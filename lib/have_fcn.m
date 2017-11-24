@@ -36,6 +36,7 @@ function rv = have_fcn(tag, rtype)
 %        opti_clp   -   version of CLP distributed with OPTI Toolbox
 %                       (http://www.i2c2.aut.ac.nz/Wiki/OPTI/)
 %       cplex       - CPLEX, IBM ILOG CPLEX Optimizer
+%       e4st        - E4ST (http://e4st.com/)
 %       fmincon     - FMINCON, solver from Optimization Toolbox 2.x +
 %       fmincon_ipm - FMINCON with Interior Point solver, from Opt Tbx 4.x +
 %       glpk        - GLPK, GNU Linear Programming Kit
@@ -50,7 +51,7 @@ function rv = have_fcn(tag, rtype)
 %       knitro      - KNITRO, NLP solver (http://www.ziena.com/)
 %         knitromatlab - KNITRO, version 9.0.0+
 %         ktrlink      - KNITRO, version < 9.0.0 (requires Opt Tbx)
-%       matlab      - code is running under Matlab, as opposed to Octave
+%       matlab      - code is running under MATLAB, as opposed to Octave
 %       minopf      - MINOPF, MINOPF, MINOS-based OPF solver
 %       most        - MOST, MATPOWER Optimal Scheduling Tool
 %       mosek       - MOSEK, LP/QP solver (http://www.mosek.com/)
@@ -86,6 +87,7 @@ function rv = have_fcn(tag, rtype)
 %       catchme         - support for 'catch me' syntax in try/catch constructs
 %       evalc           - support for evalc() function
 %       ipopt_auxdata   - support for ipopt_auxdata(), required by 3.11 and later
+%       lu_vec          - support for lu(..., 'vector') syntax
 %       regexp_split    - support for 'split' argument to regexp()
 
 %   MATPOWER
@@ -179,6 +181,13 @@ else        %% detect availability
                         TorF = 0;
                     end
                 end
+            case 'e4st'
+                TorF = exist('e4st_ver', 'file') == 2;
+                if TorF
+                    v = e4st_ver('all');
+                    vstr = v.Version;
+                    rdate = v.Date;
+                end
             case {'fmincon', 'fmincon_ipm', 'intlinprog', 'linprog', ...
                         'linprog_ds', 'optimoptions', 'quadprog', 'quadprog_ls'}
                 matlab = have_fcn('matlab');
@@ -216,36 +225,26 @@ else        %% detect availability
                             if matlab
                                 switch tag
                                     case 'fmincon_ipm'
-                                        if otver >= 4       %% Opt Tbx 4.0+ (R208a+, Matlab 7.6+)
+                                        if otver >= 4       %% Opt Tbx 4.0+ (R208a+, MATLAB 7.6+)
                                             TorF = 1;
-                                        else
-                                            TorF = 0;
                                         end
                                     case 'linprog_ds'
-                                        if otver >= 7.001   %% Opt Tbx 7.1+ (R2014b+, Matlab 8.4+)
+                                        if otver >= 7.001   %% Opt Tbx 7.1+ (R2014b+, MATLAB 8.4+)
                                             TorF = 1;
-                                        else
-                                            TorF = 0;
                                         end
                                     case 'optimoptions'
-                                        if otver >= 6.003   %% Opt Tbx 6.3+ (R2013a+, Matlab 8.1+)
+                                        if otver >= 6.003   %% Opt Tbx 6.3+ (R2013a+, MATLAB 8.1+)
                                             TorF = 1;
-                                        else
-                                            TorF = 0;
                                         end
                                     case 'quadprog_ls'
-                                        if otver >= 6       %% Opt Tbx 6.0+ (R2011a+, Matlab 7.12+)
+                                        if otver >= 6       %% Opt Tbx 6.0+ (R2011a+, MATLAB 7.12+)
                                             TorF = 1;
-                                        else
-                                            TorF = 0;
                                         end
                                 end
                             else    %% octave
                                 TorF = 0;
                             end
                     end
-                else
-                    TorF = 0;
                 end
             case 'glpk'
                 if exist('glpk','file') == 3    %% Windows OPTI install (no glpk.m)
@@ -268,7 +267,7 @@ else        %% detect availability
                                 vstr = t{1}{1};
                             end
                         end
-                    elseif exist('glpkcc','file') == 3  %% Matlab glpkcc MEX
+                    elseif exist('glpkcc','file') == 3  %% MATLAB glpkcc MEX
                         TorF = 1;
                         str = evalc('glpk');
                         pat = 'GLPK Matlab interface\. Version: ([^\s,]+)';     %% glpkccm, Giorgetti/Klitgord
@@ -367,7 +366,7 @@ else        %% detect availability
             case 'most'
                 TorF = exist('most', 'file') == 2;
                 if TorF
-                    v = mpver('all');
+                    v = mostver('all');
                     vstr = v.Version;
                     rdate = v.Date;
                 end
@@ -379,7 +378,12 @@ else        %% detect availability
                     % MOSEK Version 7.0.0.134 (Build date: 2014-10-2 11:10:02)
                     pat = 'Version (\.*\d)+.*Build date: (\d+-\d+-\d+)';
                     [s,e,tE,m,t] = regexp(evalc('mosekopt'), pat);
-                    if ~isempty(t)
+                    if isempty(t)
+                        [r, res] = mosekopt('version');
+                        v = res.version;
+                        vstr = sprintf('%d.%d.%d.%d', ...
+                            v.major, v.minor, v.build, v.revision);
+                    else
                         vstr = t{1}{1};
                         rdate = datestr(t{1}{2}, 'dd-mmm-yyyy');
                     end
@@ -443,12 +447,8 @@ else        %% detect availability
                                 %% older versions do not include the needed form of chol()
                                 if vn >= 7.003
                                     TorF = exist('tralmopf', 'file') == 3;
-                                else
-                                    TorF = 0;
                                 end
                         end
-                    else
-                        TorF = 0;
                     end
                     if TorF
                         v = feval([tag 'ver'], 'all');
@@ -467,12 +467,12 @@ else        %% detect availability
                 TorF = ~have_fcn('octave') && exist('yalmip','file') == 2;
                 %% YALMIP does not yet work with Octave, rdz 1/6/14
                 if TorF
-                    str = evalc('yalmip;');
-                    pat = 'Version\s+([^\s]+)\n';
-                    [s,e,tE,m,t] = regexp(str, pat);
-                    if ~isempty(t)
-                        rdate = t{1}{1};
-                        vstr = datestr(rdate, 'yy.mm.dd');
+                    vstr = yalmip('version');
+                    if length(vstr) == 8
+                        yr = str2num(vstr(1:4));
+                        mo = str2num(vstr(5:6));
+                        dy = str2num(vstr(7:8));
+                        rdate = datestr([yr mo dy 0 0 0], 'dd-mmm-yyyy');
                     end
                 end
             case 'sdpt3'
@@ -500,24 +500,18 @@ else        %% detect availability
                 end
 
             %%-----  private tags  -----
-            case 'catchme'  %% not supported by Matlab <= 7.4 (R2007a), Octave <= 3.6
+            case 'catchme'  %% not supported by MATLAB <= 7.4 (R2007a), Octave <= 3.6
                 if have_fcn('octave')
-                    if have_fcn('octave', 'vnum') <= 3.006
-                        TorF = 0;
-                    else
+                    if have_fcn('octave', 'vnum') > 3.006
                         TorF = 1;
                     end
                 else
-                    if have_fcn('matlab', 'vnum') <= 7.004
-                        TorF = 0;
-                    else
+                    if have_fcn('matlab', 'vnum') > 7.004
                         TorF = 1;
                     end
                 end
             case 'evalc'
-                if have_fcn('octave')
-                    TorF = 0;
-                else
+                if have_fcn('matlab')
                     TorF = 1;
                 end
             case 'ipopt_auxdata'
@@ -527,7 +521,13 @@ else        %% detect availability
                         TorF = 1;
                     end
                 end
-            case 'regexp_split'     %% missing for Matlab < 7.3 & Octave < 3.8
+            case 'lu_vec'       %% lu(..., 'vector') syntax supported?
+                if have_fcn('matlab') && have_fcn('matlab', 'vnum') < 7.003
+                    TorF = 0;     %% lu(..., 'vector') syntax not supported
+                else
+                    TorF = 1;
+                end
+            case 'regexp_split'     %% missing for MATLAB < 7.3 & Octave < 3.8
                 if have_fcn('matlab') && have_fcn('matlab', 'vnum') >= 7.003
                     TorF = 1;
                 elseif have_fcn('octave', 'vnum') >= 3.008
@@ -537,7 +537,6 @@ else        %% detect availability
         %%-----  unknown tag  -----
             otherwise
                 warning('have_fcn: unknown functionality ''%s''', tag);
-                TorF = 0;
                 vstr = 'unknown';
         end
 

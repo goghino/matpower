@@ -125,15 +125,18 @@ function [busout, genout, branchout, f, success, info, et, g, jac, xr, pimul] = 
 %                   .Va, Vm, Pg, Qg, y, (other)
 %               .u  upper bound shadow prices
 %                   .Va, Vm, Pg, Qg, y, (other)
-%       .nln    (AC only)
-%           .mu     shadow prices on nonlinear constraints, by named block
-%               .l  lower bounds
+%       .nle    (AC only)
+%           .lambda shadow prices on nonlinear equality constraints,
+%                   by named block
 %                   .Pmis   real power mismatch equations
 %                   .Qmis   reactive power mismatch equations
+%                   (other) use defined constraints
+%       .nli    (AC only)
+%           .mu     shadow prices on nonlinear inequality constraints,
+%                   by named block
 %                   .Sf     flow limits at "from" end of branches
 %                   .St     flow limits at "to" end of branches
-%               .u  upper bounds
-%                   .Pmis, Qmis, Sf, St
+%                   (other) use defined constraints
 %       .lin
 %           .mu     shadow prices on linear constraints, by named block
 %               .l  lower bounds
@@ -177,6 +180,32 @@ t0 = clock;         %% start timer
 %% process input arguments
 [mpc, mpopt] = opf_args(varargin{:});
 
+%% if 'opf.ac.solver' not set, choose MIPS
+if strcmp(upper(mpopt.opf.ac.solver), 'DEFAULT')
+    mpopt = mpoption(mpopt, 'opf.ac.solver', 'MIPS');   %% MIPS
+end
+
+%% handle deprecated 'opf.init_from_mpc' option
+if mpopt.opf.start == 0
+    if mpopt.opf.init_from_mpc == 0     %% ignore MPC
+        mpopt.opf.start = 1;
+    elseif mpopt.opf.init_from_mpc == 1 %% use MPC
+        mpopt.opf.start = 2;
+    end
+end
+
+%% initialize state with power flow solution, if requested
+if mpopt.opf.start == 3
+    mpopt_pf = mpoption(mpopt, 'out.all', 0, 'verbose', max(0, mpopt.verbose-1));
+    if mpopt.verbose
+        fprintf('Running power flow to initialize OPF.\n');
+    end
+    rpf = runpf(mpc, mpopt_pf);
+    if rpf.success
+        mpc = rpf;      %% or should I just copy Va, Vm, Pg, Qg?
+    end
+end
+
 %% add zero columns to bus, gen, branch for multipliers, etc if needed
 nb   = size(mpc.bus, 1);    %% number of buses
 nl   = size(mpc.branch, 1); %% number of branches
@@ -201,7 +230,16 @@ om = opf_setup(mpc, mpopt);
 if nargout > 7
     mpopt.opf.return_raw_der = 1;
 end
-[results, success, raw] = opf_execute(om, mpopt);
+if ~isempty(mpc.bus)
+    [results, success, raw] = opf_execute(om, mpopt);
+else
+    results = mpc;
+    success = 0;
+    raw.output.message = 'MATPOWER case contains no connected buses';
+    if mpopt.verbose
+        fprintf('OPF not valid : %s', raw.output.message);
+    end
+end
 
 %%-----  revert to original ordering, including out-of-service stuff  -----
 results = int2ext(results);

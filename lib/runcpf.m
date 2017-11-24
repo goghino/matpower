@@ -90,6 +90,14 @@ function [res, suc] = ...
 %       - if the generator was at the reference bus, it is converted to PV
 %         and the first remaining PV bus is selected as the new slack.
 %
+%   If the 'cpf.enforce_v_lims' option is set to true (default is false)
+%   then the continuation power flow is set to terminate if any bus voltage
+%   magnitude exceeds its minimum or maximum limit.
+%
+%   If the 'cpf.enforce_flow_lims' option is set to true (default is false)
+%   then the continuation power flow is set to terminate if any line MVA
+%   flow exceeds its rateA limit.
+%
 %   Possible CPF termination modes:
 %       when cpf.stop_at == 'NOSE'
 %           - Reached steady state loading limit
@@ -102,6 +110,10 @@ function [res, suc] = ...
 %           - All generators at PMAX
 %       when cpf.enforce_q_lims == true
 %           - No REF or PV buses remaining
+%       when cpf.enforce_v_lims == true
+%           - Any bus voltage magnitude limit is reached
+%       when cpf.enforce_flow_lims == true
+%           - Any branch MVA flow limit is reached
 %       other
 %           - Base case power flow did not converge
 %           - Base and target case have identical load and generation
@@ -121,7 +133,7 @@ function [res, suc] = ...
 %   See also MPOPTION, RUNPF.
 
 %   MATPOWER
-%   Copyright (c) 1996-2016, Power Systems Engineering Research Center (PSERC)
+%   Copyright (c) 1996-2017, Power Systems Engineering Research Center (PSERC)
 %   by Ray Zimmerman, PSERC Cornell,
 %   Shrirang Abhyankar, Argonne National Laboratory,
 %   and Alexander Flueck, IIT
@@ -164,6 +176,8 @@ parm        = mpopt.cpf.parameterization;  %% parameterization
 adapt_step  = mpopt.cpf.adapt_step;        %% use adaptive step size?
 qlim        = mpopt.cpf.enforce_q_lims;    %% enforce reactive limits
 plim        = mpopt.cpf.enforce_p_lims;    %% enforce active limits
+vlim        = mpopt.cpf.enforce_v_lims;    %% enforce voltage magnitude limits
+flim        = mpopt.cpf.enforce_flow_lims; %% enforce branch flow limits
 
 %% register event functions (for event detection)
 %% and CPF callback functions (for event handling and other tasks)
@@ -176,6 +190,16 @@ if ischar(mpopt.cpf.stop_at) && strcmp(mpopt.cpf.stop_at, 'NOSE');
 else        %% FULL or target lambda
     cpf_events   = cpf_register_event(cpf_events, 'TARGET_LAM', 'cpf_target_lam_event', mpopt.cpf.target_lam_tol, 1);
     cpf_callbacks = cpf_register_callback(cpf_callbacks, 'cpf_target_lam_event_cb', 50);
+end
+%% to handle branch flow limits
+if flim
+    cpf_events = cpf_register_event(cpf_events, 'FLIM', 'cpf_flim_event', mpopt.cpf.flow_lims_tol, 1);
+    cpf_callbacks = cpf_register_callback(cpf_callbacks, 'cpf_flim_event_cb', 53);
+end
+%% to handle voltage limits
+if vlim
+    cpf_events = cpf_register_event(cpf_events, 'VLIM', 'cpf_vlim_event', mpopt.cpf.v_lims_tol, 1);
+    cpf_callbacks = cpf_register_callback(cpf_callbacks, 'cpf_vlim_event_cb', 52);
 end
 %% to handle reactive power limits
 if qlim
@@ -242,8 +266,8 @@ if plim
 end
 
 %% run base case power flow
-[rb, suc] = runpf(mpcb, mpopt_pf);
-if suc
+[rb, success] = runpf(mpcb, mpopt_pf);
+if success
     done = struct('flag', 0, 'msg', '');
     if qlim
         %% find buses that were converted to PQ or REF by initial power flow
@@ -345,7 +369,7 @@ if ~done.flag
     lam = 0;
     V   = mpcb.bus(:, VM) .* exp(sqrt(-1) * pi/180 * mpcb.bus(:, VA));
     rollback = 0;   %% flag to indicate that a step must be rolled back
-    locating = 0;   %% flag to indicate that an event has interval was detected,
+    locating = 0;   %% flag to indicate that an event interval was detected,
                     %% but the event has not yet been located
     rb_cnt_ef = 0;  %% counter for rollback steps triggered by event function intervals
     rb_cnt_cb = 0;  %% counter for rollback steps triggered directly by callbacks
@@ -409,7 +433,7 @@ if ~done.flag
     while ~done.flag
         %% initialize next candidate with current state
         nx = cx;
-    
+
         %% prediction for next step
         [nx.V_hat, nx.lam_hat] = cpf_predictor(cx.V, cx.lam, cx.z, cx.step, cb_data.pv, cb_data.pq);
 
@@ -425,7 +449,7 @@ if ~done.flag
             cont_steps = cont_steps - 1;
             break;
         end
-    
+
         %% compute new tangent direction, based on a previous state: tx
         if nx.step == 0     %% if this is a re-do step, cx and nx are the same
             tx = px;            %% so use px as the previous state
@@ -607,7 +631,7 @@ if ~done.flag
 
     %%-----  output results  -----
     %% convert back to original bus numbering & print results
-    n = cpf_results.iterations + 1;
+    n = size(cpf_results.V, 2);
     cpf_results.V_hat = i2e_data(mpct, cpf_results.V_hat, NaN(nb,n), 'bus', 1);
     cpf_results.V     = i2e_data(mpct, cpf_results.V,     NaN(nb,n), 'bus', 1);
     results = int2ext(mpct);

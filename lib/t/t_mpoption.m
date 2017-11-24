@@ -2,7 +2,7 @@ function t_mpoption(quiet)
 %T_MPOPTION  Tests for MPOPTION.
 
 %   MATPOWER
-%   Copyright (c) 2013-2016, Power Systems Engineering Research Center (PSERC)
+%   Copyright (c) 2013-2017, Power Systems Engineering Research Center (PSERC)
 %   by Ray Zimmerman, PSERC Cornell
 %
 %   This file is part of MATPOWER.
@@ -13,7 +13,7 @@ if nargin < 1
     quiet = 0;
 end
 
-v = 13;
+v = 16;
 
 t_begin(152, quiet);
 
@@ -123,7 +123,7 @@ t_ok(strcmp(mpopt.opf.dc.solver, 'MIPS'), [t 'mpopt.opf.dc.solver']);
 mpopt.verbose = 1;
 mpopt.model = 'AC';
 mpopt.opf.dc.solver = 'DEFAULT';
-%% The following line appears to work around a bizarre bug in Matlab 7.0.4 (Mac)
+%% The following line appears to work around a bizarre bug in MATLAB 7.0.4 (Mac)
 %% that caused the next test, and subsequent 'everything else' tests, to fail
 %% mysteriously (but not if a debugger breakpoint was set).
 isequal(mpopt, mpopt0);

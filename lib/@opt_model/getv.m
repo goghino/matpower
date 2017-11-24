@@ -1,8 +1,11 @@
-function [v0, vl, vu, vt] = getv(om, name, idx)
+function varargout = getv(om, varargin)
 %GETV  Returns initial value, lower bound and upper bound for opt variables.
-%   [V0, VL, VU] = GETV(OM)
-%   [V0, VL, VU] = GETV(OM, NAME)
-%   [V0, VL, VU] = GETV(OM, NAME, IDX)
+%
+%   -----  DEPRECATED - Please use PARAMS_VAR instead  -----
+%
+%   [V0, VL, VU] = OM.GETV()
+%   [V0, VL, VU] = OM.GETV(NAME)
+%   [V0, VL, VU] = OM.GETV(NAME, IDX)
 %   [V0, VL, VU, VT] = GETV(...)
 %   Returns the initial value V0, lower bound VL and upper bound VU for
 %   the full optimization variable vector, or for a specific named or named
@@ -11,11 +14,11 @@ function [v0, vl, vu, vt] = getv(om, name, idx)
 %   integer and binary variables, respectively.
 %
 %   Examples:
-%       [x, xmin, xmax] = getv(om);
-%       [Pg, Pmin, Pmax] = getv(om, 'Pg');
-%       [zij0, zijmin, zijmax, ztype] = getv(om, 'z', {i, j});
+%       [x, xmin, xmax] = om.getv();
+%       [Pg, Pmin, Pmax] = om.getv('Pg');
+%       [zij0, zijmin, zijmax, ztype] = om.getv('z', {i, j});
 %   
-%   See also OPT_MODEL.
+%   See also OPT_MODEL, PARAMS_VAR.
 
 %   MATPOWER
 %   Copyright (c) 2008-2016, Power Systems Engineering Research Center (PSERC)
@@ -25,101 +28,4 @@ function [v0, vl, vu, vt] = getv(om, name, idx)
 %   Covered by the 3-clause BSD License (see LICENSE file for details).
 %   See http://www.pserc.cornell.edu/matpower/ for more info.
 
-if nargout > 3
-    have_vt = 1;
-else
-    have_vt = 0;
-end
-if nargin < 2
-    v0 = []; vl = []; vu = []; vt = char([]);
-    s1 = struct('type', {'.', '{}'}, 'subs', {'', 1});
-    for k = 1:om.var.NS
-        name = om.var.order(k).name;
-        idx = om.var.order(k).idx;
-        if isempty(idx)
-            v0 = [ v0; om.var.data.v0.(name) ]; %we extract OPF control variables
-            vl = [ vl; om.var.data.vl.(name) ]; %from OM and get initial value
-            vu = [ vu; om.var.data.vu.(name) ]; %and bounds as big vectors
-            if have_vt
-                N = om.var.idx.N.(name);
-                vt0 = om.var.data.vt.(name);
-                if isscalar(vt0) && N > 1 
-                    vt = [ vt char(vt0 * ones(1, N)) ];
-                else
-                    vt = [ vt vt0 ];
-                end
-            end
-        else
-            % (calls to substruct() are relatively expensive ...
-            % s1 = substruct('.', name, '{}', idx);
-            % ... so replace it with these more efficient lines)
-            s1(1).subs = name;
-            s1(2).subs = idx;
-            v0 = [ v0; subsref(om.var.data.v0, s1) ];
-            vl = [ vl; subsref(om.var.data.vl, s1) ];
-            vu = [ vu; subsref(om.var.data.vu, s1) ];
-            if have_vt
-                % (calls to substruct() are relatively expensive ...
-                % s2 = substruct('.', name, '()', idx);
-                % ... so replace it with these more efficient lines)
-                s2 = s1;
-                s2(2).type = '()';
-                N = subsref(om.var.idx.N, s2);
-                vt0 = subsref(om.var.data.vt, s1);
-                if isscalar(vt0) && N > 1 
-                    vt = [ vt char(vt0 * ones(1, N)) ];
-                else
-                    if ~isempty(vt0)
-                        vt = [ vt vt0 ];
-                    end
-                end
-            end
-        end
-    end
-else
-    if isfield(om.var.idx.N, name)
-        if nargin < 3
-            v0 = om.var.data.v0.(name);
-            vl = om.var.data.vl.(name);
-            vu = om.var.data.vu.(name);
-            if have_vt
-                N = om.var.idx.N.(name);
-                vt0 = om.var.data.vt.(name);
-                if isscalar(vt0) && N > 1 
-                    vt = char(vt0 * ones(1, N));
-                else
-                    vt = vt0;
-                end
-            end
-        else
-            % (calls to substruct() are relatively expensive ...
-            % s1 = substruct('.', name, '{}', idx);
-            % ... so replace it with these more efficient lines)
-            s1 = struct('type', {'.', '{}'}, 'subs', {name, idx});
-            v0 = subsref(om.var.data.v0, s1);
-            vl = subsref(om.var.data.vl, s1);
-            vu = subsref(om.var.data.vu, s1);
-            if have_vt
-                % (calls to substruct() are relatively expensive ...
-                % s2 = substruct('.', name, '()', idx);
-                % ... so replace it with these more efficient lines)
-                s2 = s1;
-                s2(2).type = '()';
-                N = subsref(om.var.idx.N, s2);
-                vt0 = subsref(om.var.data.vt, s1);
-                if isscalar(vt0) && N > 1 
-                    vt = char(vt0 * ones(1, N));
-                else
-                    vt = vt0;
-                end
-            end
-        end
-    else
-        v0 = [];
-        vl = [];
-        vu = [];
-        if have_vt
-            vt = [];
-        end
-    end
-end
+[varargout{1:nargout}] = om.params_var(varargin{:});

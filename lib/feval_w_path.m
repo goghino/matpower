@@ -3,10 +3,10 @@ function varargout = feval_w_path(fpath, fname, varargin)
 %   FEVAL_W_PATH(FPATH, F, x1, ..., xn)
 %   [y1, ..., yn] = FEVAL_W_PATH(FPATH, F, x1, ..., xn)
 %
-%   Identical to Matlab's own FEVAL, except that the function F need not be
-%   in the Matlab path if it is defined in a file in the path specified by
-%   FPATH. Assumes that the current working directory is always first in
-%   the Matlab path.
+%   Identical to the built-in FEVAL, except that the function F need not be
+%   in the MATLAB/Octave path if it is defined in a file in the path specified
+%   by FPATH. Assumes that the current working directory is always first in
+%   the MATLAB/Octave path.
 %
 %   Inputs:
 %       FPATH - string containing the path to the function to be called,
@@ -22,7 +22,7 @@ function varargout = feval_w_path(fpath, fname, varargin)
 %   will also be available to be called by the F function.
 %
 %   Examples:
-%       % Assume '/opt/testfunctions' is NOT in the Matlab path, but
+%       % Assume '/opt/testfunctions' is NOT in the MATLAB/Octave path, but
 %       % /opt/testfunctions/mytestfcn.m defines the function mytestfcn()
 %       % which takes 2 input arguments and outputs 1 return argument.
 %       y = feval_w_path('/opt/testfunctions', 'mytestfcn', x1, x2);
@@ -43,17 +43,21 @@ if ~ischar(fname)
     error('feval_w_path: FNAME must be a string');
 end
 
-%% see if path exists
-if exist(fpath, 'dir') ~= 7
-    error('feval_w_path: Sorry, ''%s'' is not a valid directory path.', fpath);
-end
-
-cwd = pwd;      %% save the current working dir
-cd(fpath);      %% switch to the dir with the mfile
-try
+if isempty(fpath)   %% just call feval directly, no cd necessary
     [varargout{1:nargout}] = feval(fname, varargin{:});
-    cd(cwd);    %% switch back to saved dir
-catch
-    cd(cwd);    %% switch back to saved dir
-    rethrow(lasterror);
+else
+    %% see if path exists
+    if exist(fpath, 'dir') ~= 7
+        error('feval_w_path: Sorry, ''%s'' is not a valid directory path.', fpath);
+    end
+
+    cwd = pwd;      %% save the current working dir
+    cd(fpath);      %% switch to the dir with the mfile
+    try
+        [varargout{1:nargout}] = feval(fname, varargin{:});
+        cd(cwd);    %% switch back to saved dir
+    catch
+        cd(cwd);    %% switch back to saved dir
+        rethrow(lasterror);
+    end
 end

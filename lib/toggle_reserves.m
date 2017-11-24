@@ -141,9 +141,9 @@ mpc.reserves.igr = find(mpc.reserves.rgens);    %% internal indexing
 
 
 %%-----  formulation  --------------------------------------------------
-function om = userfcn_reserves_formulation(om, args)
+function om = userfcn_reserves_formulation(om, mpopt, args)
 %
-%   om = userfcn_reserves_formulation(om, args)
+%   om = userfcn_reserves_formulation(om, mpopt, args)
 %
 %   This is the 'formulation' stage userfcn callback that defines the
 %   user costs and constraints for fixed reserves. It expects to find
@@ -163,7 +163,7 @@ function om = userfcn_reserves_formulation(om, args)
     QC2MIN, QC2MAX, RAMP_AGC, RAMP_10, RAMP_30, RAMP_Q, APF] = idx_gen;
 
 %% initialize some things
-mpc = get_mpc(om);
+mpc = om.get_mpc();
 r = mpc.reserves;
 igr = r.igr;                %% indices of gens available to provide reserves
 ngr = length(igr);          %% number of gens available to provide reserves
@@ -190,10 +190,10 @@ lreq = r.req / mpc.baseMVA;
 Cw = r.cost(igr) * mpc.baseMVA;     %% per unit cost coefficients
 
 %% add them to the model
-om = add_vars(om, 'R', ngr, [], Rmin, Rmax);
-om = add_constraints(om, 'Pg_plus_R', Ar, [], ur, {'Pg', 'R'});
-om = add_constraints(om, 'Rreq', r.zones(:, igr), lreq, [], {'R'});
-om = add_costs(om, 'Rcost', struct('N', I, 'Cw', Cw), {'R'});
+om.add_var('R', ngr, [], Rmin, Rmax);
+om.add_lin_constraint('Pg_plus_R', Ar, [], ur, {'Pg', 'R'});
+om.add_lin_constraint('Rreq', r.zones(:, igr), lreq, [], {'R'});
+om.add_quad_cost('Rcost', [], Cw, 0, {'R'});
 
 
 %%-----  int2ext  ------------------------------------------------------
@@ -236,7 +236,7 @@ ng0  = size(o.ext.gen, 1);  %% number of gens (+ disp loads)
 %%-----  results post-processing  -----
 %% get the results (per gen reserves, multipliers) with internal gen indexing
 %% and convert from p.u. to per MW units
-[R0, Rl, Ru] = getv(results.om, 'R');
+[R0, Rl, Ru] = results.om.params_var('R');
 R       = zeros(ng, 1);
 Rmin    = zeros(ng, 1);
 Rmax    = zeros(ng, 1);
@@ -263,7 +263,7 @@ for k = igr0
     iz = find(r.zones(:, k));
     results.reserves.prc(k) = sum(results.lin.mu.l.Rreq(iz)) / results.baseMVA;
 end
-results.reserves.totalcost = results.cost.Rcost;
+results.reserves.totalcost = sum(results.qdc.Rcost);
 
 %% replace ng x 1 cost, qty with ngr x 1 originals
 if isfield(r, 'original')
@@ -383,7 +383,7 @@ end
 %%-----  savecase  -----------------------------------------------------
 function mpc = userfcn_reserves_savecase(mpc, fd, prefix, args)
 %
-%   mpc = userfcn_reserves_savecase(mpc, fd, mpopt, args)
+%   mpc = userfcn_reserves_savecase(mpc, fd, prefix, args)
 %
 %   This is the 'savecase' stage userfcn callback that prints the M-file
 %   code to save the 'reserves' field in the case file. It expects a

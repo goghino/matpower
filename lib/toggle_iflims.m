@@ -105,9 +105,9 @@ mpc.if.map = ifmap;
 
 
 %%-----  formulation  --------------------------------------------------
-function om = userfcn_iflims_formulation(om, args)
+function om = userfcn_iflims_formulation(om, mpopt, args)
 %
-%   om = userfcn_iflims_formulation(om, args)
+%   om = userfcn_iflims_formulation(om, mpopt, args)
 %
 %   This is the 'formulation' stage userfcn callback that defines the
 %   user costs and constraints for interface flow limits. It expects to
@@ -120,7 +120,7 @@ function om = userfcn_iflims_formulation(om, args)
     ANGMIN, ANGMAX, MU_ANGMIN, MU_ANGMAX] = idx_brch;
 
 %% initialize some things
-mpc = get_mpc(om);
+mpc = om.get_mpc();
 [baseMVA, bus, branch] = deal(mpc.baseMVA, mpc.bus, mpc.branch);
 ifmap = mpc.if.map;
 iflims = mpc.if.lims;
@@ -155,7 +155,7 @@ for k = 1:nifs
 end
 
 %% add interface constraint
-om = add_constraints(om, 'iflims',  Aif, lif, uif, {'Va'});      %% nifs
+om.add_lin_constraint('iflims',  Aif, lif, uif, {'Va'});   %% nifs
 
 
 %%-----  int2ext  ------------------------------------------------------
@@ -257,7 +257,7 @@ end
 %%-----  savecase  -----------------------------------------------------
 function mpc = userfcn_iflims_savecase(mpc, fd, prefix, args)
 %
-%   mpc = userfcn_iflims_savecase(mpc, fd, mpopt, args)
+%   mpc = userfcn_iflims_savecase(mpc, fd, prefix, args)
 %
 %   This is the 'savecase' stage userfcn callback that prints the M-file
 %   code to save the 'if' field in the case file. It expects a

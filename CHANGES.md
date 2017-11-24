@@ -12,6 +12,230 @@ For change history for [MOST][3], see [most/CHANGES.md](most/CHANGES.md).
 Since last release
 ------------------
 
+#### 11/22/17
+  - Add new option `opf.start` to replace deprecated `opf.init_from_mpc`
+    and add a new possibility to automatically run a power flow to
+    initialize the starting state for the OPF.
+
+#### 11/21/17
+  - Add MATLAB toolbox (.mltbx) version of MATPOWER to MATLAB Central
+    File Exchange and update installation instructions to include option
+    to install via MATLAB's build-in Add-On Explorer.
+
+#### 11/17/17
+  - Improve handling of allocation of reactive power among multiple
+    generators at a bus in power flow solution. Use equal violation at
+    buses where total Qmin == total Qmax. Eliminate NaNs in case of
+    infinite Q ranges.
+
+#### 11/14/17
+  - Add MATPOWER logo to User's Manual.
+
+#### 11/7/17
+  - Remove deprecated non-fatal error mechanism in `loadcase()`.
+  - Update `feval_w_path()` to allow empty string for path, equivalent to
+    calling `feval()` directly.
+  - Modify `loadcase()` to use `feval_w_path()`.
+  - Make `install_matpower()` check for minimum required MATLAB/Octave version.
+  - __IMPORTANT NOTE__: For MATLAB users, the minimum requirement for
+    MATPOWER is now MATLAB 7.3.0 (R2006b). _(No access to older versions
+    for testing)_.
+
+#### 11/3/17
+  - Add `case_RTS_GMLC` from [here](https://github.com/GridMod/RTS-GMLC).
+
+#### 10/31/17
+  - Update `case9` with complete reference to source data and updated
+    generator voltages, initial reactive injections and slack active
+    injection to more closely match original source.
+  - Make AC OPF solver always default to MIPS, even if TSPOPF is installed.
+    i.e. `opf.ac.solver = 'DEFAULT'` is now identical to
+    `opf.ac.solver = 'MIPS'`.
+  - Add [E4ST](http://e4st.com/) to `have_fcn()` and `mpver` output.
+
+#### 10/27/17
+  - Add contingencies and scenarios for ACTIVSg cases, contingencies for
+    all four, and one year of hourly zonal or area load scenarios for 200
+    and 2000 bus cases.
+
+#### 10/11/17
+  - Add `t_opf_default()` to test AC OPF with `opf.ac.solver` set to `DEFAULT`.
+  - Fix bug in setup of OPF (introduced since v6.0), triggered by running
+    an AC OPF with `opf.ac.solver` set to `DEFAULT` with TSPOPF installed.
+    *Thanks to Carlos Murillo-Sanchez.*
+  - Fix bug in setup of OPF (introduced since v6.0), triggered by running a
+    DC OPF with `opf.ac.solver` set one of the legacy MEX-based solvers such
+    as `PDIPM`. Set `opf.ac.solver` to `PDIPM` for some of the DC OPF tests.
+
+#### 10/10/17
+  - Add `savechgtab()` function to save change tables, such as those used
+    by `apply_changes()`, to a file.
+  - Fix issues with PSS/E import on newer Octave versions (e.g. 4.3).
+    Fixes to MATLAB incompatibilities in `regexp` behavior eliminated the
+    need for Octave-specific workarounds.
+
+#### 9/26/17
+  - Minor updates to support the latest versions of MATLAB, MOSEK and YALMIP.
+
+#### 9/15/17
+  - Add another purely synthetic case from the ACTIVSg team (ASU, Cornell,
+    Texas A&M, U of IL, and VCU - Synthetic grids), resulting from work
+    supported by the ARPA-E GRID DATA program.
+    *Thanks to Adam Birchfield and the ACTIVSg team.*
+    - `case_ACTIVSg10k` (10,000-bus US WECC synthetic model)
+
+#### 9/12/17
+  - Update `@opt_model` API for method naming consistency. Summary of
+    deprecated method names, with new alternatives in parenthesis:
+    - `add_vars` (`add_var`)
+    - `add_costs` (`add_legacy_cost`, `add_quad_cost` or `add_nln_cost`)
+    - `add_constraints` (`add_lin_constraint` or `add_nln_constraint`)
+    - `build_cost_params` (no longer needed)
+    - `compute_cost` (`eval_legacy_cost`)
+    - `get_cost_params` (`params_legacy_cost`)
+    - `getv` (`params_var`)
+    - `linear_constraints` (`params_lin_constraint`)
+
+#### 9/8/17
+  - Add general nonlinear cost values to OPF results in `results.nlc`.
+
+#### 9/6/17
+  - Refactor AC and DC OPF code to use the new quadratic and general
+    nonlinear cost handling of `opt_model` to build and evaluate
+    generator and user-defined costs and their derivatives.
+
+#### 9/5/17
+  - Add tests for OPF with high-degree polynomial (greater than quadratic)
+    generator cost functions.
+  - Add tests for OPF with legacy user-defined cost functions that include
+    "dead zone" with quadratic "penalty".
+  - Lay ground work for user-defined nonlinear OPF costs by adding
+    support to `opt_model` for handling nonlinear costs with function
+    handles for evaluating the cost function, gradients and Hessian.
+  - Add support to `opt_model` for handling quadratic costs.
+  - Deprecate the legacy generalized cost mechanism in `opt_model`
+    based on `add_costs()` in favor the quadratic and general nonlinear
+    mechanisms, `add_quad_cost()` and `add_nln_cost()`.
+
+#### 8/22/17
+  - Add options `'cpf.enforce_v_lims'` and `'cpf.enforce_flow_lims'` to
+    enforce bus voltage magnitude and branch flow limits in the
+    continuation power flow, and `'cpf.v_lims_tol'` and
+    `'cpf.flow_lims_tol'` to control the respective detection tolerances.
+    *Thanks to Ahmad Sadiq Abubakar and Shrirang Abhyankar.*
+
+#### 8/18/17
+  - Expand support for soft branch flow limits in `toggle_softlims` to
+    include AC OPF problems as well as DC OPF.
+  - Add support for direct specification of user-defined nonlinear
+    constraints for AC OPF, in `mpc.user_constraints.nle` and
+    `mpc.user_constraints.nli`, for equality and inequality constraints,
+    respectively.
+
+#### 8/14/17
+  - Remove `nln` (nonlinear constraints) field from `opt_model` object,
+    in favor of `nle` (nonlinear equalities) and `nli` (nonlinear
+    inequalities).
+  - Add `nle.lambda.<name>` and `nli.mu.<name>` to OPF `results` struct.
+  - Add `nle` and `nli` fields to `results.mu` returned by `*opf_solver`
+    functions.
+  - **INCOMPATIBLE CHANGE:** Remove `nln.mu.l.<name>` and `nln.mu.u.<name>`
+    fields from OPF `results` struct. Use `nle.lambda.<name>` and
+    `nli.mu.<name>` fields instead for nonlinear constraint multipliers.
+  - **INCOMPATIBLE CHANGE:** Modify order of default output arguments of
+    `opt_model/get_idx()`.
+  - **INCOMPATIBLE CHANGE:** Add `mpopt` to OPF `formulation` callback
+    input args.
+
+#### 8/4/17
+  - Refactor AC OPF code to use the new nonlinear constraint handling
+    of `opt_model` to build and evaluate power balance and branch flow
+    constraints and their derivatives, and index shadow prices.
+  - Add option for `opt_model/get_idx()` to return arbitrarily selected
+    index types.
+
+#### 7/10/17
+  - Lay ground work for user-defined nonlinear OPF constraints by adding
+    support to `opt_model` for handling nonlinear constraints with
+    function handles for evaluating the constraint function, gradients
+    and Hessian.
+  - Deprecate the `add_constraints()` method of `opt_model`. Use the
+    corresponding one of the following methods instead:
+    `add_lin_constraint()`, `add_nln_constraint()` or `init_indexed_name()`.
+
+#### 6/8/17
+  - Move `@opt_model`, `@opf_model` to use `classdef`. Modify code to use
+    OOP notation everywhere for `@opt_model`/`@opf_model` objects,
+    e.g. `om.property`, `om.method()`.
+    __IMPORTANT NOTE__: For Octave users, the minimum requirement for
+    MATPOWER is now Octave 4 or later.
+
+#### 5/25/17
+  - Add option to call `@opt_model/compute_cost` without `idx` argument
+    and have it total over all indices for a given `name`.
+
+#### 5/24/17
+  - Remove OPF result columns from `gen` matrix returned by `psse2mpc`.
+  - Limit length of name of star-buses added by `psse2mpc` to 12 chars.
+  - Add `save2psse` with support for exporting MATPOWER case data to
+    PSS/E RAW format.
+
+#### 5/23/17
+  - Add support for `gentype` and `genfuel` fields of MATPOWER case struct
+    in `extract_islands`, `ext2int`, `int2ext`, `load2disp`  and `savecase`.
+  - Add support for `bus_name` field of MATPOWER case struct to
+    `extract_islands`, `ext2int` and `int2ext`.
+  - Add `gentype` and `genfuel` fields to three ACTIVSg cases.
+
+#### 5/22/17
+  - Add `genfuels` and `gentypes` to establish standard set of values for
+    optional `mpc.genfuel` and `mpc.gentype` fields for generator fuel
+    type and generator unit type, respectively.
+  - Fix bug #13 where setting all buses to type `NONE` (isolated) resulted
+    in a fatal error for `ext2int`, `runpf`, `runcpf` and `runopf`.
+    *Thanks to SNPerkin.*
+
+#### 5/19/17
+  - Add three new purely synthetic cases from the ACTIVSg team (ASU, Cornell,
+    Texas A&M, U of IL, and VCU - Synthetic grids), resulting from work
+    supported by the ARPA-E GRID DATA program.
+    *Thanks to Adam Birchfield and the ACTIVSg team.*
+    - `case_ACTIVSg200` (200-bus Illinios synthetic model)
+    - `case_ACTIVSg500` (500-bus South Carolina synthetic model)
+    - `case_ACTIVSg2000` (2000-bus Texas synthetic model)
+
+#### 5/11/17
+  - Fix bug #12 where the CPF could terminate early when requesting
+    trace of the full curve with P or Q limits enforced, if a limit
+    becomes binding at the base case.
+    *Thanks to Felix.*
+
+#### 5/3/17
+  - Fix #11 fatal error encountered when running `test_matpower` with
+    SDP_PF and YALMIP installed, but no SDP solver. Now checks for
+    availability of SeDuMi, SDP3 or MOSEK before attempting to run
+    SDP_PF tests that require solving an SDP.
+
+#### 4/7/17
+  - Fix fatal bug in `get_losses` when computing derivatives of reactive
+    branch injections and fix some related tests.
+  - Fix bug in `makeJac` in which voltage was set by generator voltage
+    setpoint even for PQ buses.
+
+#### 4/7/17
+  - Fix fatal bug #8 when calling `runcpf` with base and target cases with
+    identical load and generation.
+    *Thanks to Felix.*
+
+#### 3/17/17
+  - In the Newton power flow, for larger systems use explicit LU
+    decomposition with AMD reordering and the 3 output argument form of LU
+    (to select the Gilbert-Peierls algorithm), resulting in up to a 2x
+    speedup in MATLAB, 1.1x in Octave.
+    *Thanks to Jose Luis Marin.*
+  - Add new `pf.nr.lin_solver` option to control the linear solver used
+    to compute the Newton update step in the Newton-Raphson power flow.
+
 #### 2/9/17
   - Add three new power flow algorithms for radial distribution
     systems selected via the three new options for `pf.alg`, namely
@@ -43,7 +267,7 @@ Since last release
 
 #### 1/23/17
   - Add `install_matpower()` to assist with installation by
-    updating Matlab or Octave paths or providing the commands
+    updating MATLAB or Octave paths or providing the commands
     required to so.
 
 #### 1/16/17
@@ -261,16 +485,16 @@ Version 6.0b1 - *Jun 1, 2016*
 
 #### 1/26/16
   - Introduced work-around and warning for crashes caused by strange
-    behavior from Matlab's `ver()` function when MATPOWER (or any other
+    behavior from MATLAB's `ver()` function when MATPOWER (or any other
     3rd party toolbox with a `Contents.m`) is installed in a directory on
-    the Matlab path named `matlab` or `optim` (both case insensitive).
+    the MATLAB path named `matlab` or `optim` (both case insensitive).
 
 #### 1/15/16
   - Added `feval_w_path()` function for evaluating functions located at
-    a specified path, outside of the Matlab path.
+    a specified path, outside of the MATLAB path.
 
 #### 1/14/16
-  - Added tests for `loadcase()` for m-file cases outside the Matlab path.
+  - Added tests for `loadcase()` for m-file cases outside the MATLAB path.
 
 #### 1/6/16
   - Added `apply_changes()` and `idx_ct()` to implement general method for
@@ -304,7 +528,7 @@ Version 6.0b1 - *Jun 1, 2016*
   - Added code in `cplex_options()`, `insolvablepfsos()`,
     `insolvablepfsos_limitQ()` and `yalmip_options()` to turn off
     `MATLAB:lang:badlyScopedReturnValue` warning triggered by
-    CPLEX when using Matlab R2015b (8.6) and later.
+    CPLEX when using MATLAB R2015b (8.6) and later.
 
 #### 7/16/15
   - Added `mpopt2qpopt()` to provide common interface for creating
@@ -414,21 +638,21 @@ Version 5.1 - *Mar 20, 2015*
 
 #### 2/13/15
   - Added explicit colors to plots in `cpf_default_callback()` so things
-    look right in newer Matlab versions (R2014b and later).
+    look right in newer MATLAB versions (R2014b and later).
 
 #### 2/6/15
   - Modified `nested_struct_copy()` to eliminate `cellfun()` call that
-    was not supported in Matlab 7.0.x. Noted that `runcpf()` also
-    requires Matlab 7.1 or later due to a call to `cellfun()`.
+    was not supported in MATLAB 7.0.x. Noted that `runcpf()` also
+    requires MATLAB 7.1 or later due to a call to `cellfun()`.
     Included code to skip certain tests that require that `cellfun()`
-    functionality when running under Matlab 7.0.x.
+    functionality when running under MATLAB 7.0.x.
 
 #### 2/5/15
   - Replaced `regexp(... 'split')` construct in `mpoption()` with
     `regexp(... 'tokens')` since it was causing fatal errors on
-    Matlab versions < 7.3, which did not have that feature.
+    MATLAB versions < 7.3, which did not have that feature.
   - Fixed fatal error in when using fast-decoupled power flow
-    on Matlab versions < 7.3, caused by use of newer
+    on MATLAB versions < 7.3, caused by use of newer
     `lu(... 'vector')` construct.
 
 #### 2/3/15
@@ -489,7 +713,7 @@ Version 5.1 - *Mar 20, 2015*
 #### 1/13/15
   - Updated `t_opf_dc_ot()` to remove the skipping of the checking of
     price results for the dual-simplex algorithm for all versions of
-    Matlab except R2014b, the first version that included the
+    MATLAB except R2014b, the first version that included the
     dual-simplex algorthm. For some reason, in this version it did
     not return any Lagrange multipliers!?!.
   - Increment MATPOWER options version number to 5 (forgot to do it
@@ -525,9 +749,9 @@ Version 5.0 - *Dec 17, 2014*
     tests to `t_island()`.
 
 #### 12/12/14
-  - Added code in `psse_read()` to work around a bug in Matlab 7.3.
+  - Added code in `psse_read()` to work around a bug in MATLAB 7.3.
   - Added private `catchme` tag (for internal use only) to `have_fcn()`
-    to detect older versions of Matlab and Octave that do not support
+    to detect older versions of MATLAB and Octave that do not support
     the `catch me` syntax in try/catch constructs.
   - Added private `regexp_split` tag (for internal use only) to
     `have_fcn()` to detect older versions of Octave that do not support
@@ -693,7 +917,7 @@ Version 5.0b1 - *Jul 1, 2014*
 
 #### 6/13/14
   - Added ability for `loadcase()` to load MATPOWER case M-files
-    that are not in the Matlab path by specifying an explicit
+    that are not in the MATLAB path by specifying an explicit
     path in the input filename.
 
 #### 6/9/14
@@ -848,7 +1072,7 @@ Version 5.0b1 - *Jul 1, 2014*
     for variables that are only bounded on one side.
 
 #### 10/11/13
-  - Removed support for Matlab 6.x. Removed `anon_fcns` option from
+  - Removed support for MATLAB 6.x. Removed `anon_fcns` option from
     `have_fcn()`. Files removed:
      - `fmincopf6_solver.m`
      - `mips6.m`
@@ -956,7 +1180,7 @@ Version 5.0b1 - *Jul 1, 2014*
     set of dimension zero.
 
 #### 6/18/12
-  - Updated Gurobi interface for compatibility with native Matlab
+  - Updated Gurobi interface for compatibility with native MATLAB
     support introduced in Gurobi 5.
     **INCOMPATIBLE CHANGE:** No longer works with older Gurobi 4.x/
     `gurobi_mex()` interface.
@@ -1013,7 +1237,7 @@ Version 5.0b1 - *Jul 1, 2014*
 
 #### 12/14/11
   - Modified `t/t_opf_fmincon.m` to use active-set method for testing
-    `fmincopf` for Matlab versions 7.6-7.9, since fmincon's interior
+    `fmincopf` for MATLAB versions 7.6-7.9, since fmincon's interior
     point solver (now default) was not accurate enough in these
     versions.
 
@@ -1183,7 +1407,7 @@ Version 4.0b5 - *Dec 13, 2010*
   - Added support for the MOSEK optimizer for large-scale linear and
     quadratic programming. To use MOSEK for the DC OPF, set
     `OPF_ALG_DC = 600`. Specific LP algorithms can be selected by
-    the `MOSEK_LP_ALG` option. Requires the Matlab interface for MOSEK,
+    the `MOSEK_LP_ALG` option. Requires the MATLAB interface for MOSEK,
     available from http://www.mosek.com/.
   - Added function `qps_mosek()` for solving QP and LP problems using
     the common QP solver interface used in MATPOWER. The `qps_matpower()`
@@ -1196,7 +1420,7 @@ Version 4.0b5 - *Dec 13, 2010*
     large scale linear and quadratic programming. To use CPLEX
     for the DC OPF, set `OPF_ALG_DC = 500` and choose the specific
     CPLEX solver using options `CPLEX_LPMETHOD` and `CPLEX_QPMETHOD`.
-    Requires the Matlab interface for CPLEX, available from
+    Requires the MATLAB interface for CPLEX, available from
     http://www.ibm.com/software/integration/optimization/cplex-optimizer/.
   - Added function `qps_cplex()` for using CPLEX to solve QP and LP
     problems using the common QP solver interface used in MATPOWER. The
@@ -1243,7 +1467,7 @@ Version 4.0b4 - *May 21, 2010*
   - Added support for the IPOPT interior point optimizer for
     large scale non-linear optimization. Use `OPF_ALG = 580`
     and `OPF_ALG_DC = 400` for AC and DC OPF, respectively. Requires
-    the Matlab MEX interface for IPOPT, available from
+    the MATLAB MEX interface for IPOPT, available from
     http://www.coin-or.org/projects/Ipopt.xml.
 
 #### 5/13/10

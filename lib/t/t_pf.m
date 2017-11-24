@@ -13,7 +13,7 @@ if nargin < 1
     quiet = 0;
 end
 
-t_begin(53, quiet);
+t_begin(62, quiet);
 
 casefile = 't_case9_pf';
 if quiet
@@ -112,7 +112,7 @@ mpc.gen(1, [QMIN QMAX]) = [10 10];
 mpc.gen(2, [QMIN QMAX]) = [-50 -50];
 [baseMVA, bus, gen, branch, success, et] = runpf(mpc, mpopt);
 t_ok(success, [t 'success']);
-t_is(gen(1:2, QG), [12.03; 12.03], 2, [t '2 gens, Qmin = Qmax for both']);
+t_is(gen(1:2, QG), [42.03; -17.97], 2, [t '2 gens, Qmin = Qmax for both']);
 
 mpc.gen(1, [QMIN QMAX]) = [0 50];
 mpc.gen(2, [QMIN QMAX]) = [0 100];
@@ -125,6 +125,30 @@ mpc.gen(2, [QMIN QMAX]) = [50 150];
 [baseMVA, bus, gen, branch, success, et] = runpf(mpc, mpopt);
 t_ok(success, [t 'success']);
 t_is(gen(1:2, QG), [-50+8.02; 50+16.05], 2, [t '2 gens, proportional']);
+
+mpc.gen(1, [QMIN QMAX]) = [-50 Inf];
+mpc.gen(2, [QMIN QMAX]) = [50 150];
+[baseMVA, bus, gen, branch, success, et] = runpf(mpc, mpopt);
+t_ok(success, [t 'success']);
+t_is(gen(1:2, QG), [-31.61; 55.68], 2, [t '2 gens, one infinite range']);
+
+mpc.gen(1, [QMIN QMAX]) = [-50 Inf];
+mpc.gen(2, [QMIN QMAX]) = [50 Inf];
+[baseMVA, bus, gen, branch, success, et] = runpf(mpc, mpopt);
+t_ok(success, [t 'success']);
+t_is(gen(1:2, QG), [-33.12; 57.18], 2, [t '2 gens, both infinite range']);
+
+mpc.gen(1, [QMIN QMAX]) = [-50 Inf];
+mpc.gen(2, [QMIN QMAX]) = [-Inf 150];
+[baseMVA, bus, gen, branch, success, et] = runpf(mpc, mpopt);
+t_ok(success, [t 'success']);
+t_is(gen(1:2, QG), [76.07; -52], 2, [t '2 gens, both infinite range']);
+
+mpc.gen(1, [QMIN QMAX]) = [-Inf Inf];
+mpc.gen(2, [QMIN QMAX]) = [-Inf Inf];
+[baseMVA, bus, gen, branch, success, et] = runpf(mpc, mpopt);
+t_ok(success, [t 'success']);
+t_is(gen(1:2, QG), [12.03; 12.03], 2, [t '2 gens, both infinite range']);
 
 t = 'reactive generation allocation : ';
 mpc = loadcase(casefile);
@@ -191,6 +215,15 @@ warning('off', 'all');  %% turn of (near-)singular matrix warnings
 r = rundcpf(mpc, mpopt);
 warning(warn_state);
 t_ok(~r.success, [t 'success']);
+
+t = 'all buses isolated : ';
+mpc.bus(:, BUS_TYPE) = NONE;
+try
+    r = runpf(mpc, mpopt);
+    t_is(r.success, 0, 12, [t 'success = 0']);
+catch
+    t_ok(0, [t 'unexpected fatal error']);
+end
 
 %% case 14 with Q limits
 t = 'pf.enforce_q_lims == 0 : ';

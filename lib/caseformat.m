@@ -30,10 +30,11 @@
 %   are added to the bus, branch and gen matrices by the power flow and OPF
 %   solvers.
 %
-%   The case struct also also allows for additional fields to be included.
+%   The case struct also allows for additional fields to be included.
 %   The OPF is designed to recognize fields named A, l, u, H, Cw, N,
 %   fparm, z0, zl and zu as parameters used to directly extend the OPF
-%   formulation (see OPF for details). Other user-defined fields may also
+%   formulation (see OPF for details). Additional standard optional fields
+%   include bus_name, gentype and genfuel. Other user-defined fields may also
 %   be included and will be automatically loaded by the LOADCASE function
 %   and, given an appropriate 'savecase' callback function (see
 %   ADD_USERFCN), saved by the SAVECASE function.
@@ -99,10 +100,12 @@
 %       6   rateA, MVA rating A (long term rating), set to 0 for unlimited
 %       7   rateB, MVA rating B (short term rating), set to 0 for unlimited
 %       8   rateC, MVA rating C (emergency rating), set to 0 for unlimited
-%       9   ratio, transformer off nominal turns ratio ( = 0 for lines )
-%           (taps at 'from' bus, impedance at 'to' bus,
-%            i.e. if r = x = b = 0, then ratio = Vf / Vt)
-%       10  angle, transformer phase shift angle (degrees), positive => delay
+%       9   tap, transformer off nominal turns ratio, if non-zero
+%           (taps at "from" bus, impedance at "to" bus, i.e. if r = x = b = 0,
+%            then tap = Vf / Vt; tap = 0 used to indicate transmission
+%           line rather than transformer, i.e. mathematically equivalent to
+%           transformer with tap = 1)
+%       10  shift, transformer phase shift angle (degrees), positive => delay
 %   (-)     (Gf, shunt conductance at from bus p.u.)
 %   (-)     (Bf, shunt susceptance at from bus p.u.)
 %   (-)     (Gt, shunt conductance at to bus p.u.)
@@ -145,7 +148,7 @@
 %   and IDX_COST.
 
 %   MATPOWER
-%   Copyright (c) 1996-2016, Power Systems Engineering Research Center (PSERC)
+%   Copyright (c) 1996-2017, Power Systems Engineering Research Center (PSERC)
 %   by Ray Zimmerman, PSERC Cornell
 %
 %   This file is part of MATPOWER.
