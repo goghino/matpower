@@ -1,18 +1,32 @@
 function opt_solution = ex24_run_with_quadratic_costs()
 clc
 close all
-define_constants
+
+addpath( ...
+    '/Users/Juraj/Documents/Optimization/matpower/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/data', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mips/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mips/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/most/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/most/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mptest/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mptest/lib/t', ...
+    '-end' );
+
+setenv('OMP_NUM_THREADS', '1')
+
+define_constants;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% set options
 
-opt = mpoption('verbose',1,'out.all',0, 'opf.ac.solver','IPOPT');
+opt = mpoption('verbose',2,'out.all',0, 'opf.ac.solver','IPOPT');
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% set time step data
-%nstorage_ref = 10;  %% 1 ... 100
-factor_timesteps = 2;  %% 1...365 (number of time periods)
+factor_timesteps = 1;  %% 1...365 (number of time periods)
 Kpv = 1;  %% 0 ...1  (size of PV penetration)
 
 
@@ -40,7 +54,8 @@ load_scaling_profile       = kron(ones(factor_timesteps,1), load_scaling_profile
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% create base case file
-mpc= case118;
+mpc = case118;
+%mpc = case30; % works with top 2%, not with static = 10 or top 1%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% fixes:
@@ -51,17 +66,25 @@ mpc.gen(:,PMIN) = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% prepare storage data
-% id_load_log = abs(mpc.bus(:,PD))>0;
-% id_load = find(id_load_log);
-% nload = length(id_load);
-% nstorage_applied = min(nstorage_ref,nload);
-% id_storage_location = id_load(1:nstorage_applied);
 
-[sortedPD, id_load] = sort(mpc.bus(:,PD), 'descend'); %% sort buses w.r.t PD
-nload = length(find(abs(mpc.bus(:,PD))>0));
-nstorage_ref = round(size(mpc.bus,1)*0.02); %% apply storage to top 2% of buses with highest load
-nstorage_applied = min(nstorage_ref,nload);
-id_storage_location = id_load(1:nstorage_applied); %% apply storages to top 2% loaded buses
+%do we place static number of storages to all grids, or we pick top 2% of
+%the load buses
+static_placement = 0;
+
+if (static_placement)
+    id_load_log = abs(mpc.bus(:,PD))>0;
+    id_load = find(id_load_log);
+    nload = length(id_load);
+    nstorage_ref = 3;  %% 1 ... 100
+    nstorage_applied = min(nstorage_ref,nload);
+    id_storage_location = id_load(1:nstorage_applied);
+else
+    [sortedPD, id_load] = sort(mpc.bus(:,PD), 'descend'); %% sort buses w.r.t PD
+    nload = length(find(abs(mpc.bus(:,PD))>0));
+    nstorage_ref = round(size(mpc.bus,1)*0.02); %% apply storage to top 2% of buses with highest load
+    nstorage_applied = min(nstorage_ref,nload);
+    id_storage_location = id_load(1:nstorage_applied); %% apply storages to top 2% loaded buses
+end
 
 % remove storage if applied to REF bus, add it to different bus
 if find(mpc.bus(id_storage_location, BUS_TYPE) == 3)
@@ -78,8 +101,51 @@ p_storage.rPminEmax_MW_per_MWh = -1/2;
 p_storage.c_discharge        = .97;
 p_storage.c_charge           = .95;
 
-mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage)
-opt_solution     = runopf(mpcN_opf_storage, opt)
+%% run OPF
+mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
+opt_solution     = runopf(mpcN_opf_storage, opt);
 
+%% verify constraints
+N = length(load_scaling_profile) * factor_timesteps;
+
+%linear constraints
+E = opt_solution.A * opt_solution.x;
+Emin = -p_storage.E_storage_init_MWh;
+Emax = p_storage.E_storage_max_MWh - p_storage.E_storage_init_MWh;
+
+%PF constraints and branch PF
+[h, g] = opf_consfcn(opt_solution.x, opt_solution.om);
+gn = 2*size(mpc.bus,1);
+hn = 2*size(mpc.branch,1);
+
+
+for i = 1:N
+    E_i = E((1:nstorage_applied) + (i-1)*nstorage_applied);
+    idx = find(E_i > Emax );
+    nviol = length(idx);
+    if (nviol > 0)
+       fprintf('Vioated MAX energy limit for %d storages in period %d with error %e\n', nviol, i, max(E_i(idx) - Emax(idx))); 
+    end
+    
+    idx = find(E_i < Emin );
+    nviol = length(idx);
+    if (nviol > 0)
+       fprintf('Vioated MIN energy limit for %d storages in period %d with error %e\n', nviol, i, max(Emin(idx) - E_i(idx))); 
+    end
+    
+    g_local = g((1:gn) + (i-1)*gn);
+    idx = find(g_local > 1e-5 );
+    nviol = length(idx);
+    if (nviol > 0)
+       fprintf('Vioated %d PF equations in period %d with error %e\n', nviol, i, max(g_local(idx))); 
+    end
+    
+    h_local = h((1:hn) + (i-1)*hn);
+    idx = find(h_local > 0 );
+    nviol = length(idx);
+    if (nviol > 0)
+       fprintf('Vioated %d branch flow limits in period %d with error %e\n', nviol, i, max(h_local(idx))); 
+    end
+end
 
 end

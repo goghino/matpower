@@ -30,7 +30,7 @@ function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p
     end
 
 
-    mpcN_opf_storage = add_storage2bNoPeriodic(mpcN_opf,nnodes,id_storage_location,P_storage_max_MW,P_storage_min_MW,E_storage_max_MWh,E_storage_init_MWh,c_discharge,c_charge, 1)
+    mpcN_opf_storage = add_storage2bNoPeriodic(mpcN_opf,nnodes,id_storage_location,P_storage_max_MW,P_storage_min_MW,E_storage_max_MWh,E_storage_init_MWh,c_discharge,c_charge, 1);
     % max(max(abs(mpcN_opf_storage.bus - mpcN_opf_storage2.bus)))
     % max(max(abs(mpcN_opf_storage.branch - mpcN_opf_storage2.branch)))
     % max(max(abs(mpcN_opf_storage.gen - mpcN_opf_storage2.gen)))
@@ -40,7 +40,7 @@ function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p
     % max(max(abs(mpcN_opf_storage.u - mpcN_opf_storage2.u)))
 
     %extends multiperiod mpc.gen and mpc.gencost by storages, adds linear constraints A
-    clear mpcN_opf,nnodes,id_storage_location,P_storage_max_MW,P_storage_min_MW,E_storage_max_MWh,E_storage_init_MWh,c_discharge,c_charge;
+    clear mpcN_opf nnodes id_storage_location P_storage_max_MW P_storage_min_MW E_storage_max_MWh E_storage_init_MWh c_discharge c_charge;
     nb = size(mpcN_opf_storage.bus,1);
     ng = size(mpcN_opf_storage.gen,1);
     nl = size(mpcN_opf_storage.branch,1);

@@ -59,7 +59,7 @@ A(1:(N*nstorage),2*nnodes_total+ngen_nostorage_total+(1:(2*N*nstorage))  ) = ...
     [ -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_discharge), ...
       -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_charge)    ];
                                                                               
-                                                                              ;
+
 l(1:N*nstorage) = repmat(-E_storage_init_MWh,[N,1]);
 u(1:N*nstorage) = repmat(E_storage_max_MWh-E_storage_init_MWh,[N,1]);
 
