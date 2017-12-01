@@ -25,17 +25,6 @@ function [results, success, raw] = ipoptscopf_solver(om, model, mpopt)
 %   and linear constraints l < Ax < u.
 %
 %   See also OPF, IPOPT.
-
-%   MATPOWER
-%   Copyright (c) 2000-2017, Power Systems Engineering Research Center (PSERC)
-%   by Ray Zimmerman, PSERC Cornell
-%   and Carlos E. Murillo-Sanchez, PSERC Cornell & Universidad Nacional de Colombia
-%
-%   This file is part of MATPOWER.
-%   Covered by the 3-clause BSD License (see LICENSE file for details).
-%   See http://www.pserc.cornell.edu/matpower/ for more info.
-
-
 %% TODO
 % need to work more efficiently with sparse indexing during construction
 % of global hessian/jacobian
@@ -56,10 +45,10 @@ function [results, success, raw] = ipoptscopf_solver(om, model, mpopt)
 [PW_LINEAR, POLYNOMIAL, MODEL, STARTUP, SHUTDOWN, NCOST, COST] = idx_cost;
 
 %% unpack data
-mpc = get_mpc(om);
+mpc = om.get_mpc();
 [baseMVA, bus, gen, branch, gencost] = ...
     deal(mpc.baseMVA, mpc.bus, mpc.gen, mpc.branch, mpc.gencost);
-[vv, ll, nn] = get_idx(om);
+[vv, ll, nn] = om.get_idx();
 
 cont = model.cont;
 
@@ -83,7 +72,7 @@ ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
 
 %% bounds on optimization vars xmin <= x <= xmax 
-[x0, xmin, xmax] = getv(om); %returns standard OPF form [Va Vm Pg Qg]
+[x0, xmin, xmax] = om.params_var(); %returns standard OPF form [Va Vm Pg Qg]
 
 % Note that variables with equal upper and lower bounds are removed by IPOPT
 % so we add small perturbation to x_u[], we don't want them removed
@@ -104,7 +93,6 @@ xg = xmax([VMopf(PVbus_idx) PGopf(nREFgen_idx)]); %global variables
 xmax = [repmat(xl, [ns, 1]); xg];
 
 %% try to select an interior initial point based on bounds
-%TODO - options init_from_mpc > 0 assume that there is no reordering inside mpc
 
 if mpopt.opf.init_from_mpc == 0
     ll = xmin; uu = xmax;
@@ -241,6 +229,7 @@ end
 
 %% build linear constraints l <= A*x <= u
 
+% [A, l, u] = om.params_lin_constraint();
 A = [];
 l = [];
 u = [];

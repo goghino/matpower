@@ -345,92 +345,31 @@ pimul = [ ...
 ];
 raw = struct('xr', x, 'pimul', pimul, 'info', info.status, 'output', output);
 
-
 %-----  callback functions  -----
 function f = objective(x, d)
-xnew = x;
-% mpc = get_mpc(d.om);
-% xnew = check_ramps(x,mpc);
-f = opf_costfcn(xnew, d.om);
+f = opf_costfcn(x, d.om);
 
 function df = gradient(x, d)
-xnew = x;
-% mpc = get_mpc(d.om);
-% xnew = check_ramps(x,mpc);
-[f, df] = opf_costfcn(xnew, d.om);
+[f, df] = opf_costfcn(x, d.om);
 
 function c = constraints(x, d)
-xnew = x; 
-% mpc = get_mpc(d.om);
-% xnew = check_ramps(x,mpc);
-
-% xnew = 1:size(x,1); %for case9 SCOPF
-% xnew = xnew';
-
-%xnew = [1:24]';
-[hn, gn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
+[hn, gn] = opf_consfcn(x, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 if isempty(d.A)
     c = [gn; hn];
 else
-    c = [gn; hn; d.A*xnew];
+    c = [gn; hn; d.A*x];
 end
 
 function J = jacobian(x, d)
-xnew = x;
-
-%case9
-%xnew = [[1:9]' ; [1:9]'; [1.300000000050000,1.550000000050000,1.400000000050000,0.5e-10,0.5e-10,0.5e-10]']
-
-%xnew = [0:343]'; %case118
-%xnew = [0:3227]'; %case_pegase1354
-%xnew = [0:35501]'; %case_pegase13659
-
-% mpc = get_mpc(d.om);
-% xnew = check_ramps(x,mpc);
-
-%xnew = [1:24]'; %SCOPF, [Jbase(:,1:18) zeros(36,18) Jbase(:,19:end); zeros(34,18) Jcont8]
-
-[hn, gn, dhn, dgn] = opf_consfcn(xnew, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
+[hn, gn, dhn, dgn] = opf_consfcn(x, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 J = [dgn'; dhn'; d.A];
 
 
 function H = hessian(x, sigma, lambda, d)
-xnew = x;
-% mpc = get_mpc(d.om);
-% xnew = check_ramps(x,mpc);
 lam.eqnonlin   = lambda(1:d.neqnln);
 lam.ineqnonlin = lambda(d.neqnln+(1:d.niqnln));
 
-% reference values for C++ case118
-% xnew = [0:343]'; %ones(344,1);
-% lam.eqnonlin = [0:235]'; % ones(236,1);
-% lam.ineqnonlin = [236:607]'; %ones(372,1);
-% sigma = 1;
- 
-% reference values for C++ case_pegase1354
-% xnew = [0:3227]'; %ones(344,1);
-% lam.eqnonlin = [0:2707]'; % ones(236,1);
-% lam.ineqnonlin = [2708:5571]'; %ones(372,1);
-% sigma = 1;
-
-% reference values for C++ case_pegase13659
-% xnew = [0:35501]'; %ones(344,1);
-% lam.eqnonlin = [0:27317]'; % ones(236,1);
-% lam.ineqnonlin = []'; %ones(372,1);
-% sigma = 1;
-
-% reference values for C++ case9
-%xnew = [[1:9]' ; [1:9]'; [1.300000000050000,1.550000000050000,1.400000000050000,0.5e-10,0.5e-10,0.5e-10]']
-%xnew = [1:24]';
-
-% xnew = [1:9 1:9 1:6]';
-% 
-% lam.eqnonlin = ones(d.neqnln,1);
-% 
-% lam.ineqnonlin = ones(d.niqnln,1);
-
-H = tril(opf_hessfcn(xnew, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
-%writecsr('/Users/Juraj/Desktop/mtlb_hess.csr',H,1);
+H = tril(opf_hessfcn(x, lam, sigma, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il));
 
 % function Js = jacobianstructure(d)
 % Js = d.Js;

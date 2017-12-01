@@ -1,17 +1,16 @@
-function opt_solution = ex24_run_with_quadratic_costs()
 clc
 close all
 
 addpath( ...
-    '/Users/Juraj/Documents/Optimization/matpower/lib', ...
-    '/Users/Juraj/Documents/Optimization/matpower/lib/t', ...
-    '/Users/Juraj/Documents/Optimization/matpower/data', ...
-    '/Users/Juraj/Documents/Optimization/matpower/mips/lib', ...
-    '/Users/Juraj/Documents/Optimization/matpower/mips/lib/t', ...
-    '/Users/Juraj/Documents/Optimization/matpower/most/lib', ...
-    '/Users/Juraj/Documents/Optimization/matpower/most/lib/t', ...
-    '/Users/Juraj/Documents/Optimization/matpower/mptest/lib', ...
-    '/Users/Juraj/Documents/Optimization/matpower/mptest/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower-origin/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower-origin/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower-origin/data', ...
+    '/Users/Juraj/Documents/Optimization/matpower-origin/mips/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower-origin/mips/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower-origin/most/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower-origin/most/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower-origin/mptest/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower-origin/mptest/lib/t', ...
     '-end' );
 
 setenv('OMP_NUM_THREADS', '1')
@@ -104,14 +103,52 @@ p_storage.c_charge           = .95;
 %% run OPF
 mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
 opt_solution     = runopf(mpcN_opf_storage, opt);
+%plot_storage_results(opt_solution)
+
+
+%% verify constraints graphically
+nstorage = opt_solution.nstorage;
+N = opt_solution.horizon;
+Pgen_discharge = reshape(opt_solution.gen(opt_solution.id_gen_storages_discharge,PG),[nstorage, N ]);
+Pgen_charge    = reshape(opt_solution.gen(opt_solution.id_gen_storages_charge   ,PG),[nstorage, N ]);
+Pgen_storage = Pgen_discharge+Pgen_charge;
+Pgen_storage_max = repmat(opt_solution.P_storage_max_MW,[1,N]);
+Pgen_storage_min = repmat(opt_solution.P_storage_min_MW,[1,N]);
+
+E_storage = [opt_solution.E_storage_init_MWh, repmat(opt_solution.E_storage_init_MWh,[1,N]) - cumsum(Pgen_discharge./repmat(opt_solution.c_discharge,[1,N]) + Pgen_charge.*repmat(opt_solution.c_charge,[1,N]),2)];
+E_storage_max = repmat(opt_solution.E_storage_max_MWh,[1,N+1]);
+
+stairs(0:N, [Pgen_storage Pgen_storage(:,end)  ]', 'LineWidth',2);
+hold on;
+stairs(0:N, [Pgen_storage_max Pgen_storage_max(:,end)  ]', '--');
+stairs(0:N, [Pgen_storage_min Pgen_storage_min(:,end)  ]', '--');
+grid on
+title('storage network injection power : trajectory (solid) and maximum (dashed)')
+xlabel('t [hours]')
+ylabel('storage power [MW]')
+
+figure();
+plot(0:N, E_storage', 'LineWidth',2);
+hold on;
+plot(0:N, E_storage_max','--');
+grid on
+title('storage energy level: trajectory (solid) and maximum (dashed)')
+xlabel('t [hours]')
+ylabel('storage energy [MWh]')
 
 %% verify constraints
-N = length(load_scaling_profile) * factor_timesteps;
 
 %linear constraints
-E = opt_solution.A * opt_solution.x;
-Emin = -p_storage.E_storage_init_MWh;
-Emax = p_storage.E_storage_max_MWh - p_storage.E_storage_init_MWh;
+% 0 < Einit + T*P1              < Emax 
+% 0 < Einit + T*P1 + T*P2       < Emax 
+% 0 < Einit + T*P1 + T*P2 + ... < Emax 
+% E = opt_solution.A * opt_solution.x;
+% Emin = -p_storage.E_storage_init_MWh;
+% Emax = p_storage.E_storage_max_MWh - p_storage.E_storage_init_MWh;
+
+E = E_storage;
+Emax = opt_solution.E_storage_max_MWh;
+Emin = 0*opt_solution.E_storage_max_MWh;
 
 %PF constraints and branch PF
 [h, g] = opf_consfcn(opt_solution.x, opt_solution.om);
@@ -120,32 +157,50 @@ hn = 2*size(mpc.branch,1);
 
 
 for i = 1:N
-    E_i = E((1:nstorage_applied) + (i-1)*nstorage_applied);
+    E_i = E((1:nstorage_applied), i);
     idx = find(E_i > Emax );
     nviol = length(idx);
     if (nviol > 0)
-       fprintf('Vioated MAX energy limit for %d storages in period %d with error %e\n', nviol, i, max(E_i(idx) - Emax(idx))); 
+       fprintf('[N=%2d] Vioated MAX energy limit for %d storages with error %e\n', i, nviol, max(E_i(idx) - Emax(idx))); 
     end
     
     idx = find(E_i < Emin );
     nviol = length(idx);
     if (nviol > 0)
-       fprintf('Vioated MIN energy limit for %d storages in period %d with error %e\n', nviol, i, max(Emin(idx) - E_i(idx))); 
+       fprintf('[N=%2d] Vioated MIN energy limit for %d storages with error %e\n', i, nviol, max(Emin(idx) - E_i(idx))); 
     end
     
     g_local = g((1:gn) + (i-1)*gn);
     idx = find(g_local > 1e-5 );
     nviol = length(idx);
     if (nviol > 0)
-       fprintf('Vioated %d PF equations in period %d with error %e\n', nviol, i, max(g_local(idx))); 
+       fprintf('[N=%2d] Vioated %d PF equations with error %e\n', i, nviol, max(g_local(idx))); 
     end
     
     h_local = h((1:hn) + (i-1)*hn);
     idx = find(h_local > 0 );
     nviol = length(idx);
     if (nviol > 0)
-       fprintf('Vioated %d branch flow limits in period %d with error %e\n', nviol, i, max(h_local(idx))); 
+       fprintf('[N=%2d] Vioated %d branch flow limits with error %e\n', i, nviol, max(h_local(idx))); 
     end
 end
 
-end
+%figure; plot(E(1:nstorage_applied:end)); title('Energy level of 1st storage over time'); xlabel('T [h]'); ylabel('E [MWh]')
+%figure; plot(E(2:nstorage_applied:end)); title('Energy level of 2st storage over time'); xlabel('T [h]'); ylabel('E [MWh]')
+
+%% parse x vector
+% nb = size(mpc.bus,1);
+% ng = size(mpc.gen,1);
+% 
+% offset = nb*N + nb*N; %skip Va Vm
+% 
+% Pg_discharge = opt_solution.x(offset + ng*N + (1:nstorage_applied:nstorage_applied*N)) * opt_solution.baseMVA;
+% offset = offset + nstorage_applied*N;
+% Pg_charge = opt_solution.x(offset + (1:nstorage_applied:nstorage_applied*N)) * opt_solution.baseMVA;
+% offset = offset + nstorage_applied*N + ng*N;
+% Qg_discharge = opt_solution.x(offset + (1:nstorage_applied*N)) * opt_solution.baseMVA;
+% offset = offset + nstorage_applied*N;
+% Qg_charge = opt_solution.x(offset + (1:nstorage_applied*N)) * opt_solution.baseMVA;
+% 
+% figure; plot(Pg_discharge(1:nstorage_applied:end)); title('Pg discharge over time'); xlabel('T [h]'); ylabel('P [MW]')
+% figure; plot(Pg_charge(1:nstorage_applied:end));title('Pg charge over time'); xlabel('T [h]'); ylabel('P [MW]')

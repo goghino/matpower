@@ -21,8 +21,9 @@ function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_s
     mpc_storage.gen  = [mpc_storage.gen;
                        [storage_nodesN, repmat( [ones(nstorage,1)*[0 0 0 0 1 0 1],  P_storage_max_MW, 0*P_storage_max_MW, zeros(nstorage,n_gen_cols-10)], [N,1] )   ];   % discharger
                        [storage_nodesN, repmat( [ones(nstorage,1)*[0 0 0 0 1 0 1],0*P_storage_max_MW,   P_storage_min_MW, zeros(nstorage,n_gen_cols-10)], [N,1] )   ] ]; %  charger
-    %Pmin = 0 for charging
-    %Pmax = 0 for discharging
+    %discharging 0 < P < Pmax 
+    %charging Pmin < P < 0
+    
                    
 % %% generator cost data
 % %   1   startup shutdown    n   x1  y1  ... xn  yn

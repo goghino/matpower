@@ -46,7 +46,7 @@ end
 mpc = ext2int(mpc);
 
 %%----- analyze given list of contingencies or create them automatically
-if ns > 1
+if ns >= 1 && cont(1) > 0
     cont_filt = cont;
     
     %%-- remove contingencies outside bounds of the mpc.branch
@@ -89,12 +89,12 @@ index = struct('getGlobalIndices', @getGlobalIndices, ...
                'getXbuses', @getXbuses, ...
                'getREFgens', @getREFgens);
            
-scopf_m = struct('cont', cont, 'index', index);
+scopf_aux = struct('cont', cont, 'index', index);
 
 %%-----  execute the SCOPF  -----
 t0 = clock;         %% start timer
 
-[results, success, raw] = scopf_execute(om, scopf_m, mpopt);
+[results, success, raw] = scopf_execute(om, scopf_aux, mpopt);
 info = raw.info;
 
 et = etime(clock, t0);      %% compute elapsed time

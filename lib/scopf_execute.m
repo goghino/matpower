@@ -1,6 +1,6 @@
 function [results, success, raw] = scopf_execute(om, model, mpopt)
-%OPF_EXECUTE  Executes the OPF specified by an OPF model object.
-%   [RESULTS, SUCCESS, RAW] = OPF_EXECUTE(OM, MPOPT)
+%SCOPF_EXECUTE  Executes the SCOPF specified by an OPF model object.
+%   [RESULTS, SUCCESS, RAW] = SCOPF_EXECUTE(OM, MPOPT)
 %
 %   RESULTS are returned with internal indexing, all equipment
 %   in-service, etc.
@@ -36,7 +36,7 @@ om = build_cost_params(om); %for some reason it is necessary
 
 
 %% get indexing
-[vv, ll, nn] = get_idx(om);
+[vv, ll, nn] = om.get_idx();
 
 if mpopt.verbose > 0
     v = mpver('all');
@@ -46,7 +46,7 @@ end
 
   %%-----  run AC OPF solver  -----
   if mpopt.verbose > 0
-    fprintf(' -- AC Optimal Power Flow\n');
+    fprintf(' -- AC Security Constrainted Optimal Power Flow\n');
   end
 
   %% if opf.ac.solver not set, choose best available option
