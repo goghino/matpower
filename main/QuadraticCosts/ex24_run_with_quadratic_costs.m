@@ -54,7 +54,9 @@ load_scaling_profile       = kron(ones(factor_timesteps,1), load_scaling_profile
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% create base case file
 mpc = case118;
-%mpc = case30; % works with top 2%, not with static = 10 or top 1%
+%mpc = case30; % works with top 2%, not with static = 10
+%mpc = case89pegase;
+%mpc = case300;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% fixes:
@@ -83,6 +85,10 @@ else
     nstorage_ref = round(size(mpc.bus,1)*0.02); %% apply storage to top 2% of buses with highest load
     nstorage_applied = min(nstorage_ref,nload);
     id_storage_location = id_load(1:nstorage_applied); %% apply storages to top 2% loaded buses
+end
+
+if(nstorage_applied < 1)
+   error('Number of storateges has to be > 0'); 
 end
 
 % remove storage if applied to REF bus, add it to different bus
@@ -118,6 +124,7 @@ Pgen_storage_min = repmat(opt_solution.P_storage_min_MW,[1,N]);
 E_storage = [opt_solution.E_storage_init_MWh, repmat(opt_solution.E_storage_init_MWh,[1,N]) - cumsum(Pgen_discharge./repmat(opt_solution.c_discharge,[1,N]) + Pgen_charge.*repmat(opt_solution.c_charge,[1,N]),2)];
 E_storage_max = repmat(opt_solution.E_storage_max_MWh,[1,N+1]);
 
+figure();
 stairs(0:N, [Pgen_storage Pgen_storage(:,end)  ]', 'LineWidth',2);
 hold on;
 stairs(0:N, [Pgen_storage_max Pgen_storage_max(:,end)  ]', '--');
