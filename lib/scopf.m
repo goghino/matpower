@@ -78,10 +78,12 @@ cont_filt = setdiff(cont_filt, critical);
 cont = [-1; cont_filt(1:min(N,length(cont_filt)))]; %add nominal case and N contingencies
 ns = length(cont);
 
-%%-----  construct OPF model object  -----
-om = scopf_setup(mpc, mpopt);
+if (mpopt.verbose >= 1)
+    fprintf('Running with %d contingency scenarios: ', ns);
+    disp(cont');
+end
 
-%%----- build scopf model -----
+%%----- build scopf indexing -----
 %pass index functions to solvers in order to properly construct x and evaluate callbacks
 index = struct('getGlobalIndices', @getGlobalIndices, ...
                'getLocalIndicesSCOPF', @getLocalIndicesSCOPF, ...
@@ -90,6 +92,9 @@ index = struct('getGlobalIndices', @getGlobalIndices, ...
                'getREFgens', @getREFgens);
            
 scopf_aux = struct('cont', cont, 'index', index);
+
+%%-----  construct SCOPF model object  -----
+om = scopf_setup(mpc, scopf_aux, mpopt);
 
 %%-----  execute the SCOPF  -----
 t0 = clock;         %% start timer
@@ -120,20 +125,17 @@ if (mpopt.verbose >= 1)
     fprintf('--------------------------------------------------------------\n');
     fprintf('Verifing feasibility of the SCOPF solution with tolerance %e.\n', TOL_EQ);
     errors = 0;
+    
+    [h, g] = opf_consfcn(results.x, om);
+    
     for i = 1:ns
         fprintf('\tscenario %d ...\n', i-1);
-
-        %get contingency
-        c = cont(i);
 
         %compute local indices and its parts
         idx = getGlobalIndices(mpc, ns, i-1);
 
         %extract local solution vector [Va Vm Pg Qg]
         xl = results.x(idx([VAscopf VMscopf PGscopf QGscopf]));
-
-        %update admittance matrices
-        [Ybus, Yf, Yt] = updateYbus(mpc.branch, raw.meta.Ybus, raw.meta.Yf, raw.meta.Yt, c);
 
         %check power generation bounds l < [Pg Qg] < u
         err = find(xl([PGopf QGopf]) < raw.meta.lb(idx([PGscopf QGscopf])));
@@ -172,8 +174,10 @@ if (mpopt.verbose >= 1)
             errors = errors + 1;
         end
 
-        %evaluate power flows equations and branch power flows g(x), h(x)
-        [hn_local, gn_local] = opf_consfcn(xl, om, Ybus, Yf, Yt, mpopt);
+        NG = 2*nb;
+        NH = 2*nl;
+        gn_local = g((i-1)*(NG) + (1:NG));
+        hn_local = h((i-1)*(NH) + (1:NH));
 
         %g(x) = 0, g(x) = V .* conj(Ybus * V) - Sbus;
         err = find(abs(gn_local) > TOL_EQ);

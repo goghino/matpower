@@ -56,13 +56,8 @@ cont = scopf_aux.cont;
 NS = length(cont);
 
 idx0 = scopf_aux.index.getGlobalIndices(mpc, NS, 0);
-
-% get indices of REF gen and PV bus
-[REFgen_idx, nREFgen_idx] = scopf_aux.index.getREFgens(mpc);
-[PVbus_idx, nPVbus_idx] = scopf_aux.index.getXbuses(mpc,2);%2==PV
-
 [VAscopf, VMscopf, PGscopf, QGscopf] = scopf_aux.index.getLocalIndicesSCOPF(mpc);
-[VAopf, VMopf, PGopf, QGopf] = scopf_aux.index.getLocalIndicesOPF(mpc);
+[REFgen_idx, nREFgen_idx] = scopf_aux.index.getREFgens(mpc);
 
 %% unpack needed parameters
 nl = size(branch, 1);       %% number of branches
@@ -75,7 +70,7 @@ if nargin < 8
 end
 
 %% grab Pg & Qg
-Pg = x(idx0(PGscopf));  %% active generation in p.u.
+Pg = x(idx0(PGscopf([REFgen_idx; nREFgen_idx])));  %% active generation in p.u.
 Qg = x(idx0(QGscopf));  %% reactive generation in p.u.
 
 %% reconstruct V
@@ -95,7 +90,9 @@ if ~isempty(qcost)          %% Qg is not free
     ipolq = find(qcost(:, MODEL) == POLYNOMIAL);
     d2f_dQg2(ipolq) = baseMVA^2 * polycost(qcost(ipolq, :), Qg(ipolq)*baseMVA, 2);
 end
-i = [idx0(PGscopf) idx0(QGscopf)]';
+
+%permute local OPF to SCOPF ordering (consider only nominal case)
+i = idx0([PGscopf QGscopf]);
 d2f = sparse(i, i, [d2f_dPg2; d2f_dQg2], nxyz, nxyz);
 
 %% generalized cost
@@ -126,9 +123,13 @@ end
 d2f = d2f * cost_mult;
 
 %%----- evaluate Hessian of power balance constraints -----
+%calls our callbacks hess_miss(x, lam) from scopf_setup.m
+%where all the SCOPF specific indexing is handled
 d2G = om.eval_nln_constraint_hess(x, lambda.eqnonlin, 1);
 
 %%----- evaluate Hessian of flow constraints -----
+%calls our callbacks hess_flow(x, lam) from scopf_setup.m
+%where all the SCOPF specific indexing is handled
 d2H = om.eval_nln_constraint_hess(x, lambda.ineqnonlin, 0);
 
 Lxx = tril(d2f + d2G + d2H);

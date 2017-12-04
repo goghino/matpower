@@ -1,4 +1,4 @@
-function om = scopf_setup(mpc, mpopt)
+function om = scopf_setup(mpc, scopf_aux, mpopt)
 %SCOPF  Constructs an OPF model object from a MATPOWER case struct.
 %   OM = SCOPF_SETUP(MPC, MPOPT)
 %
@@ -29,10 +29,21 @@ end
     ANGMIN, ANGMAX, MU_ANGMIN, MU_ANGMAX] = idx_brch;
 [PW_LINEAR, POLYNOMIAL, MODEL, STARTUP, SHUTDOWN, NCOST, COST] = idx_cost;
 
+% get indices of REF gen and of REF/PV buses
+[REFgen_idx, nREFgen_idx] = scopf_aux.index.getREFgens(mpc);
+[REFbus_idx,nREFbus_idx] = scopf_aux.index.getXbuses(mpc,3);%3==REF
+[PVbus_idx, nPVbus_idx] = scopf_aux.index.getXbuses(mpc,2);%2==PV
+
+% indices of local OPF solution vector x = [VA VM PG QG]
+[VAscopf, VMscopf, PGscopf, QGscopf] = scopf_aux.index.getLocalIndicesSCOPF(mpc);
+[VAopf, VMopf, PGopf, QGopf] = scopf_aux.index.getLocalIndicesOPF(mpc);
+
 %% data dimensions
 nb   = size(mpc.bus, 1);    %% number of buses
 nl   = size(mpc.branch, 1); %% number of branches
 ng   = size(mpc.gen, 1);    %% number of dispatchable injections
+ns   = length(scopf_aux.cont);
+
 if isfield(mpc, 'A')
   error('User constraints not supported in SCOPF');
 end
@@ -76,34 +87,49 @@ if any(gencost(:, MODEL) ~= POLYNOMIAL & gencost(:, MODEL) ~= PW_LINEAR)
     error('opf_setup: some generator cost rows have invalid MODEL value');
 end
 
-%% nonlinear constraint functions
-
-%build admittance
-[Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
-
-%find branches with flow limits
+%% find branches with flow limits
 il = find(branch(:, RATE_A) ~= 0 & branch(:, RATE_A) < 1e10);
 nl2 = length(il);         %% number of constrained lines
-
-fcn_mis = @(x)opf_power_balance_fcn(x, mpc, Ybus, mpopt);
-hess_mis = @(x, lam)opf_power_balance_hess(x, lam, mpc, Ybus, mpopt);
-fcn_flow = @(x)opf_branch_flow_fcn(x, mpc, Yf(il, :), Yt(il, :), il, mpopt);
-hess_flow = @(x, lam)opf_branch_flow_hess(x, lam, mpc, Yf(il, :), Yt(il, :), il, mpopt);
-
-
 
 %% construct OPF model object
 om = opf_model(mpc);
 
-om.add_var('Va', nb, Va, Val, Vau); %adds OPF variables for voltage angles and set initial values
-om.add_var('Vm', nb, Vm, bus(:, VMIN), bus(:, VMAX)); %voltage magnitude
-om.add_var('Pg', ng, Pg, Pmin, Pmax); %generator real power
-om.add_var('Qg', ng, Qg, Qmin, Qmax); %generator imaginary power
+for i = 1:ns
+    om.add_var(strcat('Va',int2str(i)), length(Va), Va, Val, Vau); %adds OPF variables for voltage angles and set initial values
+    om.add_var(strcat('Vm',int2str(i)), length(nPVbus_idx), Vm(nPVbus_idx), bus(nPVbus_idx, VMIN), bus(nPVbus_idx, VMAX)); %voltage magnitude
+    om.add_var(strcat('Qg',int2str(i)), length(Qg), Qg, Qmin, Qmax); %generator imaginary power
+    om.add_var(strcat('Pg',int2str(i)), length(REFgen_idx), Pg(REFgen_idx), Pmin(REFgen_idx), Pmax(REFgen_idx)); %generator real power
+end
 
-% mismatch equations (eq. constr.)
-om.add_nln_constraint({'Pmis', 'Qmis'}, [nb;nb], 1, fcn_mis, hess_mis, {'Va', 'Vm', 'Pg', 'Qg'});
-% branch power flow limits (ineq. constr.)
-om.add_nln_constraint({'Sf', 'St'}, [nl2;nl2], 0, fcn_flow, hess_flow, {'Va', 'Vm'});
+om.add_var('Vmg', length(PVbus_idx), Vm(PVbus_idx), bus(PVbus_idx, VMIN), bus(PVbus_idx, VMAX)); %voltage magnitude
+om.add_var('Pgg', length(nREFgen_idx), Pg(nREFgen_idx), Pmin(nREFgen_idx), Pmax(nREFgen_idx)); %generator real power
+
+for i = 1:ns
+    %make Ybus reflect the i-th contingency
+    cont = scopf_aux.cont(i);
+    [Ybus, Yf, Yt] = makeYbus(mpc.baseMVA, mpc.bus, mpc.branch, cont);
+    
+    %extract local OPF vector for i-th contingency
+    idx = scopf_aux.index.getGlobalIndices(mpc, ns, i-1);
+    
+    % Functions below extract local OPF vector from SCOPF x
+    % and format is as a {Va, Vm, Pg, Qg} cell array for PF equations
+    % and {Va, Vm} cell array for branch power limits.
+    % There is also different Ybus, Yf, Yt for each contingency.
+    % Matlab somehow remembers it when creating the handles (so we don't
+    % have to create an array of handles with references to elements of
+    % admittance matrix array)
+    fcn_mis = @(x)opf_power_balance_fcn({x(idx(VAscopf)), x(idx(VMscopf)), x(idx(PGscopf)), x(idx(QGscopf))}, mpc, Ybus, mpopt);
+    hess_mis = @(x, lam)scopf_power_balance_hess(x, lam, i-1, mpc, scopf_aux, Ybus, mpopt);
+    
+    fcn_flow = @(x)opf_branch_flow_fcn({x(idx(VAscopf)), x(idx(VMscopf))}, mpc, Yf(il, :), Yt(il, :), il, mpopt);
+    hess_flow = @(x, lam)scopf_branch_flow_hess(x, lam, i-1, mpc, scopf_aux, Yf, Yt, il, mpopt);
+    
+    % mismatch equations (eq. constr.)
+    om.add_nln_constraint({strcat('Pmis',int2str(i)), strcat('Qmis',int2str(i))}, [nb;nb], 1, fcn_mis, hess_mis);
+    % branch power flow limits (ineq. constr.)
+    om.add_nln_constraint({strcat('Sf',int2str(i)), strcat('St',int2str(i))}, [nl2;nl2], 0, fcn_flow, hess_flow);
+end
 
 %% find/prepare polynomial generator costs
 cpg = [];
@@ -152,16 +178,74 @@ end
 
 %% quadratic/linear generator costs
 if ~isempty(cpg)
-  om.add_quad_cost('polPg', Qpg, cpg, kpg, {'Pg'});
+  %consider REF generator first, then the rest - permute cost coefficients accordingly 
+  om.add_quad_cost('polPg', Qpg([REFgen_idx; nREFgen_idx]), cpg([REFgen_idx; nREFgen_idx]), kpg([REFgen_idx; nREFgen_idx]), {'Pg1', 'Pgg'});
 end
 if ~isempty(cqg)
-  om.add_quad_cost('polQg', Qqg, cqg, kqg, {'Qg'});
+  om.add_quad_cost('polQg', Qqg, cqg, kqg, {'Qg1'});
 end
 
 %% higher order polynomial generator costs
 if ~isempty(ip3)
-  om.add_nln_cost('polPg', 1, cost_Pg, {'Pg'});
+  om.add_nln_cost('polPg', 1, cost_Pg([REFgen_idx; nREFgen_idx]), {'Pg1', 'Pgg'});
 end
 if ~isempty(qcost) && ~isempty(iq3)
-  om.add_nln_cost('polQg', 1, cost_Qg, {'Qg'});
+  om.add_nln_cost('polQg', 1, cost_Qg, {'Qg1'});
 end
+
+%calls opf_power_balance_hess(x, lam).
+%Before passing x to evaluate hessian it is permuted to OPF ordering
+%and each set of constraints for given contingency extract different part 
+%of x containing local variables for the contingency. Returned hessian
+%is in OPF ordering, therefore we perform appropriate permutation
+%with indices corresponding to i-th contingency
+function H_scopf = scopf_power_balance_hess(x, lam, cont_i, mpc, scopf_aux, Ybus, mpopt)
+n = length(x);
+ns = length(scopf_aux.cont);
+
+% get indices of REF gen and of REF/PV buses
+[REFgen_idx, nREFgen_idx] = scopf_aux.index.getREFgens(mpc);
+[PVbus_idx, nPVbus_idx] = scopf_aux.index.getXbuses(mpc,2);%2==PV
+
+% indices of local OPF solution vector x = [VA VM PG QG]
+[VAscopf, VMscopf, PGscopf, QGscopf] = scopf_aux.index.getLocalIndicesSCOPF(mpc);
+[VAopf, VMopf, PGopf, QGopf] = scopf_aux.index.getLocalIndicesOPF(mpc);
+
+idx = scopf_aux.index.getGlobalIndices(mpc, ns, cont_i);
+
+H_opf = opf_power_balance_hess({x(idx(VAscopf)), x(idx(VMscopf)), x(idx(PGscopf)), x(idx(QGscopf))}, lam, mpc, Ybus, mpopt);
+
+H_scopf = sparse(n,n);
+H_scopf(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx) VMscopf(PVbus_idx) PGscopf(nREFgen_idx)]),...
+   idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx) VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) ...
+   = ...
+H_opf([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx) VMopf(PVbus_idx) PGopf(nREFgen_idx)],...
+  [VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx) VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
+
+%calls opf_branch_flow_hess(x, lam).
+%Before passing x to evaluate hessian it is permuted to OPF ordering
+%and each set of constraints for given contingency extract different part 
+%of x containing local variables for the contingency. Returned hessian
+%is in OPF ordering, therefore we perform appropriate permutation
+%with indices corresponding to i-th contingency
+function H_scopf = scopf_branch_flow_hess(x, lam, cont_i, mpc, scopf_aux, Yf, Yt, il, mpopt)
+n = length(x);
+ns = length(scopf_aux.cont);
+
+% get indices of REF gen and of REF/PV buses
+[PVbus_idx, nPVbus_idx] = scopf_aux.index.getXbuses(mpc,2);%2==PV
+
+% indices of local OPF solution vector x = [VA VM PG QG]
+[VAscopf, VMscopf, PGscopf, QGscopf] = scopf_aux.index.getLocalIndicesSCOPF(mpc);
+[VAopf, VMopf, PGopf, QGopf] = scopf_aux.index.getLocalIndicesOPF(mpc);
+
+idx = scopf_aux.index.getGlobalIndices(mpc, ns, cont_i);
+
+H_opf = opf_branch_flow_hess({x(idx(VAscopf)), x(idx(VMscopf))}, lam, mpc, Yf(il, :), Yt(il, :), il, mpopt);
+
+H_scopf = sparse(n,n);
+H_scopf(idx([VAscopf VMscopf(nPVbus_idx) VMscopf(PVbus_idx)]),...
+        idx([VAscopf VMscopf(nPVbus_idx) VMscopf(PVbus_idx)])) ...
+   = ...
+H_opf([VAopf VMopf(nPVbus_idx) VMopf(PVbus_idx)],...
+      [VAopf VMopf(nPVbus_idx) VMopf(PVbus_idx)]);
