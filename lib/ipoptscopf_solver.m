@@ -72,7 +72,7 @@ ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
 
 %% bounds on optimization vars xmin <= x <= xmax 
-[x0, xmin, xmax] = om.params_var(); %returns standard OPF form [Va Vm Pg Qg]
+[x0, xmin, xmax] = om.params_var();
 
 % Note that variables with equal upper and lower bounds are removed by IPOPT
 % so we add small perturbation to x_u[], we don't want them removed

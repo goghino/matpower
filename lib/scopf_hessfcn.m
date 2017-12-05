@@ -91,9 +91,11 @@ if ~isempty(qcost)          %% Qg is not free
     d2f_dQg2(ipolq) = baseMVA^2 * polycost(qcost(ipolq, :), Qg(ipolq)*baseMVA, 2);
 end
 
-%permute local OPF to SCOPF ordering (consider only nominal case)
+%get index of the nominal case variables and use only Pg, Qg
 i = idx0([PGscopf QGscopf]);
 d2f = sparse(i, i, [d2f_dPg2; d2f_dQg2], nxyz, nxyz);
+%d2f_dPg2 already ordered as [pg_ref pg_nref] due to variable ordering in
+%callback om.add_quad_cost(..., {'Pg1', 'Pgg'}) in scopf_setup.m
 
 %% generalized cost
 if ~isempty(N)
