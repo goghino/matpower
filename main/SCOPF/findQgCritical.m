@@ -33,6 +33,7 @@ mpcOPF = mpc;
 mpcOPF.bus = bus;
 mpcOPF.gen = gen;
 mpcOPF.branch = branch;
+mpcOPF.order.state = 'e';
 
 %% identify QG violations
 for c = 1:size(branch,1)
