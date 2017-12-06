@@ -18,9 +18,11 @@ function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_s
     n_gen_cols = size(mpc_storage.gen,2);
 %% generator data
 %	bus	Pg	Qg	Qmax	Qmin	Vg	mBase	status	Pmax	Pmin	Pc1	Pc2	Qc1min	Qc1max	Qc2min	Qc2max	ramp_agc	ramp_10	ramp_30	ramp_q	apf
+    Qmin = 0;
+    Qmax = 0;%1e-10;
     mpc_storage.gen  = [mpc_storage.gen;
-                       [storage_nodesN, repmat( [ones(nstorage,1)*[0 0 0 0 1 0 1],  P_storage_max_MW, 0*P_storage_max_MW, zeros(nstorage,n_gen_cols-10)], [N,1] )   ];   % discharger
-                       [storage_nodesN, repmat( [ones(nstorage,1)*[0 0 0 0 1 0 1],0*P_storage_max_MW,   P_storage_min_MW, zeros(nstorage,n_gen_cols-10)], [N,1] )   ] ]; %  charger
+                       [storage_nodesN, repmat( [ones(nstorage,1)*[0 0 Qmax Qmin 1 0 1],  P_storage_max_MW, 0*P_storage_max_MW, zeros(nstorage,n_gen_cols-10)], [N,1] )   ];   % discharger
+                       [storage_nodesN, repmat( [ones(nstorage,1)*[0 0 Qmax Qmin 1 0 1],0*P_storage_max_MW,   P_storage_min_MW, zeros(nstorage,n_gen_cols-10)], [N,1] )   ] ]; %  charger
     %discharging 0 < P < Pmax 
     %charging Pmin < P < 0
     

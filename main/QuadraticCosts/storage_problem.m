@@ -18,13 +18,31 @@ setenv('OMP_NUM_THREADS', '1')
 define_constants;
 
 %% create base case file
-mpc = case118;
+%mpc = case118;
 %mpc = case30; % works with top 2%, not with static = 10
 %mpc = case89pegase;
-%mpc = case300;
+mpc = case300;
 
 %number of time periods
 N = 1;
+
+mpopt = mpoption('verbose', 2, 'out.all', 0);
+
+% Select and configure the solver
+SOLVER = 1;
+if (SOLVER == 1)
+    %for further options see ipopt.opt
+    mpopt = mpoption(mpopt, 'opf.ac.solver', 'IPOPT', 'verbose', 2);
+elseif (SOLVER == 2)
+    mpopt = mpoption(mpopt, 'opf.ac.solver', 'MIPS', 'verbose', 3);
+    mpopt.mips.max_it  = 100;
+    mpopt.mips.max_stepsize = 1e12;
+    mpopt.mips.feastol = 1e-4;
+    mpopt.mips.gradtol = 1e-2;
+    mpopt.mips.comptol = 1e-2;
+    mpopt.mips.costtol = 1e-2;
+    %mpopt.mips.linsolver='PARDISO';
+end
 
 %% run the benchmark
 %Emax = 0.01; %max capacity of the storage relative to PD at given bus
@@ -34,14 +52,14 @@ Rfirst = 0.0; % relative position of the storage placement when sorted by PD fro
 results = struct('N', [], 'PFviol', [], 'BranchViol', [], 'EmaxViol', [], 'EminViol', [] );
 
 Emax_list = [100 10 1 0.1 0.01];
-Emax_list = [0];
+Emax_list = [2];
 Rcount_list = [0.2 0.1 0.05 0.02 0.01];
-Rcount_list = [0.04];
+Rcount_list = [0.02];
 
 for Emax = Emax_list
     for Rcount = Rcount_list
         %% execute MPOPF
-        opt_solution = MPOPF(mpc, N, Emax, Rcount, Rfirst);
+        opt_solution = MPOPF(mpc, mpopt, N, Emax, Rcount, Rfirst);
         
         %% verify constraints
         % 0 < Einit + T*P1              < Emax 

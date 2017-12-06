@@ -1,4 +1,4 @@
-function opt_solution = MPOPF(mpc, N, Emax, Rcount, Rfirst)
+function opt_solution = MPOPF(mpc, mpopt, N, Emax, Rcount, Rfirst)
 %MPOPF Run a multiperiod OPF problem
 %   mpc  - Matpower case
 %   N    - Number of time periods
@@ -8,7 +8,6 @@ function opt_solution = MPOPF(mpc, N, Emax, Rcount, Rfirst)
 
 %% set options
 define_constants;
-opt = mpoption('verbose',2,'out.all',0, 'opf.ac.solver','IPOPT');
 
 %% set time step data
 factor_timesteps = N;  %% 1...365 (number of time periods)
@@ -19,11 +18,21 @@ pv_scaling_profile =  [  0 0 0  0 0 0.0046 0.0548 0.1686 0.3457 0.5100 0.6687 0.
 
 load_scaling_profile = load_scaling_profile0- 1*pv_scaling_profile;
 
-% figure;
-% plot(load_scaling_profile0,'b--');
-% hold on;
-% plot(load_scaling_profile,'b');
-% legend('load','net load with PV injection')
+% curtail load scaling profile
+MIN = 0.0779;
+MAX = 1.0324;
+
+figure;
+plot(load_scaling_profile0,'b--');
+hold on;
+plot(load_scaling_profile,'b');
+hold on; plot(MIN*ones(length(load_scaling_profile),1),'r--');
+hold on; plot(MAX*ones(length(load_scaling_profile),1),'r--');
+legend('load','net load with PV injection', 'Load curtailment')
+
+
+load_scaling_profile = max(load_scaling_profile, MIN);
+load_scaling_profile = min(load_scaling_profile, MAX);
 
 load_scaling_profile       = kron(ones(factor_timesteps,1), load_scaling_profile  );
 
@@ -74,7 +83,7 @@ p_storage.c_charge           = .95;
 
 %% run OPF
 mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
-opt_solution     = runopf(mpcN_opf_storage, opt);
+opt_solution     = runopf(mpcN_opf_storage, mpopt);
 %plot_storage_results(opt_solution)
 
 end
