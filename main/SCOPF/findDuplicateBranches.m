@@ -49,7 +49,7 @@ function lines = findDuplicateBranches(mpc)
         idx = find((mpc.branch(:,F_BUS) == f) & (mpc.branch(:,T_BUS) == t));
         idx_rev = find((mpc.branch(:,F_BUS) == t) & (mpc.branch(:,T_BUS) == f));
 
-        duplicates = [idx idx_rev];
+        duplicates = [idx; idx_rev]';
 
         if (length(duplicates) > 1)
             lines(i,1:length(duplicates)) = duplicates;

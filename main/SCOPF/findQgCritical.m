@@ -7,7 +7,7 @@ function lines = findQgCritical(mpc, limit)
 %   respect to the OPF solution.
 %   
 %   Examples:
-%       Branches = findDupliateBranches(mpc, limit);
+%       Branches = findQgCritical(mpc, limit);
 %
 %   See also findIslandBranches, findDuplicateBranches.
 
