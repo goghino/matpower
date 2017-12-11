@@ -23,7 +23,7 @@ define_constants;
 %mpc = case89pegase;
 mpc = case300;
 
-%number of time periods
+%number of time periods (days, each has 24 hours)
 N = 1;
 
 mpopt = mpoption('verbose', 2, 'out.all', 0);
@@ -47,7 +47,7 @@ end
 %% run the benchmark
 %Emax = 0.01; %max capacity of the storage relative to PD at given bus
 %Rcount = 0.02; % fraction of PD buses that will have storage
-Rfirst = 0.0; % relative position of the storage placement when sorted by PD from largest first
+Rfirst = 0.00; % relative position of the storage placement when sorted by PD from largest first
 
 results = struct('N', [], 'PFviol', [], 'BranchViol', [], 'EmaxViol', [], 'EminViol', [] );
 
