@@ -10,14 +10,13 @@ profile = [f(hours)]'; %needs to be a column vector
 %plot(hours, profile); hold on; fplot(f, [0 2*pi])
 
 %% scale the profile so that load does not exceed generation
-PMAX = 9;
-PMIN = 10;
-PD = 3; %PD and QD is scaled
-QD = 4;
-
-PGmin_sum = sum(mpc.gen(:,PMIN));
-PGmax_sum = sum(mpc.gen(:,PMAX));
-PD_sum = sum(mpc.bus(:,PD));
-QD_sum = sum(mpc.bus(:,QD));
-
+% PMAX = 9;
+% PMIN = 10;
+% PD = 3; %PD and QD is scaled
+% QD = 4;
+% 
+% PGmin_sum = sum(mpc.gen(:,PMIN));
+% PGmax_sum = sum(mpc.gen(:,PMAX));
+% PD_sum = sum(mpc.bus(:,PD));
+% QD_sum = sum(mpc.bus(:,QD));
 end

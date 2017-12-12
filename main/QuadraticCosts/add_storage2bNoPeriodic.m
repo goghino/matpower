@@ -31,8 +31,12 @@ function mpc_storage = add_storage(mpc,nnodes,storage_nodes,P_storage_max_MW,P_s
 % %   1   startup shutdown    n   x1  y1  ... xn  yn
 % %   2   startup shutdown    n   c(n-1)  ... c0
 %  mpc.gencost = ones(ngens,1)*[2 0 0 3 0 200 0];
+NCOST = 4;
+NC = mpc_storage.gencost(1, NCOST);
+gencost = [2 0 0 NC zeros(1, NC)]; %polynomial cost, NCOST=3, c0=c1=c2=0 (no cost)
+
 mpc_storage.gencost = [mpc_storage.gencost;
-                       ones(nstorage*N*2,1)*[2 0 0 3 0 0 0]]; %polynomial cost, NCOST=3, c0=c1=c2=0 (no cost)
+                       ones(nstorage*N*2,1)*gencost]; 
 
 
 %% add user constraints

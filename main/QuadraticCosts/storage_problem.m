@@ -21,15 +21,20 @@ define_constants;
 %mpc = case118;
 %mpc = case30; % works with top 2%, not with static = 10
 %mpc = case89pegase;
-mpc = case300;
+%mpc = case300;
+mpc = case1354pegase;
 
 %number of time periods (days, each has 24 hours)
 N = 1;
 
-mpopt = mpoption('verbose', 2, 'out.all', 0);
 
+
+%%
 % Select and configure the solver
-SOLVER = 1;
+SOLVER = 1; %IPOPT
+%SOLVER = 2; %MIPS
+
+mpopt = mpoption('verbose', 2, 'out.all', 0);
 if (SOLVER == 1)
     %for further options see ipopt.opt
     mpopt = mpoption(mpopt, 'opf.ac.solver', 'IPOPT', 'verbose', 2);

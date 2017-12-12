@@ -15,8 +15,8 @@ mpc.branch(mpc.branch(:,RATE_A)==0,RATE_A) = 9900;
 mpc.gen(:,PMIN) = 0;
 
 %% set time step data
-Original = 0;
-if (Original == 1)
+OriginalProfile = 0;
+if (OriginalProfile == 1)
     Kpv = 1;  %% 0 ...1  (size of PV penetration)
 
     load_scaling_profile0 = [0.4544 0.3570 0.2860 0.2783 0.3795 0.5822 0.8086 0.9633 1.0086 0.9883 0.9761 1.0000 1.0193 0.9773 0.8772 0.7991 0.8359 1.0023 1.2063 1.3123 1.2438 1.0343 0.7873 0.5885]';
@@ -36,50 +36,47 @@ end
 %repeat data for required no. of days
 load_scaling_profile       = kron(ones(N,1), load_scaling_profile);
 
-if (Original == 1)
-    figure;
-    plot(load_scaling_profile0,'b--');
-    hold on;
-    plot(load_scaling_profile,'b');
-    hold on; plot(MIN*ones(length(load_scaling_profile),1),'r--');
-    hold on; plot(MAX*ones(length(load_scaling_profile),1),'r--');
-    legend('load','net load with PV injection', 'Load curtailment')
-else
-    figure;
-    plot(load_scaling_profile,'b');
-    legend('load')
-end
+%%-- plot the load scaling profile
+% if (OriginalProfile == 1)
+%     figure;
+%     plot(load_scaling_profile0,'b--');
+%     hold on;
+%     plot(load_scaling_profile,'b');
+%     hold on; plot(MIN*ones(length(load_scaling_profile),1),'r--');
+%     hold on; plot(MAX*ones(length(load_scaling_profile),1),'r--');
+%     legend('load','net load with PV injection', 'Load curtailment')
+% else
+%     figure;
+%     plot(load_scaling_profile,'b');
+%     legend('load')
+% end
 
 %% prepare storage data
 
 %do we place static number of storages to all grids, or we pick top 2% of the load buses?
 static_placement = 0;
 
+% Do not place storage to REF bus
+nref_idx = find(mpc.bus(:, BUS_TYPE) ~= 3);
+
 if (static_placement)
-    id_load_log = abs(mpc.bus(:,PD))>0;
+    id_load_log = abs(mpc.bus(nref_idx,PD))>0;
     id_load = find(id_load_log);
     nload = length(id_load);
     nstorage_ref = 3;  %% 1 ... 100
     nstorage_applied = min(nstorage_ref,nload);
     id_storage_location = id_load(1:nstorage_applied);
 else
-    [sortedPD, id_load] = sort(mpc.bus(:,PD), 'descend'); %% sort buses w.r.t PD
-    nload = length(find(abs(mpc.bus(:,PD))>0));
+    [sortedPD, id_load] = sort(mpc.bus(nref_idx,PD), 'descend'); %% sort buses w.r.t PD
+    nload = length(find(abs(mpc.bus(nref_idx,PD))>0));
     nstorage_ref = round(size(mpc.bus,1)* Rcount); %% apply storage N% of buses
     first = round(size(mpc.bus,1)* Rfirst); %% place storages starting at 'first' bus
-    nstorage_applied = min(nstorage_ref,nload);
+    nstorage_applied = max(min(nstorage_ref,nload), 1); %% use at least 1 storage, use maximum nload storages
     id_storage_location = id_load(first + (1:nstorage_applied)); %% apply storages to top 2% loaded buses
 end
 
 if(nstorage_applied < 1)
    error('Number of storateges has to be > 0'); 
-end
-
-% remove storage if applied to REF bus, add it to different bus
-if find(mpc.bus(id_storage_location, BUS_TYPE) == 3)
-    nstorage_applied = min(nstorage_ref+1,nload);
-    id_storage_location = id_load(1:nstorage_applied);
-    id_storage_location(mpc.bus(id_storage_location,BUS_TYPE) ==3) = [];
 end
 
 p_storage.id_storage_location = id_storage_location;
