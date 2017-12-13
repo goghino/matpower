@@ -101,14 +101,46 @@ if mpopt.opf.init_from_mpc == 0
         idx = model.index.getGlobalIndices(mpc, ns, i);
         x0(idx(VAscopf)) = Varefs(1);
     end
-    
+
 elseif mpopt.opf.init_from_mpc == 1
+    %solve local PF and use it as an initial guess
+    x0 = ones(length(xmin),1);
+    
+    for i = 1:ns
+        %update mpc first by removing a line
+        c = cont(i);
+        mpc_tmp = mpc;
+        if(c > 0)
+            mpc_tmp.branch(c,BR_STATUS) = 0;
+        end    
+        
+        mpopt0 = mpoption('verbose', 0, 'out.all', 0);
+        [results, success] = runpf(mpc_tmp, mpopt0);
+    
+        %external to internal permunation
+        Pgen = results.order.gen.e2i;
+        genON = find(results.gen(:,GEN_STATUS)==1); %ON generators
+        Pbus = results.order.bus.e2i;
+        x = [ results.bus(:,VA)/(180/pi); ...
+              results.bus(:,VM); ...
+              results.gen(genON(Pgen),PG)/results.baseMVA; ...
+              results.gen(genON(Pgen),QG)/results.baseMVA ];
+        
+        %embed local PF solution into the x0
+        idx = model.index.getGlobalIndices(mpc, ns, i-1);
+        x0(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])) = x([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx)]);
+        if i == 1
+           x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = x([VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
+        end
+    end   
+    
+elseif mpopt.opf.init_from_mpc == 2
     %solve nominal OPF and use it as an initial guess
     x0 = ones(length(xmin),1);
     
     mpopt0 = mpoption('verbose', 0, 'out.all', 0);
-    mpopt_test = mpoption(mpopt0, 'opf.ac.solver', 'IPOPT');
-    [results, success] = runopf(mpc, mpopt_test);
+    mpopt_tmp = mpoption(mpopt0, 'opf.ac.solver', 'IPOPT');
+    [results, success] = runopf(mpc, mpopt_tmp);
     
     %external to internal permunation
     Pgen = results.order.gen.e2i;
@@ -134,21 +166,21 @@ elseif mpopt.opf.init_from_mpc == 1
         end
     end 
     
-elseif mpopt.opf.init_from_mpc == 2
+elseif mpopt.opf.init_from_mpc == 3
     %solve local OPFs and use it as an initial guess
     x0 = ones(length(xmin),1);
     for i = 1:ns
         %update mpc first by removing a line
         c = cont(i);
-        mpc_test = mpc;
+        mpc_tmp = mpc;
         if(c > 0)
-            mpc_test.branch(c,BR_STATUS) = 0;
+            mpc_tmp.branch(c,BR_STATUS) = 0;
         end
     
         %run opf
         mpopt0 = mpoption('verbose', 0, 'out.all', 0);
-        mpopt_test = mpoption(mpopt0, 'opf.ac.solver', 'IPOPT');
-        [results, success] = runopf(mpc_test, mpopt_test);
+        mpopt_tmp = mpoption(mpopt0, 'opf.ac.solver', 'IPOPT');
+        [results, success] = runopf(mpc_tmp, mpopt_tmp);
         
         %external to internal permunation
         Pgen = results.order.gen.e2i;
@@ -172,38 +204,7 @@ elseif mpopt.opf.init_from_mpc == 2
            x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = x([VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
         end
     end 
-    
-elseif mpopt.opf.init_from_mpc == 3
-    %solve local PF and use it as an initial guess
-    x0 = ones(length(xmin),1);
-    
-    for i = 1:ns
-        %update mpc first by removing a line
-        c = cont(i);
-        mpc_test = mpc;
-        if(c > 0)
-            mpc_test.branch(c,BR_STATUS) = 0;
-        end    
-        
-        mpopt0 = mpoption('verbose', 0, 'out.all', 0);
-        [results, success] = runpf(mpc_test, mpopt0);
-    
-        %external to internal permunation
-        Pgen = results.order.gen.e2i;
-        genON = find(results.gen(:,GEN_STATUS)==1); %ON generators
-        Pbus = results.order.bus.e2i;
-        x = [ results.bus(:,VA)/(180/pi); ...
-              results.bus(:,VM); ...
-              results.gen(genON(Pgen),PG)/results.baseMVA; ...
-              results.gen(genON(Pgen),QG)/results.baseMVA ];
-        
-        %embed local PF solution into the x0
-        idx = model.index.getGlobalIndices(mpc, ns, i-1);
-        x0(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])) = x([VAopf VMopf(nPVbus_idx) QGopf PGopf(REFgen_idx)]);
-        if i == 1
-           x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = x([VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
-        end
-    end     
+
 end
 
 %% find branches with flow limits

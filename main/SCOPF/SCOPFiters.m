@@ -13,8 +13,6 @@ addpath( ...
     '-end' );
 
 setenv('OMP_NUM_THREADS', '1')
-%setenv('IPOPT_WRITE_MAT','1');
-addpath('/Users/Juraj/Documents/Code/PowerGrid/matrices/'); %readcsr
 
 define_constants;
 %%
@@ -45,36 +43,36 @@ cases = {
 %     'case6ww',
 %     'case9',
 %     'case14',
+%     'case89pegase', %EXIT: Converged to a point of local infeasibility. Problem may be infeasible.
 %-------------------
     'case_ieee30',
     'case30',
     'case39',
     'case57',
-    'case89pegase',
     'case118',
     'case300',
-    'case1354pegase',
-    'case2383wp',
-    'case2869pegase',
-    'case_ACTIVSg200',
-    'case_ACTIVSg500',
-    'case_ACTIVSg2000',
+%     'case1354pegase',
+%     'case2383wp',
+%     'case2869pegase',
+%     'case_ACTIVSg200',
+%     'case_ACTIVSg500',
+%     'case_ACTIVSg2000',
 %     'case_ACTIVSg10k',
 %     'case9241pegase',
 %     'case13659pegase',
 };
 
+
 mpopt0 = mpoption('verbose', 0, 'out.all', 0);
 mpopt = {
+      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 0), % flat start
+      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 1), % local PF
+      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 2), % nominal OPF
+      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 3)  % local OPF
+};
 %     mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 0),
 %     mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 1),
 %     mpoption(mpopt0, 'opf.ac.solver', 'FMINCON'),
-      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 0),
-      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 1),
-      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 2),
-      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 3)
-};
-
 %%
 nc = length(cases);
 maxlen = 0;
@@ -87,7 +85,7 @@ end
 %% run benchmarks
 sts = zeros(nc, 16); % [nb, ng, nl, nlc, ndc, ni, nib, p,q, P,L,Q] and [X, G, H, A]
 
-fprintf('\nResults%s       Ipopt-flat        Ipopt-opf-nom     Ipopt-opf-local    Ipopt-pf-local     total secs\n',  repmat(' ', 1, maxlen+5-length('Results')));
+fprintf('\nResults%s       Ipopt-flat        Ipopt-pf-local     Ipopt-opf-nom     Ipopt-opf-local    total secs\n',  repmat(' ', 1, maxlen+5-length('Results')));
 fprintf(  '       %s    iter   C   secs     iter   C   secs    iter   C   secs    iter   C   secs      elapsed \n',   repmat(' ', 1, maxlen+5-length('Results')));
 fprintf(  '-------%s   ------- - --------  ------- - -------- ------- - -------- ------- - -------- -----------\n', repmat(' ', 1, maxlen+5-length('Results')));
 na = length(mpopt);
@@ -185,13 +183,17 @@ for c = 1:nc
     fprintf('%5d %5d %5d %5d %5d %5d %5d %3d %3d %3d %1s%1s %1s%1s%1s\n', sts(c, 1:4), sts(c, 13:15), sts(c, 5:7), sts(c, 8), sts(c, 9), sts(c, 10), sts(c, 11), sts(c, 12));
 end
 
-%%
-plot(res.it(:,1)); hold on
-plot(res.it(:,2)); hold on
-plot(res.it(:,3)); hold on
-plot(res.it(:,4));
-legend('Flat start','OPF nominal solution', 'OPF local solutions', 'PF local solutions')
-xlabel('Matpower case')
-xticks(1:length(cases)); xticklabels(cases); xtickangle(45);
-ylabel('Number of iterations');
-grid on;
+%% visualize convergence
+
+resit = res.it;
+save('resit.mat','resit');
+
+% plot(res.it(:,1)); hold on
+% plot(res.it(:,2)); hold on
+% plot(res.it(:,3)); hold on
+% plot(res.it(:,4));
+% legend('Flat start','OPF nominal solution', 'OPF local solutions', 'PF local solutions')
+% xlabel('Matpower case')
+% xticks(1:length(cases)); xticklabels(cases); xtickangle(45);
+% ylabel('Number of iterations');
+% grid on;
