@@ -72,7 +72,7 @@ duplicates = findDuplicateBranches(mpc, cont_filt);
 cont_filt = setdiff(cont_filt, duplicates);
 
 %%-- remove lines causing Qg violations
-critical = findQgCritical(mpc, cont_filt, 100); %max 150% violation wrt Qmax, Qmin
+critical = findQgCritical(mpc, cont_filt, 0); %no violation of QG allowed
 cont_filt = setdiff(cont_filt, critical);
 
 cont = [-1; cont_filt(1:min(N,length(cont_filt)))]; %add nominal case and N contingencies

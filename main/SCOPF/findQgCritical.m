@@ -54,19 +54,15 @@ for ci = 1:length(branches)
     [MVAbase_c, bus_c, gen_c, branch_c, success_c, et_c] = runpf(mpc_test, mpopt);
     
     %identify QG MAX and MIN violation
-    idx = find(gen_c(:, QMAX) == 0);
-    gen_c(idx, QMAX) = 1e-5;
     idx = find(gen_c(:, QG) > gen_c(:, QMAX));
-    viol = ((gen_c(idx, QG) - gen_c(idx, QMAX))./gen_c(idx, QMAX)) .* 100;
+    viol = gen_c(idx, QG) - gen_c(idx, QMAX);
     if (any(viol > limit))
         lines = [lines; c];
         violations = [violations; max(viol)];
     end
     
-    idx = find(gen_c(:, QMIN) == 0);
-    gen_c(idx, QMIN) = 1e-5;
     idx = find(gen_c(:, QG) < gen_c(:, QMIN));
-    viol = ((gen_c(idx, QMIN) - gen_c(idx, QG))./gen_c(idx, QMIN)) .* 100;
+    viol = gen_c(idx, QMIN) - gen_c(idx, QG);
     if (any(viol > limit))
         lines = [lines; c];
         violations = [violations; max(viol)];
