@@ -1,6 +1,6 @@
-function lines = findDuplicateBranches(mpc)
+function lines = findDuplicateBranches(mpc, branches)
 %findDuplicateBranches  Identifies duplicate lines that connect the same two buses.
-%   [Duplicates] = findDuplicateBranches(MPC)
+%   [Duplicates] = findDuplicateBranches(MPC, BRANCHES)
 %
 %   Returns list of duplicates, where each row lists branches that
 %   connect the same two buses. Zeros are used to align the resulting
@@ -21,7 +21,7 @@ function lines = findDuplicateBranches(mpc)
 %        Duplicates = [1 2 0; 4 5 6]
 %   
 %   Output argument options:
-%       duplicates = findDupliateBranches(mpc);
+%       duplicates = findDupliateBranches(mpc, branches);
 %
 %   See also findIslandBranches.
 
@@ -30,12 +30,11 @@ function lines = findDuplicateBranches(mpc)
         ANGMIN, ANGMAX, MU_ANGMIN, MU_ANGMAX] = idx_brch;
 
     lines = zeros(5,2);
-
-    nbrch = size(mpc.branch,1);
-    nbus = size(mpc.bus,1);
     i = 1;
 
-    for b = 1:nbrch
+    for bi = 1:length(branches)
+        
+        b = branches(bi);
         
         %skip branch if it is already identified
         if(ismember(b, lines))

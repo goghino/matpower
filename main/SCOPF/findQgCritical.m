@@ -1,13 +1,13 @@
-function lines = findQgCritical(mpc, limit)
+function [lines, violations] = findQgCritical(mpc, branches, limit)
 %findQgCritical  Identifies lines that result into critical Qg violation afer removal.
-%   [Branches] = findQgCritical(MPC, LIMIT)
+%   [Branches] = findQgCritical(MPC, BRANCHES, LIMIT)
 %
 %   Returns list of branches that create Qg violatios higher than limit after
 %   their removal from the network. The Qg analysis is performed with
 %   respect to the OPF solution.
 %   
 %   Examples:
-%       Branches = findQgCritical(mpc, limit);
+%       Branches = findQgCritical(mpc, branches, limit);
 %
 %   See also findIslandBranches, findDuplicateBranches.
 
@@ -21,6 +21,7 @@ else
 end
 
 lines = [];
+violations = [];
 
 %% run OPF and extract x*
 [MVAbase, bus, gen, gencost, branch, f, success, et] = runopf(mpc, mpopt);
@@ -36,7 +37,9 @@ mpcOPF.branch = branch;
 mpcOPF.order.state = 'e';
 
 %% identify QG violations
-for c = 1:size(branch,1)
+for ci = 1:length(branches)
+    c = branches(ci);
+    
     % copy the OPF mpc so that we can make changes to it
     mpc_test = mpcOPF;
     
@@ -51,16 +54,22 @@ for c = 1:size(branch,1)
     [MVAbase_c, bus_c, gen_c, branch_c, success_c, et_c] = runpf(mpc_test, mpopt);
     
     %identify QG MAX and MIN violation
+    idx = find(gen_c(:, QMAX) == 0);
+    gen_c(idx, QMAX) = 1e-5;
     idx = find(gen_c(:, QG) > gen_c(:, QMAX));
-    violations = ((gen_c(idx, QG) - gen_c(idx, QMAX))./gen_c(idx, QMAX)) .* 100;
-    if (any(violations > limit))
+    viol = ((gen_c(idx, QG) - gen_c(idx, QMAX))./gen_c(idx, QMAX)) .* 100;
+    if (any(viol > limit))
         lines = [lines; c];
+        violations = [violations; max(viol)];
     end
     
+    idx = find(gen_c(:, QMIN) == 0);
+    gen_c(idx, QMIN) = 1e-5;
     idx = find(gen_c(:, QG) < gen_c(:, QMIN));
-    violations = ((gen_c(idx, QMIN) - gen_c(idx, QG))./gen_c(idx, QMIN)) .* 100;
-    if (any(violations > limit))
+    viol = ((gen_c(idx, QMIN) - gen_c(idx, QG))./gen_c(idx, QMIN)) .* 100;
+    if (any(viol > limit))
         lines = [lines; c];
+        violations = [violations; max(viol)];
     end
 end
 
