@@ -1,0 +1,88 @@
+\documentclass{article}
+
+%packages and defines for pgfplots
+\usepackage{color}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.10}
+\usetikzlibrary{patterns}
+\usepackage{pgfplotstable}
+\usepackage{csvsimple}
+
+\usepackage{tikz}
+\usepackage{verbatim}
+
+\begin{document}
+
+\begin{tikzpicture}
+
+\pgfplotstableread{
+iter   objective infpr    infdu    SchurSolve    Solution
+0    1.32E+01    1.96E+00    1.53E-01    1.89E-01    1.54E+01
+1    2.21E-01    9.51E-01    2.08E-02    5.21E-02    1.22E+00
+}\datatableAAA;
+
+\pgfplotstableread{data.dat}\datatable;
+
+  \begin{axis}[
+    width=0.9\columnwidth, height=12.5cm, 
+    %ybar,
+    %bar width=5pt, 
+    %ymin=8e-1,
+    %ymax=2e1,
+    xmin=0,
+    axis lines*=right,
+    axis x line=none, 
+    ymajorgrids, yminorgrids,
+    %xtick=data,
+    %xticklabels from table={\datatable}{NPROC},
+    %xtick={0, 1, 2, 3, 4, 5, 6, 7, 8},
+    %xticklabels={1, 2, 4, 8, 16, 32, 64, 128, 256},
+    %ytick={0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+    %yticklabels={$10^{-1}$, , , , , , , , $10^0$, , , , , , , , ,$10^1$},
+    yticklabel style={font=\scriptsize},
+    ylabel style={font=\scriptsize},
+    ylabel={Value (Objective)},
+    legend=none    
+]
+    \addplot[color=black] table[x=iter, y=objective] {\datatable}; \label{plot:obj}
+  \end{axis}
+
+
+
+  \begin{axis}[name=symb,
+    width=0.9\columnwidth, height=12.5cm, 
+    %ybar,
+    %bar width=5pt, 
+    ymode=log, 
+    log origin=infty,
+    %ymin=8e-1,
+    %ymax=2e1,
+    axis lines*=left, 
+    ymajorgrids, yminorgrids,
+    xmin=0,
+    %xtick=data,
+    %xticklabels from table={\datatable}{NPROC},
+    %xtick={0, 1, 2, 3, 4, 5, 6, 7, 8},
+    %xticklabels={1, 2, 4, 8, 16, 32, 64, 128, 256},
+    xticklabel style={rotate=0, xshift=-0.0cm, anchor=north, font=\scriptsize},
+    %ytick={0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+    %yticklabels={$10^{-1}$, , , , , , , , $10^0$, , , , , , , , ,$10^1$},
+    yticklabel style={font=\scriptsize},
+    ylabel style={font=\scriptsize},
+    xlabel style={font=\scriptsize},
+    ylabel={Value (Primal/Dual)},
+    xlabel={Iteration},
+    legend style={at={(1.0,1.0)},legend cell align=left,align=right,draw=white!85!black,font=\tiny,legend columns=3}
+    ]
+    \addlegendimage{/pgfplots/refstyle=plot:obj}\addlegendentry{Objective}
+
+    \addplot[color=orange] table[x=iter, y=infpr] {\datatable};
+    \addlegendentry{Primal}
+    \addplot[color=magenta] table[x=iter, y=infdu] {\datatable}; 
+    \addlegendentry{Dual}
+  \end{axis}
+  
+\end{tikzpicture}
+
+\end{document}
