@@ -35,7 +35,7 @@ end
 
 if (Curtail == 1)
     % curtail load scaling profile
-    MIN = 0.0779;
+    MIN = 0.1;
     MAX = 1; %1.0324;
     load_scaling_profile = max(load_scaling_profile, MIN);
     load_scaling_profile = min(load_scaling_profile, MAX);    
