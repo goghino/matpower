@@ -1,4 +1,4 @@
-function profile = createLoadProfile(mpc)
+function profile = createLoadProfile()
 %CREATELOADPROFILE Creates model of the load scaling for the 24hrs horizon
 
 %f=@(x)(3+sin(2*x-pi/2)+2*sin(4*x-pi/2))/5 ;
