@@ -1,6 +1,8 @@
 %Script runs OPFs for all the specified contingencies and tries
 %to identify which contingencies make OPF problem infeasible
 
+define_constants;
+
 mpc = case1354pegase;
 load cont1354_noQGviol.mat;
 cont = cont_filt;
@@ -9,6 +11,7 @@ ns = length(cont);
 IPOPTresults = zeros(ns,1);
 IPOPTiters = zeros(ns,1);
 
+fprintf('Contingency Status Iterations\n');
 for i = 1:ns
         %update mpc first by removing a line
         c = cont(i);
@@ -23,5 +26,11 @@ for i = 1:ns
         [results, success] = runopf(mpc_tmp, mpopt_tmp);
         
         IPOPTresults(i) = success;
-        IPOPTresults(i) = results.raw.output.iterations; 
+        IPOPTiters(i) = results.raw.output.iterations;
+
+	fprintf('%d %d %d\n', c, success, results.raw.output.iterations);	
 end
+
+idx = find(IPOPTresults ~= 1);
+cont(idx) = [];
+dlmwrite('cont1354.txt',cont-1);
