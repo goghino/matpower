@@ -15,8 +15,7 @@ mpc.branch(mpc.branch(:,RATE_A)==0,RATE_A) = 9900;
 mpc.gen(:,PMIN) = 0;
 
 %% set time step data
-SelectProfile = 2;
-Curtail = 1;
+SelectProfile = 1;
 
 if (SelectProfile == 0)
     Kpv = 1;  %% 0 ...1  (size of PV penetration)
@@ -25,20 +24,7 @@ if (SelectProfile == 0)
     pv_scaling_profile    = [  0 0 0  0 0 0.0046 0.0548 0.1686 0.3457 0.5100 0.6687 0.7496 0.8175 0.8305 0.8026 0.7212 0.5988 0.4453 0.2718 0.1203 0.0350 0.0019 0 0 ]';
     load_scaling_profile  = load_scaling_profile0 - Kpv*pv_scaling_profile;
 elseif (SelectProfile == 1)
-    %use our custom data
-    load_scaling_profile       = createLoadProfile();
-elseif (SelectProfile == 2)
-    %addpath('ticinoData');
-    %load_scaling_profile       = FitTicinoData('Ticino303_390.dat',303,390);
-    load_scaling_profile = [0.0335    0.0532    0.0806    0.1176    0.1972    0.4933    0.8275    0.8183    0.8635    0.7868    0.5832    0.4466    0.3895 0.3765    0.4756    0.7566    0.9793    0.9768    0.8524    0.3665    0.1255    0.1549    0.0886    0.0184]';
-end
-
-if (Curtail == 1)
-    % curtail load scaling profile
-    MIN = 0.1;
-    MAX = 1; %1.0324;
-    load_scaling_profile = max(load_scaling_profile, MIN);
-    load_scaling_profile = min(load_scaling_profile, MAX);    
+    load_scaling_profile       = createLoadProfile(mpc);
 end
 
 %repeat data for required no. of days

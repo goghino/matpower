@@ -1,4 +1,7 @@
-function profile = FitTicinoData(filename, t0, t1)
+function profile = FitTicinoData(filename, t0, t1, tnew)
+% filename - name of the load data
+% t0,t1 - time of the load data
+% tnew - new time of the rescaled data
 n=7;
 data        = 1e-5*load(filename);
 t           = t0:t1; t = t';
@@ -22,27 +25,28 @@ x0 = 0.5*(LB+UB);
 x = fmincon(@(x) misfit(x,params),x0,[],[],[],[],LB, UB,[],options);
 %fprintf('%25.16e\n', x);
 
-%sample approximated data on hourly basis
-hourly.t = linspace(0, 2*pi, 24)';
+%% sample approximated data on hourly basis
+hourly.t = tnew';
 profile = proxy(x, hourly);
 
-f = proxy(x, params);
-close all;
-plot(t, data, 'k--'); hold on;
-plot(t, f); hold on;
-plot(hourly.t, profile, 'x');
-legend('Original data', 'Approximation', 'Profile');
-
-figure;
-plot(t, data, 'k--');
-hold on;
-for i=1:n
-wavelets(:,i) = Wavelet(i, x, params);
-end
-plot(t, wavelets);
-grid on;
-grid minor;
-legend('Original data', 'n=1', 'n=2', 'n=3', 'n=4', 'n=5', 'n=6', 'n=7')
+%%
+% f = proxy(x, params);
+% close all;
+% plot(t, data, 'k--'); hold on;
+% plot(t, f); hold on;
+% plot(hourly.t, profile, 'x');
+% legend('Original data', 'Approximation', 'Profile');
+% 
+% figure;
+% plot(t, data, 'k--');
+% hold on;
+% for i=1:n
+% wavelets(:,i) = Wavelet(i, x, params);
+% end
+% plot(t, wavelets);
+% grid on;
+% grid minor;
+% legend('Original data', 'n=1', 'n=2', 'n=3', 'n=4', 'n=5', 'n=6', 'n=7')
 
 %f=@(x)(3+sin(2*x-pi/2)+2*sin(4*x-pi/2)*x/10)/5 ; fplot(f, [0 2*pi])
 end

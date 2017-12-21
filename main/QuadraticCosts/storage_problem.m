@@ -18,11 +18,12 @@ setenv('OMP_NUM_THREADS', '1')
 define_constants;
 
 %% create base case file
-%mpc = case118;
 %mpc = case30; % works with top 2%, not with static = 10
+mpc = case57;
 %mpc = case89pegase;
+%mpc = case118;
 %mpc = case300;
-mpc = case1354pegase;
+%mpc = case1354pegase;
 
 %number of time periods (days, each has 24 hours)
 N = 1;

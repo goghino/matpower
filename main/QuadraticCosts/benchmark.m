@@ -29,14 +29,14 @@ mpopt0 = mpoption('verbose', 0, 'out.all', 0);
 mpopt0 = mpoption(mpopt0, 'opf.start', init_mode);
 
 cases = {  
-    'case_ieee30',
-    'case30',
-    'case39',
-    'case57',
-    'case89pegase',
-    'case118',
-    'case300',
-    'case1354pegase',
+'case39',    
+%     'case_ieee30',
+%     'case30',
+%     'case57',
+%     'case89pegase',
+%     'case118',
+%     'case300',
+%     'case1354pegase',
 %     'case1888rte',
 %     'case1951rte',
 %     'case2383wp',
