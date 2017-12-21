@@ -11,7 +11,10 @@ close all;
 %% 
 addpath('ticinoData');
 hours = linspace(0, 2*pi, 24);
-profile = FitTicinoData('Ticino303_390.dat',303,390,hours);
+%profile = FitTicinoData('Ticino303_390.dat',303,390,hours);
+profile = [0.0335    0.0532    0.0806    0.1176    0.1972    0.4933    0.8275    0.8183    0.8635 ...
+           0.7868    0.5832    0.4466    0.3895    0.3765    0.4756    0.7566    0.9793    0.9768 ...
+           0.8524    0.3665    0.1255    0.1549    0.0886    0.0184 ]';
 
 %% compute min and max generation capabilities
 %  so that we can scale the load profile
@@ -50,8 +53,6 @@ prof_max = min( PGmax_sum / PD_sum, 1.0);
 
 fprintf('%.2f <= alpha <= %.2f\n', prof_min, prof_max);
 
-%% curtail
-
 %% 
 plot(hours, profile); hold on;
 
@@ -59,5 +60,5 @@ plot(hours, profile); hold on;
 profile = (prof_max - prof_min) * profile + prof_min;
 
 plot(hours, profile);
-legend('Approximated', 'Approximated and scaled')
+legend('Approximated load', 'Approximated and scaled load')
 end
