@@ -12,5 +12,5 @@
                    mu_strategy   monotone
                        mu_init   100
                 pardiso_msglvl   0
-              file_print_level   7
+              file_print_level   5
                    output_file   all.out

@@ -20,6 +20,7 @@ profile = [0.0335    0.0532    0.0806    0.1176    0.1972    0.4933    0.8275   
 %  so that we can scale the load profile
 
 %generator limits idx
+GEN_STATUS = 8;
 PMAX = 9;
 PMIN = 10;
 QMIN = 5;
@@ -29,11 +30,14 @@ QMAX = 4;
 PD = 3;
 QD = 4;
 
-% take only 80% of max generation (account for e.g. transmillion losses)
-PGmin_sum = sum(mpc.gen(:,PMIN));
-PGmax_sum = sum(mpc.gen(:,PMAX)) * 0.8;
-QGmin_sum = sum(mpc.gen(:,QMIN));
-QGmax_sum = sum(mpc.gen(:,QMAX));
+%identify ON generators
+generatorsON = find(mpc.gen(:,GEN_STATUS) > 0);
+
+PGmin_sum = sum(mpc.gen(generatorsON,PMIN));
+PGmax_sum = sum(mpc.gen(generatorsON,PMAX)); % ??? take only 80% of max generation (account for e.g. transmillion losses)
+QGmin_sum = sum(mpc.gen(generatorsON,QMIN));
+QGmax_sum = sum(mpc.gen(generatorsON,QMAX));
+
 PD_sum = sum(mpc.bus(:,PD));
 QD_sum = sum(mpc.bus(:,QD));
 
@@ -56,7 +60,8 @@ fprintf('%.2f <= alpha <= %.2f\n', prof_min, prof_max);
 %% 
 plot(hours, profile); hold on;
 
-%scale the profile prof so that load does not exceed generation
+%scale the profile prof so that it is in bounds prof_min, prof_max 
+%which makes sure that load does not exceed generation
 profile = (prof_max - prof_min) * profile + prof_min;
 
 plot(hours, profile);
