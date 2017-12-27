@@ -50,23 +50,27 @@ load_scaling_profile       = kron(ones(N,1), load_scaling_profile);
 %do we place static number of storages to all grids, or we pick top 2% of the load buses?
 static_placement = 0;
 
-% Do not place storage to REF bus
-nref_idx = find(mpc.bus(:, BUS_TYPE) ~= 3);
-
 if (static_placement)
-    id_load_log = abs(mpc.bus(nref_idx,PD))>0;
-    id_load = find(id_load_log);
-    nload = length(id_load);
-    nstorage_ref = 3;  %% 1 ... 100
-    nstorage_applied = min(nstorage_ref,nload);
-    id_storage_location = id_load(1:nstorage_applied);
+    load_sorted = find(abs(mpc.bus(nref_idx,PD)) > 0);
+    nload = length(load_sorted);
+    nstorage = 3;  %% 1 ... 100
+    nstorage_applied = min(nstorage,nload);
+    first = 0;
+    id_storage_location = load_sorted(first + (1:nstorage_applied));
 else
-    [sortedPD, id_load] = sort(mpc.bus(nref_idx,PD), 'descend'); %% sort buses w.r.t PD
-    nload = length(find(abs(mpc.bus(nref_idx,PD))>0));
-    nstorage_ref = round(size(mpc.bus,1)* Rcount); %% apply storage N% of buses
-    first = round(size(mpc.bus,1)* Rfirst); %% place storages starting at 'first' bus
-    nstorage_applied = max(min(nstorage_ref,nload), 1); %% use at least 1 storage, use maximum nload storages
-    id_storage_location = id_load(first + (1:nstorage_applied)); %% apply storages to top 2% loaded buses
+    [sortedPD, load_sorted] = sort(mpc.bus(:,PD), 'descend'); %% sort buses w.r.t PD
+    nload = length(find(abs(mpc.bus(:,PD)) > 0));
+    nstorage = round(nload * Rcount); %% apply storage N% of load buses
+    first = round(nload * Rfirst); %% place storages starting at 'first' load bus
+    nstorage_applied = max(min(nstorage,nload), 1); %% use at least 1 storage, use maximum nload storages
+    id_storage_location = load_sorted(first + (1:nstorage_applied)); %% apply storages to top 2% loaded buses
+end
+
+% Do not place storage to REF bus
+ref_idx = find(mpc.bus(id_storage_location, BUS_TYPE) == 3);
+if(ref_idx)
+    id_storage_location(ref_idx) = [];
+    id_storage_location = [id_storage_location load_sorted(first + nstorage_applied+1)];
 end
 
 if(nstorage_applied < 1)
