@@ -5,9 +5,8 @@ tol                           1e-2
 dual_inf_tol                  1e-2
 compl_inf_tol                 1e-2
 constr_viol_tol               1e-2
-#max_iter                      50
 mu_strategy                   monotone
-pardiso_matching_strategy complete2x2
+#max_iter                      50
 
 #pardiso_max_iterative_refinement_steps 0
 #pardiso_order five
