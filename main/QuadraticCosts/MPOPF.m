@@ -70,7 +70,7 @@ end
 ref_idx = find(mpc.bus(id_storage_location, BUS_TYPE) == 3);
 if(ref_idx)
     id_storage_location(ref_idx) = [];
-    id_storage_location = [id_storage_location load_sorted(first + nstorage_applied+1)];
+    id_storage_location = [id_storage_location; load_sorted(first + nstorage_applied+1)];
 end
 
 if(nstorage_applied < 1)
