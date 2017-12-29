@@ -1,3 +1,6 @@
+clc
+close all
+
 addpath( ...
     '/home/juraj/matpower-3.12.8', ...
     '/home/juraj/matpower-3.12.8/lib', ...
@@ -28,6 +31,11 @@ for i = 1:length(profile)
     %scale Pd, Qd by load profile
     mpc = mpc0;
     mpc.bus(:,3:4) = mpc.bus(:,3:4) .* alpha;
+
+    %apply mpc corrections
+    mpc = ext2int(mpc);
+    mpc.branch(mpc.branch(:,RATE_A)==0,RATE_A) = 9900;
+    PMIN=10; mpc.gen(:,PMIN) = 0;
     
     [RESULTS, SUCCESS] = runopf(mpc, mpopt);
     
