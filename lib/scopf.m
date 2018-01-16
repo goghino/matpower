@@ -72,8 +72,13 @@ duplicates = findDuplicateBranches(mpc, cont_filt);
 cont_filt = setdiff(cont_filt, duplicates);
 
 %%-- remove lines causing Qg violations
-critical = findQgCritical(mpc, cont_filt, 0); %no violation of QG allowed
+critical = findQgCritical(mpc, cont_filt, 0.2); %allowed 20% violation
 cont_filt = setdiff(cont_filt, critical);
+
+%%-- remove lines that make OPF problem infeasible when removed
+cont_filt = findOPFfeasible(mpc, cont_filt);
+
+dlmwrite('cont_filt.txt',cont_filt-1);
 
 cont = [-1; cont_filt(1:min(N,length(cont_filt)))]; %add nominal case and N contingencies
 ns = length(cont);
