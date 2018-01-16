@@ -1,4 +1,4 @@
-function opt_solution = MPOPF(mpc, mpopt, N, Emax, Rcount, Rfirst)
+function [RESULTS, SUCCESS] = MPOPF(mpc, mpopt, N, Emax, Rcount, Rfirst)
 %MPOPF Run a multiperiod OPF problem
 %   mpc  - Matpower case
 %   N    - Number of time periods
@@ -87,7 +87,7 @@ p_storage.c_charge           = .95;
 
 %% run OPF
 mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
-opt_solution     = runopf(mpcN_opf_storage, mpopt);
+[RESULTS, SUCCESS] = runopf(mpcN_opf_storage, mpopt);
 %plot_storage_results(opt_solution)
 
 end

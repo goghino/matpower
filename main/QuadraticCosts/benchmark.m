@@ -2,15 +2,16 @@ clc
 close all
 
 addpath( ...
-    '/Users/Juraj/Documents/Optimization/matpower-origin/lib', ...
-    '/Users/Juraj/Documents/Optimization/matpower-origin/lib/t', ...
-    '/Users/Juraj/Documents/Optimization/matpower-origin/data', ...
-    '/Users/Juraj/Documents/Optimization/matpower-origin/mips/lib', ...
-    '/Users/Juraj/Documents/Optimization/matpower-origin/mips/lib/t', ...
-    '/Users/Juraj/Documents/Optimization/matpower-origin/most/lib', ...
-    '/Users/Juraj/Documents/Optimization/matpower-origin/most/lib/t', ...
-    '/Users/Juraj/Documents/Optimization/matpower-origin/mptest/lib', ...
-    '/Users/Juraj/Documents/Optimization/matpower-origin/mptest/lib/t', ...
+    '/home/juraj/matpower-3.12.8', ...
+    '/home/juraj/matpower-3.12.8/lib', ...
+    '/home/juraj/matpower-3.12.8/lib/t', ...
+    '/home/juraj/matpower-3.12.8/data', ...
+    '/home/juraj/matpower-3.12.8/mips/lib', ...
+    '/home/juraj/matpower-3.12.8/mips/lib/t', ...
+    '/home/juraj/matpower-3.12.8/most/lib', ...
+    '/home/juraj/matpower-3.12.8/most/lib/t', ...
+    '/home/juraj/matpower-3.12.8/mptest/lib', ...
+    '/home/juraj/matpower-3.12.8/mptest/lib/t', ...
     '-end' );
 
 setenv('OMP_NUM_THREADS', '1')
@@ -23,20 +24,33 @@ define_constants;
 %%  1 = default starting point
 %%  2 = starting point taken directly from mpc
 %%  3 = AC power flow solution used as starting point
-init_mode = 1;
+init_mode = 3;
 
 mpopt0 = mpoption('verbose', 0, 'out.all', 0);
 mpopt0 = mpoption(mpopt0, 'opf.start', init_mode);
 
 cases = {  
-'case39',    
-%     'case_ieee30',
-%     'case30',
-%     'case57',
-%     'case89pegase',
-%     'case118',
-%     'case300',
-%     'case1354pegase',
+    'case39',
+    'case57',
+    'case1354pegase',
+    'case1888rte',
+     'case1951rte',
+     'case2383wp',
+     'case2736sp',
+     'case2737sop',
+     'case2746wop',
+     'case2746wp',
+     'case2848rte',
+     'case2868rte',
+     'case2869pegase',
+%    'case_ieee30',
+%    'case30',
+%    'case39',
+%    'case57',
+%    'case89pegase',
+%    'case118',
+%    'case300',
+%    'case1354pegase',
 %     'case1888rte',
 %     'case1951rte',
 %     'case2383wp',
@@ -55,7 +69,6 @@ cases = {
 %     'case6495rte',
 %     'case6515rte',
 %     'case_ACTIVSg10k',
-%     'case_ACTIVSg25k',
 %     'case_ACTIVSg200',
 %     'case_ACTIVSg500',
 %     'case_ACTIVSg2000',
@@ -66,20 +79,20 @@ cases = {
 };
 
 solvers = {
-    'MIPS (\)',
+    %'MIPS (\)',
     %'MIPS (P)',
-    'MIPS-Sc (\)',
+    %'MIPS-Sc (\)',
     %'MIPS-Sc (P)',
-    'fmincon',
+    %'fmincon',
     'Ipopt',
     %'Knitro'
 };
 mpopt = {
-    mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 0, 'mips.linsolver', ''),
+    %mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 0, 'mips.linsolver', ''),
     %mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 0, 'mips.linsolver', 'PARDISO'),
-    mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 1, 'mips.linsolver', ''),
+    %mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 1, 'mips.linsolver', ''),
     %mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 1, 'mips.linsolver', 'PARDISO'),
-    mpoption(mpopt0, 'opf.ac.solver', 'FMINCON'),   %% default maxit = 1000
+    %mpoption(mpopt0, 'opf.ac.solver', 'FMINCON'),   %% default maxit = 1000
     mpoption(mpopt0, 'opf.ac.solver', 'IPOPT'),     %% 'ipopt.opts.max_iter', 500),  %% default max_iter = 250
     %mpoption(mpopt0, 'opf.ac.solver', 'KNITRO', 'knitro.maxit', 1000)   %% default maxit = 10000
 };
@@ -201,8 +214,9 @@ for c = 1:nc
             Emax = 2; %% max capacity of the storage relative to a PD at given bus
             N = 1; %% Number of time periods
             
-            r = MPOPF(rpf, mpopt{a}, N, Emax, Rcount, Rfirst);
-            
+            [r, SUCCESS] = MPOPF(rpf, mpopt{a}, N, Emax, Rcount, Rfirst);
+            %r = runopf(rpf, mpopt{a});            
+
             %% -- process results
             sts(c, 13:16) = [r.om.var.N r.om.nle.N r.om.nli.N r.om.lin.N];
             res.success(c,a) = r.success;
@@ -290,3 +304,5 @@ fprintf('---------------  --------  --------  --------\n');
 for a = 1:na
     fprintf('%-15s%8d%12g%9d\n', solvers{a}, failures(a), total_et(a), total_it(a));
 end
+
+exit
