@@ -4,7 +4,11 @@ function [lines, violations] = findQgCritical(mpc, branches, limit)
 %
 %   Returns list of branches that create Qg violatios higher than limit after
 %   their removal from the network. The Qg analysis is performed with
-%   respect to the OPF solution.
+%   respect to the OPF solution. 
+%
+%   Limit represents relative violation to QMAX or QMIN.
+%   violation = (QG - QMAX) / QMAX >= limit
+%   violation = (QMIN - QG) / QMAX >= limit
 %   
 %   Examples:
 %       Branches = findQgCritical(mpc, branches, limit);
@@ -55,14 +59,14 @@ for ci = 1:length(branches)
     
     %identify QG MAX and MIN violation
     idx = find(gen_c(:, QG) > gen_c(:, QMAX));
-    viol = gen_c(idx, QG) - gen_c(idx, QMAX);
+    viol = (gen_c(idx, QG) - gen_c(idx, QMAX)) ./ gen_c(idx, QMAX);
     if (any(viol > limit))
         lines = [lines; c];
         violations = [violations; max(viol)];
     end
     
     idx = find(gen_c(:, QG) < gen_c(:, QMIN));
-    viol = gen_c(idx, QMIN) - gen_c(idx, QG);
+    viol = (gen_c(idx, QMIN) - gen_c(idx, QG)) ./ gen_c(idx, QMIN);
     if (any(viol > limit))
         lines = [lines; c];
         violations = [violations; max(viol)];
