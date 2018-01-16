@@ -28,17 +28,10 @@ lines = [];
 violations = [];
 
 %% run OPF and extract x*
-[MVAbase, bus, gen, gencost, branch, f, success, et] = runopf(mpc, mpopt);
+[mpcOPF, success] = runopf(mpc, mpopt);
 if(success ~= 1)
    error('OPF finished with error %d\n', success); 
 end
-
-xOPF = [bus(:,VA); bus(:,VM); gen(:,PG); gen(:,QG)];
-mpcOPF = mpc;
-mpcOPF.bus = bus;
-mpcOPF.gen = gen;
-mpcOPF.branch = branch;
-mpcOPF.order.state = 'e';
 
 %% identify QG violations
 for ci = 1:length(branches)
