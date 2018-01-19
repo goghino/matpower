@@ -45,22 +45,25 @@ cases = {
 %     'case9',
 %     'case14',
 %     'case89pegase', %EXIT: Converged to a point of local infeasibility. Problem may be infeasible.
-%-------------------
-%    'case_ieee30',
-%    'case30',
-%    'case39',
-%    'case57',
-%     'case118',
-%     'case300',
-     'case1354pegase',
-%     'case2383wp',
-%     'case2869pegase',
-%     'case_ACTIVSg200',
-%     'case_ACTIVSg500',
-%     'case_ACTIVSg2000',
-%     'case_ACTIVSg10k',
 %     'case9241pegase',
 %     'case13659pegase',
+%     'case_ACTIVSg10k',
+%-------------------
+    'case118',
+    'case300',
+    'case1354pegase',
+    'case2383wp',
+    'case2869pegase',
+    'case_ACTIVSg200',
+    'case_ACTIVSg500',
+    'case_ACTIVSg2000',
+    'case1888rte',
+    'case1951rte',
+    'case2736sp',
+    'case2848rte',
+    'case2737sop',
+    'case2746wop',
+    'case2746wp'
 };
 
 
@@ -108,7 +111,7 @@ for c = 1:nc
     if isfield(mpc, 'gencost')
         for a = 1:length(mpopt)
             %------------------------------------
-            r = runscopf(mpc, -50, mpopt{a}, 1e-4);
+            r = runscopf(mpc, -10, mpopt{a}, 1e-4);
             %------------------------------------
             sts(c, 13:16) = [r.raw.meta.lenX r.raw.meta.lenG r.raw.meta.lenH r.raw.meta.lenA];
             res.success(c,a) = r.success;

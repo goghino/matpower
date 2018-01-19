@@ -72,7 +72,7 @@ duplicates = findDuplicateBranches(mpc, cont_filt);
 cont_filt = setdiff(cont_filt, duplicates);
 
 %%-- remove lines causing Qg violations
-critical = findQgCritical(mpc, cont_filt, 0.2); %allowed 20% violation
+critical = findQgCritical(mpc, cont_filt, 0.0); %allowed % violation
 cont_filt = setdiff(cont_filt, critical);
 
 %%-- remove lines that make OPF problem infeasible when removed
