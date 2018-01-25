@@ -60,7 +60,8 @@ else
     
     % generate ns-1 contingencies
     nbranch = size(mpc.branch,1);
-    cont_filt = [1:nbranch]';
+    cont_filt = [1:min(ceil(N*1.5), nbranch)]';
+    %process only N + 20% more in order to have enough cont if some lines are removed
 end
 
 %%-- remove branches causing islands or isolated buses
