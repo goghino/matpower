@@ -78,10 +78,14 @@ ns = size(cont, 1);         %% number of scenarios (nominal + ncont)
 % so we add small perturbation to x_u[], we don't want them removed
 % because the Schur solver assumes particular structure that would
 % be changed by removing variables.
-% Exept for the Va at the refernece bus which we want to remove.
+% Exept for the Va at the refernece bus which we want to remove (in each scenario).
 idx = find(xmin == xmax);
 xmax(idx) = xmax(idx) + 1e-10;
-xmax(REFbus_idx) = xmin(REFbus_idx);
+for i = 0:ns-1
+    idx = model.index.getGlobalIndices(mpc, ns, i);
+    xmax(idx(VAscopf(REFbus_idx))) = xmin(REFbus_idx);
+end
+%xmax(REFbus_idx) = xmin(REFbus_idx); %only nominal case
 
 %% try to select an interior initial point based on bounds
 
