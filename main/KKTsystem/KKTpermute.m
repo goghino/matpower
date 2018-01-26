@@ -1,40 +1,40 @@
-function [P Pinv npart] = KKTpermute(mpc, nc)
+function [P Pinv npart] = KKTpermute(mpc, ns)
 
     nbus = size(mpc.bus,1);
     nbrch = size(mpc.branch,1);
     ngen = size(mpc.gen,1);
     
-    [PVbus_idx, nPVbus_idx] = getXbuses(mpc, 2); %2==PF
+    [PVbus_idx, nPVbus_idx] = getXbuses(mpc, 2); %2==PV
     [REFgen_idx, nREFgen_idx] = getREFgens(mpc);
     
     %local and global primal variables
     nprimal_l = (nbus - 1) + length(nPVbus_idx) + ngen + 1;
-    nprimal_g = length(PVbus_idx) + length(nREFgen_idx);
+    nprimal_g = length(PVbus_idx) + (ngen - 1);
     
     %primal variables, slack variables, equality and inequality constraints
     npart = (nprimal_l) + (2*nbrch) + (2*nbus) + (2*nbrch);
-    N = nc*npart + nprimal_g;
+    N = ns*npart + nprimal_g;
     
     P = zeros(N,1);
 
     offset = 1;
-    for i = 0:nc-1
+    for i = 0:ns-1
         %[Va_i Vm_i(nPV) Qg_i Pg_i(REF)]
         P(offset:offset-1+nprimal_l) = (1:nprimal_l) + i*nprimal_l;
         offset = offset + nprimal_l;
         %[lam_i]
-        P(offset:offset-1+2*nbus) = (1:2*nbus)   + (nc*nprimal_l) + (nprimal_g)  + (nc*2*nbrch) + (i*2*nbus);
+        P(offset:offset-1+2*nbus) = (1:2*nbus)   + (ns*nprimal_l) + (nprimal_g)  + (ns*2*nbrch) + (i*2*nbus);
         offset = offset + 2*nbus;
         %[mu_i]
-        P(offset:offset-1+2*nbrch) = (1:2*nbrch) + (nc*nprimal_l) + (nprimal_g)  + (nc*2*nbrch) + (nc*2*nbus) + (i*2*nbrch);
+        P(offset:offset-1+2*nbrch) = (1:2*nbrch) + (ns*nprimal_l) + (nprimal_g)  + (ns*2*nbrch) + (ns*2*nbus) + (i*2*nbrch);
         offset = offset + 2*nbrch;
         %[Z_i]
-        P(offset:offset-1+2*nbrch) = (1:2*nbrch) + (nc*nprimal_l) + (nprimal_g) + (i*2*nbrch);
+        P(offset:offset-1+2*nbrch) = (1:2*nbrch) + (ns*nprimal_l) + (nprimal_g) + (i*2*nbrch);
         offset = offset + 2*nbrch;
     end
 
     %[Vm_PV Pg_nREF] global
-    P(offset:offset-1+nprimal_g) = (1:nprimal_g) + nc*nprimal_l;
+    P(offset:offset-1+nprimal_g) = (1:nprimal_g) + ns*nprimal_l;
     offset = offset + nprimal_g;
     
     Pinv = zeros(N,1);
