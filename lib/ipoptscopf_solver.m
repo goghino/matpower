@@ -208,6 +208,42 @@ elseif mpopt.opf.init_from_mpc == 3
            x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = x([VMopf(PVbus_idx) PGopf(nREFgen_idx)]);
         end
     end 
+    
+elseif mpopt.opf.init_from_mpc == 4
+    %solve local SCOPFs and use it as an initial guess
+    x0 = ones(length(xmin),1);
+    for i = 1:ns
+        %update mpc first by removing a line
+        c = cont(i);
+        cont_tmp = [];
+        mpc_tmp = mpc;
+        if(c > 0)
+            cont_tmp = [c];
+        end
+    
+        %run opf
+        mpopt0 = mpoption('verbose', 0, 'out.all', 0);
+        mpopt_tmp = mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 0);
+        tolerance = 1e-3;
+        mpopt_tmp.ipopt.opts = struct('max_iter', 250, 'tol', tolerance, ...
+        'dual_inf_tol', tolerance, 'constr_viol_tol', tolerance, ...
+        'compl_inf_tol', tolerance);
+        [results, success] = runscopf(mpc_tmp, cont_tmp, mpopt_tmp, 1e-2);
+        
+        %extract solution of local SCOPF
+        x = results.raw.xr;
+
+        %embed local SCOPF solution into the x0
+        idx = model.index.getGlobalIndices(mpc, ns, i-1);
+        if i == 1
+           idx_tmp = model.index.getGlobalIndices(mpc, 1, 0); %only nominal case, pure OPF solution
+           x0(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])) = x(idx_tmp([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)]));
+           x0(idx([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)])) = x(idx_tmp([VMscopf(PVbus_idx) PGscopf(nREFgen_idx)]));
+        else
+           idx_tmp = model.index.getGlobalIndices(mpc, 2, 1); %nominal case and a single contingency c
+           x0(idx([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])) = x(idx_tmp([VAscopf VMscopf(nPVbus_idx) QGscopf PGscopf(REFgen_idx)])); 
+        end
+    end    
 
 end
 
