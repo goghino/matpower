@@ -79,6 +79,7 @@ mpopt = {
       mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 1), % local PF
       mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 2), % nominal OPF
       mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 3)  % local OPF
+      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 4)  % nominal OPF + 1 cont
 };
 %     mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 0),
 %     mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 1),
@@ -207,7 +208,7 @@ fprintf('%s\n', cases{c});
 end
 
 fprintf('===================== Convergence results ========================\n');
-fprintf('case flat localPF nominalOPF localOPF\n');
+fprintf('case flat localPF nominalOPF localOPF nominalOPF1cont\n');
 for c = 1:nc
 fprintf('%s ', cases{c});
     for i = 1:na
@@ -215,20 +216,3 @@ fprintf('%s ', cases{c});
     end
     fprintf('\n');
 end
-%% visualize convergence
-
-resit = res.it;
-save('resit.mat','resit');
-
-ressucc = res.success;
-save('ressucc.mat','ressucc');
-
-% plot(res.it(:,1)); hold on
-% plot(res.it(:,2)); hold on
-% plot(res.it(:,3)); hold on
-% plot(res.it(:,4));
-% legend('Flat start','OPF nominal solution', 'OPF local solutions', 'PF local solutions')
-% xlabel('Matpower case')
-% xticks(1:length(cases)); xticklabels(cases); xtickangle(45);
-% ylabel('Number of iterations');
-% grid on;
