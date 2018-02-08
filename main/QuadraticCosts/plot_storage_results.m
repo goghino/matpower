@@ -1,17 +1,17 @@
-function plot_storage_results(opt_solution)
+function plot_storage_results(mpc_solution)
 
     define_constants
 
-    nstorage = opt_solution.nstorage;
-    N = opt_solution.horizon;
-    Pgen_discharge = reshape(opt_solution.gen(opt_solution.id_gen_storages_discharge,PG),[nstorage, N ]);
-    Pgen_charge    = reshape(opt_solution.gen(opt_solution.id_gen_storages_charge   ,PG),[nstorage, N ]);
+    nstorage = mpc_solution.nstorage;
+    N = mpc_solution.horizon;
+    Pgen_discharge = reshape(mpc_solution.gen(mpc_solution.id_gen_storages_discharge,PG),[nstorage, N ]);
+    Pgen_charge    = reshape(mpc_solution.gen(mpc_solution.id_gen_storages_charge   ,PG),[nstorage, N ]);
     Pgen_storage = Pgen_discharge+Pgen_charge;
-    Pgen_storage_max = repmat(opt_solution.P_storage_max_MW,[1,N]);
-    Pgen_storage_min = repmat(opt_solution.P_storage_min_MW,[1,N]);
+    Pgen_storage_max = repmat(mpc_solution.P_storage_max_MW,[1,N]);
+    Pgen_storage_min = repmat(mpc_solution.P_storage_min_MW,[1,N]);
 
-    E_storage = [opt_solution.E_storage_init_MWh, repmat(opt_solution.E_storage_init_MWh,[1,N]) - cumsum(Pgen_discharge./repmat(opt_solution.c_discharge,[1,N]) + Pgen_charge.*repmat(opt_solution.c_charge,[1,N]),2)];
-    E_storage_max = repmat(opt_solution.E_storage_max_MWh,[1,N+1]);
+    E_storage = [mpc_solution.E_storage_init_MWh, repmat(mpc_solution.E_storage_init_MWh,[1,N]) - cumsum(Pgen_discharge./repmat(mpc_solution.c_discharge,[1,N]) + Pgen_charge.*repmat(mpc_solution.c_charge,[1,N]),2)];
+    E_storage_max = repmat(mpc_solution.E_storage_max_MWh,[1,N+1]);
 
 
     max_product_charge_discharge_MWMW = max(max(abs(Pgen_discharge.*Pgen_charge)))

@@ -14,37 +14,6 @@ mpc = ext2int(mpc);
 mpc.branch(mpc.branch(:,RATE_A)==0,RATE_A) = 9900;
 mpc.gen(:,PMIN) = 0;
 
-%% set time step data
-SelectProfile = 1;
-
-if (SelectProfile == 0)
-    Kpv = 1;  %% 0 ...1  (size of PV penetration)
-
-    load_scaling_profile0 = [0.4544 0.3570 0.2860 0.2783 0.3795 0.5822 0.8086 0.9633 1.0086 0.9883 0.9761 1.0000 1.0193 0.9773 0.8772 0.7991 0.8359 1.0023 1.2063 1.3123 1.2438 1.0343 0.7873 0.5885]';
-    pv_scaling_profile    = [  0 0 0  0 0 0.0046 0.0548 0.1686 0.3457 0.5100 0.6687 0.7496 0.8175 0.8305 0.8026 0.7212 0.5988 0.4453 0.2718 0.1203 0.0350 0.0019 0 0 ]';
-    load_scaling_profile  = load_scaling_profile0 - Kpv*pv_scaling_profile;
-elseif (SelectProfile == 1)
-    load_scaling_profile       = createLoadProfile(mpc);
-end
-
-%repeat data for required no. of days
-load_scaling_profile       = kron(ones(N,1), load_scaling_profile);
-
-%%-- plot the load scaling profile
-% if (OriginalProfile == 1)
-%     figure;
-%     plot(load_scaling_profile0,'b--');
-%     hold on;
-%     plot(load_scaling_profile,'b');
-%     hold on; plot(MIN*ones(length(load_scaling_profile),1),'r--');
-%     hold on; plot(MAX*ones(length(load_scaling_profile),1),'r--');
-%     legend('load','net load with PV injection', 'Load curtailment')
-% else
-%     figure;
-%     plot(load_scaling_profile,'b');
-%     legend('load')
-% end
-
 %% prepare storage data
 
 %do we place static number of storages to all grids, or we pick top 2% of the load buses?
@@ -85,9 +54,28 @@ p_storage.rPminEmax_MW_per_MWh = -1/2;
 p_storage.c_discharge        = .97;
 p_storage.c_charge           = .95;
 
+%% set time step data
+SelectProfile = 1;
+
+if (SelectProfile == 0)
+    Kpv = 1;  %% 0 ...1  (size of PV penetration)
+
+    load_scaling_profile0 = [0.4544 0.3570 0.2860 0.2783 0.3795 0.5822 0.8086 0.9633 1.0086 0.9883 0.9761 1.0000 1.0193 0.9773 0.8772 0.7991 0.8359 1.0023 1.2063 1.3123 1.2438 1.0343 0.7873 0.5885]';
+    pv_scaling_profile    = [  0 0 0  0 0 0.0046 0.0548 0.1686 0.3457 0.5100 0.6687 0.7496 0.8175 0.8305 0.8026 0.7212 0.5988 0.4453 0.2718 0.1203 0.0350 0.0019 0 0 ]';
+    load_scaling_profile  = load_scaling_profile0 - Kpv*pv_scaling_profile;
+elseif (SelectProfile == 1)
+    storage_load = abs(p_storage.E_storage_max_MWh * p_storage.rPminEmax_MW_per_MWh);
+    storage_injection = p_storage.E_storage_max_MWh * p_storage.rPmaxEmax_MW_per_MWh;
+    load_scaling_profile       = createLoadProfile(mpc, storage_injection, storage_load);
+end
+
+%repeat data for required no. of days
+load_scaling_profile       = kron(ones(N,1), load_scaling_profile);
+
 %% run OPF
 mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
 [RESULTS, SUCCESS] = runopf(mpcN_opf_storage, mpopt);
-%plot_storage_results(opt_solution)
+
+% plot_storage_results(opt_solution)
 
 end
