@@ -49,21 +49,27 @@ cases = {
 %     'case13659pegase',
 %     'case_ACTIVSg10k',
 %-------------------
-    'case118',
-%     'case300',
-%     'case1354pegase',
-%     'case2383wp',
-%     'case2869pegase',
-%     'case_ACTIVSg200',
-%     'case_ACTIVSg500',
-%     'case_ACTIVSg2000',
-%     'case1888rte',
-%     'case1951rte',
-%     'case2736sp',
-%     'case2848rte',
-%     'case2737sop',
-%     'case2746wop',
-%     'case2746wp'
+     'case14',
+     'case30',
+     'case39',
+     'case57',
+     'case89pegase',
+     'case118',
+     'case300',
+     'case1354pegase',
+     'case2383wp',
+     'case2869pegase',
+%     'case9241pegase',
+%     'case13659pegase', %cannot find any feasible contingency
+%     'case_ACTIVSg200', %did not converge
+%     'case_ACTIVSg500', %did not converge
+%     'case_ACTIVSg2000', %did not converge
+%     'case1888rte', %no connected gen to ref bus
+%     'case1951rte', %no connected gen to ref bus
+%     'case2736sp', %multiple generators at ref bus
+%     'case2737sop', %multiple generators at ref bus
+%     'case2746wop',%multiple generators at ref bus
+%     'case2746wp' %multiple generators at ref bus
 };
 
 
@@ -73,6 +79,7 @@ mpopt = {
       mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 1), % local PF
       mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 2), % nominal OPF
       mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 3)  % local OPF
+      mpoption(mpopt0, 'opf.ac.solver', 'IPOPT', 'opf.init_from_mpc', 4)  % nominal OPF + 1 cont
 };
 %     mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 0),
 %     mpoption(mpopt0, 'opf.ac.solver', 'MIPS', 'mips.step_control', 1),
@@ -96,6 +103,7 @@ na = length(mpopt);
 res.success = zeros(nc, na);
 res.it = zeros(nc, na);
 res.et = zeros(nc, na);
+res.nc = zeros(nc,na);
 
 t0 = tic;
 for c = 1:nc
@@ -111,12 +119,13 @@ for c = 1:nc
     if isfield(mpc, 'gencost')
         for a = 1:length(mpopt)
             %------------------------------------
-            r = runscopf(mpc, -10, mpopt{a}, 1e-4);
+            r = runscopf(mpc, -20, mpopt{a}, 1e-4);
             %------------------------------------
             sts(c, 13:16) = [r.raw.meta.lenX r.raw.meta.lenG r.raw.meta.lenH r.raw.meta.lenA];
             res.success(c,a) = r.success;
             res.it(c,a) = r.raw.output.iterations;
             res.et(c,a) = r.et;
+	    res.nc(c,a) = length(r.raw.meta.cont) - 1;
             fprintf('  %7d', res.it(c, a));
             if res.success(c,a)
                 fprintf('  ');
@@ -190,28 +199,20 @@ end
 
 %% visualize convergence
 fprintf('===================== Convergence results ========================\n');
-fprintf('x0 \t sucess \t iter \t time\n');
+fprintf('x0 \t sucess \t iter \t NC \t time\n');
 for c = 1:nc
 fprintf('%s\n', cases{c});
     for i = 1:na
-        fprintf('%d \t %d \t\t %d \t %.2f\n', mpopt{i}.opf.init_from_mpc, res.success(c, i), res.it(c, i), res.et(c, i));
+        fprintf('%d \t %d \t\t %d \t %d \t %.2f\n', mpopt{i}.opf.init_from_mpc, res.success(c, i), res.it(c, i), res.nc(c,i), res.et(c, i));
     end
 end
 
-%% visualize convergence
-
-resit = res.it;
-save('resit.mat','resit');
-
-ressucc = res.success;
-save('ressucc.mat','ressucc');
-
-% plot(res.it(:,1)); hold on
-% plot(res.it(:,2)); hold on
-% plot(res.it(:,3)); hold on
-% plot(res.it(:,4));
-% legend('Flat start','OPF nominal solution', 'OPF local solutions', 'PF local solutions')
-% xlabel('Matpower case')
-% xticks(1:length(cases)); xticklabels(cases); xtickangle(45);
-% ylabel('Number of iterations');
-% grid on;
+fprintf('===================== Convergence results ========================\n');
+fprintf('case flat localPF nominalOPF localOPF nominalOPF1cont\n');
+for c = 1:nc
+fprintf('%s ', cases{c});
+    for i = 1:na
+        fprintf('%d ', res.it(c, i));
+    end
+    fprintf('\n');
+end
