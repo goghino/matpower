@@ -82,21 +82,6 @@ function f = Wavelet(i, x, params)
    n = length(x)/3;
    
    f = x(i)*exp(-x(n+i)*(t-x(2*n+i)).^2);
- end
-
-
-function [t, y] = ScaleData(t0, data)
-
-	data_min = min(data);
-	data_max = max(data);
-
-	y        = (data - data_min) / (data_max - data_min);
-    
-    t0_min   = min(t0);
-    t0_max   = max(t0);
-
-    t        = 2*pi * (t0 - t0_min)/(t0_max - t0_min); 
-
 end
 
 % f=@(x)(3+sin(2*x-pi/2)+2*sin(4*x-pi/2)*x/10)/5 ; fplot(f, [0 2*pi])
