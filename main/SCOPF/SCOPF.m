@@ -1,19 +1,19 @@
 clear; close all;
 addpath( ...
-    '/home/juraj/matpower/lib', ...
-    '/home/juraj/matpower/lib/t', ...
-    '/home/juraj/matpower/data', ...
-    '/home/juraj/matpower/mips/lib', ...
-    '/home/juraj/matpower/mips/lib/t', ...
-    '/home/juraj/matpower/most/lib', ...
-    '/home/juraj/matpower/most/lib/t', ...
-    '/home/juraj/matpower/mptest/lib', ...
-    '/home/juraj/matpower/mptest/lib/t', ...
-    '/home/juraj/matpower-3.12.8', ...
+    '/Users/Juraj/Documents/Optimization/matpower/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/data', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mips/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mips/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/most/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/most/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mptest/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mptest/lib/t', ...
     '-end' );
 
 
-setenv('OMP_NUM_THREADS', '1')
+setenv('OMP_NUM_THREADS', '1');
+%setenv('IPOPT_WRITE_MAT','1');
 
 define_constants;
 %% Select and configure the solver
@@ -34,26 +34,50 @@ else
     mpopt = mpoption('opf.ac.solver', 'OPTIZELLE');
 end
 
-mpopt = mpoption(mpopt, 'opf.init_from_mpc', 0);
+mpopt = mpoption(mpopt, 'opf.init_from_mpc', 2);
 
 %% load MATPOWER case struct, see help caseformat
 %mpc = loadcase('case89pegase');
-%mpc = loadcase('case118');
+%mpc = loadcase('case_swiss');
+mpc = loadcase('case118');
+%mpc = loadcase('case9');
 %mpc = loadcase('case89pegase');
-mpc = loadcase('case1354pegase');
+%mpc = loadcase('case1354pegase');
+%mpc = loadcase('case2868rte');
 %mpc = loadcase('case9241pegase');
 %mpc = case231swiss;
+%mpc = loadcase('case_ACTIVSg2000');
 
+%%
 %insert missing branch limits
 no_limit = find(mpc.branch(:,RATE_A) < 1e-10);
 mpc.branch(no_limit,RATE_A) = 1e5;
 
+%FOR SWISS GRID, not enough Qg
+%mpc.gen(:,QMAX)=mpc.gen(:,QMAX)*10;
+%mpc.gen(:,QMIN)=mpc.gen(:,QMIN)+5*mpc.gen(:,QMIN);
+
+%% Print info on load and generation capacity of the CASE
+generatorsON = find(mpc.gen(:,GEN_STATUS) > 0);
+
+PGmin_sum = sum(mpc.gen(generatorsON,PMIN));
+PGmax_sum = sum(mpc.gen(generatorsON,PMAX));
+QGmin_sum = sum(mpc.gen(generatorsON,QMIN));
+QGmax_sum = sum(mpc.gen(generatorsON,QMAX));
+
+PD_sum = sum(mpc.bus(:,PD));
+QD_sum = sum(mpc.bus(:,QD));
+
+fprintf('     MIN       ACTUAL        MAX\n');
+fprintf('P: %.2f <= %.2f <= %.2f\n', PGmin_sum, PD_sum, PGmax_sum);
+fprintf('Q: %.2f <= %.2f <= %.2f\n', QGmin_sum, QD_sum, QGmax_sum);
+
 %% Specify contingencies case 118
-cont = -9999999;
+cont = -5;
 
 %% Set required tolerance for satysfying PF equations (i.e. equality constraints |gx| < tol) and run SCOPF
 tol = 1e-4;
-runscopf(mpc, cont, mpopt, tol);
+r = runscopf(mpc, cont, mpopt, tol);
 
 %%
 % read-in IPOPT hessian and permute it

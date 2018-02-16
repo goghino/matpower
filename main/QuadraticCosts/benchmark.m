@@ -217,7 +217,7 @@ for c = 1:nc
             Emax = 2; %% max capacity of the storage relative to a PD at given bus
             N = 1; %% Number of time periods
             
-            [r, SUCCESS] = MPOPF(rpf, mpopt{a}, N, Emax, Rcount, Rfirst);
+            [r, SUCCESS] = runmpopf_dummy(rpf, mpopt{a}, N, Emax, Rcount, Rfirst);
             %r = runopf(rpf, mpopt{a});            
 
             %% -- process results

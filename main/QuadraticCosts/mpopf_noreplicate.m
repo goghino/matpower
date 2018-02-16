@@ -23,7 +23,7 @@ warning('off','all');
 
 define_constants;
 %% create case
-mpc = case9;
+mpc = case1354pegase;
 
 %% initialization mode
 %  1 = default starting point
@@ -35,7 +35,8 @@ mpopt = mpoption('verbose', 2, 'out.all', 1);
 mpopt = mpoption(mpopt, 'opf.start', init_mode);
 
 %% load scaling profile for the time horizon
-profile = [1 2 3];
+profile = createLoadProfile();
+%profile = scaleLoadProfile(profile, mpc, 0, 0);
 
 %% mpc fixes as done by Alex
 mpc = ext2int(mpc); mpc = rmfield(mpc,'order');

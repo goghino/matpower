@@ -1,7 +1,7 @@
 function [busout, genout, branchout, f, success, info, et, g, jac, xr, pimul] = ...
     mpopf(mpc, profile, mpopt)
-%OPF  Solves an optimal power flow.
-%   [RESULTS, SUCCESS] = OPF(MPC, MPOPT)
+%MPOPF  Solves an optimal power flow.
+%   [RESULTS, SUCCESS] = MPOPF(MPC, PROFILE, MPOPT)
 %
 %   Returns either a RESULTS struct and an optional SUCCESS flag, or individual
 %   data matrices, the objective function value and a SUCCESS flag. In the
@@ -220,6 +220,16 @@ if size(mpc.branch,2) < MU_ANGMAX
   mpc.branch = [ mpc.branch zeros(nl, MU_ANGMAX-size(mpc.branch,2)) ];
 end
 
+%%-----  make sure load scaling profile is a row vector            -------
+if(size(profile,1) <= 0 || size(profile,2) <= 0)
+   error('Load scaling profile cannot be empty'); 
+end
+
+%transform profile to row vector
+if(size(profile,1) > 1)
+    profile = profile';
+end
+
 %%-----  convert to internal numbering, remove out-of-service stuff  -----
 % Storage devices are appended to the mpc.gen struct. Ext2int requires
 % ordering of mpc.gen according to increasing bus number.
@@ -326,6 +336,13 @@ VMi = nb + (1:nb);
 PGi = 2*nb + (1:ng);
 QGi = 2*nb + ng + (1:ng);
 
+% We need to permute columns of the A
+% The ordering of variables is:
+% Va(1-N)   Vm(1-N)  Pg(1-N) Pg_dis(1-N) Pg_c(1-N) and same for Qg... 
+% The goal is to have ordering
+% Va(1-N)   Vm(1-N)  [Pg(1) Pg_dis(1) Pg_c(1)].ext2int  [...(2)].ext2int
+% the reasong for applying ext2int is to sort generators according to
+% increasing bus number
 function Ap = ext2intA(mpc, nt, A)
 nb = size(mpc.bus, 1);          %% number of buses
 ns = mpc.nstorage;              %% number of storages

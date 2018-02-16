@@ -16,5 +16,29 @@ function spyKKT(name, ns, mpc)
     
     spy(A);
     figure; spy(AP);
+    
+    set(gca,'xtick',[])
+    set(gca,'xticklabel',[])
+    set(gca,'yticklabel',[])
+    set(gca,'ytick',[])
+    %set(gca,'FontSize',20)
+    
+    %visualize magnitude using surf()
+%   [X,Y] = meshgrid(1:size(A,1),1:size(A,2));
+%   figure; surf(X,Y,A)
+    
+    %visualize magnitude using patch()
+%   [m, n] = size(A);
+%   nonzeroInd = find(A);
+%   [x, y] = ind2sub([m n], nonzeroInd);
+% 
+%   figure();
+%   hp = patch(x, y, A(nonzeroInd), ...
+%            'Marker', 's', 'MarkerFaceColor', 'flat', 'MarkerSize', 4, ...
+%            'EdgeColor', 'none', 'FaceColor', 'none');
+%   set(gca, 'XLim', [0, n + 1], 'YLim', [0, m + 1], 'YDir', 'reverse', ...
+%   'PlotBoxAspectRatio', [n + 1, m + 1, 1]);
+% 
+%   colorbar();
 
 end

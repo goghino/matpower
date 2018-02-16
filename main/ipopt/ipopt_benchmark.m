@@ -1,4 +1,4 @@
-load('ipopt_benchmark.mat'); 
+load('ipopt_benchmark_new.mat'); 
 
 N = length(bench_params);
 
@@ -14,7 +14,10 @@ for i = 1:N
 end
 
 [sorted, idx] = sort(mu,'ascend');
-[sorted, sigma(idx), failed(idx)]
+fprintf('Avg_it\tStddev\tfailed\n');
+fprintf('%.2f\t%.2f\t%d\n',[sorted, sigma(idx), failed(idx)].');
 
 %% print the best set of params
 bench_params{idx(1)}
+bench_params{idx(2)}
+bench_params{idx(3)}

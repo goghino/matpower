@@ -15,6 +15,7 @@ addpath( ...
 
 addpath( ...
     '/Users/Juraj/Documents/Optimization/matpower/lib/mpopf', ...
+    '/Users/Juraj/Documents/Optimization/matpower/lib/mpopf/ticinoData', ...
     '-end' );
 
 setenv('OMP_NUM_THREADS', '1')
@@ -23,7 +24,7 @@ warning('off','all');
 
 define_constants;
 %% create case
-mpc = case9;
+mpc = case1354pegase;
 
 %% initialization mode
 %  1 = default starting point
@@ -33,6 +34,7 @@ init_mode = 1;
 
 mpopt = mpoption('verbose', 2, 'out.all', 1);
 mpopt = mpoption(mpopt, 'opf.start', init_mode);
+mpopt = mpoption(mpopt, 'opf.ac.solver', 'IPOPT');
                             
 %%
 Rfirst = 0.00; %% relative position of the storage placement when sorted by PD from largest first
@@ -40,4 +42,4 @@ Rcount = 0.02; %% fraction of the PD buses that will have storage
 Emax = 2; %% max capacity of the storage relative to a PD at given bus
 N = 1; %% Number of time periods
 
-[r, SUCCESS] = MPOPF(mpc, mpopt, N, Emax, Rcount, Rfirst);
+[r, SUCCESS] = runmpopf_dummy(mpc, mpopt, N, Emax, Rcount, Rfirst);
