@@ -2,16 +2,19 @@ clc
 close all
 
 addpath( ...
-    '/home/juraj/matpower-3.12.8', ...
-    '/home/juraj/matpower-3.12.8/lib', ...
-    '/home/juraj/matpower-3.12.8/lib/t', ...
-    '/home/juraj/matpower-3.12.8/data', ...
-    '/home/juraj/matpower-3.12.8/mips/lib', ...
-    '/home/juraj/matpower-3.12.8/mips/lib/t', ...
-    '/home/juraj/matpower-3.12.8/most/lib', ...
-    '/home/juraj/matpower-3.12.8/most/lib/t', ...
-    '/home/juraj/matpower-3.12.8/mptest/lib', ...
-    '/home/juraj/matpower-3.12.8/mptest/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/data', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mips/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mips/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/most/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/most/lib/t', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mptest/lib', ...
+    '/Users/Juraj/Documents/Optimization/matpower/mptest/lib/t', ...
+    '-end' );
+
+addpath( ...
+    '/Users/Juraj/Documents/Optimization/matpower/lib/mpopf', ...
     '-end' );
 
 setenv('OMP_NUM_THREADS', '1')
@@ -24,25 +27,25 @@ define_constants;
 %%  1 = default starting point
 %%  2 = starting point taken directly from mpc
 %%  3 = AC power flow solution used as starting point
-init_mode = 3;
+init_mode = 1;
 
-mpopt0 = mpoption('verbose', 0, 'out.all', 0);
+mpopt0 = mpoption('verbose', 2, 'out.all', 1);
 mpopt0 = mpoption(mpopt0, 'opf.start', init_mode);
 
 cases = {  
-    'case39',
-    'case57',
-    'case1354pegase',
-    'case1888rte',
-     'case1951rte',
-     'case2383wp',
-     'case2736sp',
-     'case2737sop',
-     'case2746wop',
-     'case2746wp',
-     'case2848rte',
-     'case2868rte',
-     'case2869pegase',
+%     'case39',
+%     'case57',
+%     'case1354pegase',
+    'case9',
+%      'case1951rte',
+%      'case2383wp',
+%      'case2736sp',
+%      'case2737sop',
+%      'case2746wop',
+%      'case2746wp',
+%      'case2848rte',
+%      'case2868rte',
+%      'case2869pegase',
 %    'case_ieee30',
 %    'case30',
 %    'case39',
@@ -304,5 +307,3 @@ fprintf('---------------  --------  --------  --------\n');
 for a = 1:na
     fprintf('%-15s%8d%12g%9d\n', solvers{a}, failures(a), total_et(a), total_it(a));
 end
-
-exit
