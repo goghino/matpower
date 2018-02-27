@@ -1,4 +1,4 @@
-function d2H = mpopf_branch_flow_hess(x, lambda, mpc, mpopf_aux, Yf, Yt, il, mpopt)
+function d2H = mpopf_branch_flow_hess(x, lambda, time_period, mpc, mpopf_aux, Yf, Yt, il, mpopt)
 %OPF_BRANCH_FLOW_HESS  Evaluates Hessian of branch flow constraints.
 %The function iterates for each timeperiod and puts the resulting matrices
 %in the global Jacobian/Hessian with proper offsets
@@ -11,6 +11,8 @@ function d2H = mpopf_branch_flow_hess(x, lambda, mpc, mpopf_aux, Yf, Yt, il, mpo
 %     X : optimization vector
 %     LAMBDA : column vector of Kuhn-Tucker multipliers on constrained
 %              branch flows
+%     TIME_PERIOD: if negative, evaluates hessian of the full time horzion,
+%                  othervise only requested time period is evaluated (1:Nt)
 %     MPC : MATPOWER case struct
 %     MPOPF_AUX:
 %           .profile
@@ -55,10 +57,25 @@ Nt = length(profile);
 nb = size(mpc.bus,1);            %% number of buses
 nl2 = size(mpc.branch,1);        %% number of constrained lines
 nx = length(x);                  %% number of optimization variables
+nrows = 0;                       %% size of the Hessian matrix (nrows x nrows)
+time_horizont = [];              %% list of time periods to be evaluated
 
-d2H = sparse(nx,nx);
+%properly set size of the Hessian, depending if we want only single
+%period or whole horizont, based on the paramter time_period
+if (time_period < 0)
+    %whole time horizon
+    nrows = nx;
+    time_horizont = [1:Nt]; 
+elseif (time_period > 0)
+    %only single period
+    nrows = length([VAopf, VMopf, PGopf, QGopf]);
+    time_horizont = [time_period];
+else
+    error('Parameter time_period is either negative or positive, cannot be zero!');    
+end
+d2H = sparse(nrows,nrows);
 
-for i = 1:Nt
+for i = time_horizont
     %% manage variable and constraints indexing
     
     % extract x indexes for the current time period
@@ -109,5 +126,12 @@ for i = 1:Nt
     end
 
     %% construct Hessian for period i with proper offsets
-    d2H(idx([VAopf VMopf]), idx([VAopf VMopf])) = [Hfaa Hfav; Hfva Hfvv] + [Htaa Htav; Htva Htvv];
+    if (length(time_horizont) > 1)
+        %whole time horizon Hessian
+        d2H(idx([VAopf VMopf]), idx([VAopf VMopf])) = [Hfaa Hfav; Hfva Hfvv] + [Htaa Htav; Htva Htvv];
+    else
+        %single period Hessian
+        d2H = [Hfaa Hfav; Hfva Hfvv] + [Htaa Htav; Htva Htvv];
+    end
+    
 end

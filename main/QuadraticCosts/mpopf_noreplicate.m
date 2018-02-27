@@ -15,6 +15,7 @@ addpath( ...
 
 addpath( ...
     '/Users/Juraj/Documents/Optimization/matpower/lib/mpopf', ...
+    '/Users/Juraj/Documents/Optimization/matpower/lib/mpopf/ticinoData', ...
     '-end' );
 
 setenv('OMP_NUM_THREADS', '1')
@@ -24,6 +25,11 @@ warning('off','all');
 define_constants;
 %% create case
 mpc = case1354pegase;
+
+% mpc fixes as done by Alex
+mpc = ext2int(mpc); mpc = rmfield(mpc,'order');
+mpc.branch(mpc.branch(:,RATE_A)==0,RATE_A) = 9900;
+mpc.gen(:,PMIN) = 0;
 
 %% initialization mode
 %  1 = default starting point
@@ -36,12 +42,7 @@ mpopt = mpoption(mpopt, 'opf.start', init_mode);
 
 %% load scaling profile for the time horizon
 profile = createLoadProfile();
-%profile = scaleLoadProfile(profile, mpc, 0, 0);
-
-%% mpc fixes as done by Alex
-mpc = ext2int(mpc); mpc = rmfield(mpc,'order');
-mpc.branch(mpc.branch(:,RATE_A)==0,RATE_A) = 9900;
-mpc.gen(:,PMIN) = 0;
+profile = scaleLoadProfile(profile, mpc, 0, 0);
 
 %% prepare the storages
 Rfirst = 0.00; %% relative position of the storage placement when sorted by PD from largest first

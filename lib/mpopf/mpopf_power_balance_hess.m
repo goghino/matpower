@@ -1,4 +1,4 @@
-function d2G = mpopf_power_balance_hess(x, lambda, mpc, mpopf_aux, Ybus, mpopt)
+function d2G = mpopf_power_balance_hess(x, lambda, time_period, mpc, mpopf_aux, Ybus, mpopt)
 %MPOPF_POWER_BALANCE_HESS  Evaluates Hessian of power balance constraints.
 %The function iterates for each timeperiod and puts the resulting matrices
 %in the global Jacobian/Hessian with proper offsets
@@ -12,6 +12,8 @@ function d2G = mpopf_power_balance_hess(x, lambda, mpc, mpopf_aux, Ybus, mpopt)
 %     X : optimization vector 
 %     LAMBDA : column vector of Lagrange multipliers on active and reactive
 %              power balance constraints
+%     TIME_PERIOD: if negative, evaluates hessian of the full time horzion,
+%                  othervise only requested time period is evaluated (1:Nt)
 %     MPOPF_AUX:
 %           .profile
 %           .index.getLocalIndicesOPF
@@ -50,10 +52,26 @@ mpcBusLoadNominal = mpc.bus(:,3:4);
 nb = size(mpc.bus,1);            %% number of buses
 ng = size(mpc.gen,1);            %% number of dispatchable injections
 nx = length(x); 
+nrows = 0;                       %% size of the Hessian matrix (nrows x nrows)
+time_horizont = [];              %% list of time periods to be evaluated
 
-d2G = sparse(nx,nx);
+%properly set size of the Hessian, depending if we want only single
+%period or whole horizont, based on the paramter time_period
+if (time_period < 0)
+    %whole time horizon
+    nrows = nx;
+    time_horizont = [1:Nt]; 
+elseif (time_period > 0)
+    %only single period
+    nrows = length([VAopf, VMopf, PGopf, QGopf]);
+    time_horizont = [time_period];
+else
+    error('Parameter time_period is either negative or positive, cannot be zero!');    
+end
 
-for i = 1:Nt
+d2G = sparse(nrows,nrows);
+
+for i = time_horizont
     %% update mpc by load scaling profile for this period by scaling PD, QD
     load_factor = profile(i);
     mpc.bus(:,3:4) = mpc.bus(:,3:4) * load_factor;
@@ -70,8 +88,6 @@ for i = 1:Nt
     %% unpack data
     Va = x(idx(VAopf));
     Vm = x(idx(VMopf));
-    Pg = x(idx(PGopf));
-    Qg = x(idx(QGopf));
 
     %% reconstruct V
     V = Vm .* exp(1j * Va);
@@ -93,6 +109,15 @@ for i = 1:Nt
     [Gqaa, Gqav, Gqva, Gqvv] = d2Sbus_dV2(Ybus, V, lamQ);
 
     %% construct Hessian for period i with proper offsets
-    d2G(idx([VAopf VMopf]), idx([VAopf VMopf])) = real([Gpaa Gpav; Gpva Gpvv]) + imag([Gqaa Gqav; Gqva Gqvv]);
+    if (length(time_horizont) > 1)
+        %whole time horizon Hessian
+        d2G(idx([VAopf VMopf]), idx([VAopf VMopf])) = real([Gpaa Gpav; Gpva Gpvv]) + imag([Gqaa Gqav; Gqva Gqvv]);
+    else
+        %single period Hessian
+        d2G = real([Gpaa Gpav; Gpva Gpvv]) + imag([Gqaa Gqav; Gqva Gqvv]);
+    end
+    
+    %% return the load scaling for the next iteration to nominal state
+    mpc.bus(:,3:4) = mpcBusLoadNominal;
 end
 

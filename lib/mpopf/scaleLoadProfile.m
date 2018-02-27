@@ -39,7 +39,7 @@ prof_min = PGmin_sum / PD_sum;
 prof_max = PGmax_sum / PD_sum;
 fprintf('%.2f <= alpha <= %.2f\n\n', prof_min, prof_max);
 
-ALPHA_MIN = 0.3; 
+ALPHA_MIN = 0.8; 
 ALPHA_MAX = 1.0;
 fprintf('Used fixed bounds (%.2f, %.2f) on alfa:\n', ALPHA_MIN, ALPHA_MAX);
 

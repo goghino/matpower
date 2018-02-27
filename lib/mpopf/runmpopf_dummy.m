@@ -21,9 +21,10 @@ p_storage = createStorage(mpc, Rfirst, Rcount, Emax);
 %% set load scaling profile and scale it to respect PG/QG generation limits
 load_scaling_profile = createLoadProfile();
 
-%storage_load = abs(p_storage.E_storage_max_MWh * p_storage.rPminEmax_MW_per_MWh);
-%storage_injection = p_storage.E_storage_max_MWh * p_storage.rPmaxEmax_MW_per_MWh;
+storage_load = abs(p_storage.E_storage_max_MWh * p_storage.rPminEmax_MW_per_MWh);
+storage_injection = p_storage.E_storage_max_MWh * p_storage.rPmaxEmax_MW_per_MWh;
 %load_scaling_profile = scaleLoadProfile(load_scaling_profile, mpc, storage_injection, storage_load);
+load_scaling_profile = scaleLoadProfile(load_scaling_profile, mpc, 0, 0);
 
 %repeat data for required no. of days
 load_scaling_profile       = kron(ones(N,1), load_scaling_profile);

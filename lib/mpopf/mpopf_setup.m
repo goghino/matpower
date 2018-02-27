@@ -316,8 +316,8 @@ else
 %Eval the mismatch eqs for the whole time horizon with scaled PD, QD
 %The function iterates for each timeperiod and puts the resulting matrices
 %in the global Jacobian/Hessian with proper offsets
-fcn_mis = @(x)mpopf_power_balance_fcn(x, mpc, mpopf_aux, Ybus, mpopt);
-hess_mis = @(x, lam)mpopf_power_balance_hess(x, lam, mpc, mpopf_aux, Ybus, mpopt);
+fcn_mis = @(x, time_period)mpopf_power_balance_fcn(x, time_period, mpc, mpopf_aux, Ybus, mpopt);
+hess_mis = @(x, lam, time_period)mpopf_power_balance_hess(x, lam, time_period, mpc, mpopf_aux, Ybus, mpopt);
 
 isEq = 1;
 om.add_nln_constraint({'Pmis','Qmis'}, [Nt*nb; Nt*nb], isEq, fcn_mis, hess_mis);
@@ -327,8 +327,8 @@ om.add_nln_constraint({'Pmis','Qmis'}, [Nt*nb; Nt*nb], isEq, fcn_mis, hess_mis);
 %eval the flow ineqs for the whole time horizon
 %The function iterates for each timeperiod and puts the resulting matrices
 %in the global Jacobian/Hessian with proper offsets
-fcn_flow = @(x)mpopf_branch_flow_fcn(x, mpc, mpopf_aux, Yf(il, :), Yt(il, :), il, mpopt);
-hess_flow = @(x, lam)mpopf_branch_flow_hess(x, lam, mpc, mpopf_aux, Yf(il, :), Yt(il, :), il, mpopt);  
+fcn_flow = @(x, time_period)mpopf_branch_flow_fcn(x, time_period, mpc, mpopf_aux, Yf(il, :), Yt(il, :), il, mpopt);
+hess_flow = @(x, lam, time_period)mpopf_branch_flow_hess(x, lam, time_period, mpc, mpopf_aux, Yf(il, :), Yt(il, :), il, mpopt);  
 
 isEq = 0;
 om.add_nln_constraint({'Sf','St'}, [Nt*nl;Nt*nl], isEq, fcn_flow, hess_flow);

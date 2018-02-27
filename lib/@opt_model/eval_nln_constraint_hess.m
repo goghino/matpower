@@ -1,4 +1,4 @@
-function d2G = eval_nln_constraint_hess(om, x, lam, iseq)
+function d2G = eval_nln_constraint_hess(om, x, lam, iseq, time_period)
 %EVAL_NLN_CONSTRAINT_HESS  Builds and returns Hessian of nonlinear constraints.
 %   D2G = OM.EVAL_NLN_CONSTRAINT_HESS(X, LAM, ISEQ)
 %   Builds the Hessian of the full set of nonlinear equality or inequality
@@ -23,6 +23,13 @@ function d2G = eval_nln_constraint_hess(om, x, lam, iseq)
 %   See http://www.pserc.cornell.edu/matpower/ for more info.
 
 %% get constraint type
+TIME_NOT_SPECIFIED = 0;
+if (nargin < 5)
+    time_period = TIME_NOT_SPECIFIED; 
+elseif (time_period == 0)
+    error('Parameter time_period has to be either negative or positive, cannot be zero!');
+end
+
 if iseq         %% equality constraints
     om_nlx = om.nle;
 else            %% inequality constraints
@@ -30,7 +37,18 @@ else            %% inequality constraints
 end
 
 %% initialize d2G (use transpose for speed on older versions of MATLAB)
-d2Gt = sparse(om.var.N, om.var.N);
+%properly set size of the Hessian, depending if we want only single
+%period or whole horizont, based on the paramter time_period
+if (time_period <= 0)
+    %whole time horizon
+    nrows = om.var.N;
+elseif (time_period > 0)
+    %only single period
+    mpc = om.get_mpc();
+    nrows = 2*size(mpc.bus,1) + 2*size(mpc.gen,1); 
+end
+
+d2Gt = sparse(nrows, nrows);
 
 %% calls to substruct() are relatively expensive, so we pre-build the
 %% structs for addressing cell and numeric array fields, updating only
@@ -77,7 +95,11 @@ for k = 1:om_nlx.NS
             vs = subsref(om_nlx.data.vs, sc);   %% var sets
         end
         xx = om.varsets_x(x, vs);
-        d2Gk = d2G_fcn(xx, lam(i1:iN));     %% evaluate kth Hessian
+        if (time_period == TIME_NOT_SPECIFIED)
+            d2Gk = d2G_fcn(xx, lam(i1:iN));     %% evaluate kth Hessian
+        else
+            d2Gk = d2G_fcn(xx, lam(i1:iN), time_period);     %% evaluate kth Hessian
+        end
         
         nk = size(d2Gk, 2);
         if isempty(vs)          %% all rows of x

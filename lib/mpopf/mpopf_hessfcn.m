@@ -1,4 +1,4 @@
-function Lxx = mpopf_hessfcn(x, lambda, cost_mult, mpopf_aux)
+function Lxx = mpopf_hessfcn(x, lambda, cost_mult, time_period, mpopf_aux)
 %MPOPF_HESSFCN  Evaluates Hessian of Lagrangian for AC MPOPF.
 %   LXX = MPOPF_HESSFCN(X, LAMBDA, COST_MULT, SCOPF_AUX)
 %
@@ -12,9 +12,11 @@ function Lxx = mpopf_hessfcn(x, lambda, cost_mult, mpopf_aux)
 %       .ineqnonlin : Kuhn-Tucker multipliers on constrained branch flows
 %     COST_MULT : (optional) Scale factor to be applied to the cost
 %          (default = 1).
-%     SCOPF_AUX : auxiliary SCOPF data
+%     TIME_PERIOD: if negative, evaluates hessian of the full time horzion,
+%                  othervise only requested time period is evaluated (1:Nt)
+%     MPOPF_AUX : auxiliary SCOPF data
 %           .om
-%           .cont
+%           .profile
 %           .index
 %
 %   Outputs:
@@ -38,7 +40,9 @@ function Lxx = mpopf_hessfcn(x, lambda, cost_mult, mpopf_aux)
 %% default args
 if isempty(cost_mult)
     cost_mult = 1;
+    error('Check this');
 end
+
 
 %% unpack data
 om = mpopf_aux.om;
@@ -61,10 +65,21 @@ Nt = length(profile);
 nl = size(branch, 1);       %% number of branches
 ng = size(gen, 1);          %% number of dispatchable injections
 nxyz = length(x);           %% total number of control vars of all types
+nrows = 0;                  %% size of the Hessian matrix (nrows x nrows)
+time_horizont = [];         %% list of time periods to be evaluated
 
-%% set default constrained lines
-if nargin < 8
-    il = (1:nl);            %% all lines have limits by default
+%properly set size of the Hessian, depending if we want only single
+%period or whole horizont, based on the paramter time_period
+if (time_period < 0)
+    %whole time horizon
+    nrows = nxyz;
+    time_horizont = [1:Nt]; 
+elseif (time_period > 0)
+    %only single period
+    nrows = length([VAopf, VMopf, PGopf, QGopf]);
+    time_horizont = [time_period];
+else
+    error('Parameter time_period is either negative or positive, cannot be zero!');    
 end
 
 %% reconstruct V
@@ -76,13 +91,12 @@ else
 end
 
 %% ----- evaluate d2f -----
-d2f = sparse(nxyz, nxyz);
-for i = 1:Nt
+d2f = sparse(nrows, nrows);
+for i = time_horizont
     % grab Pg & Qg
     idx = mpopf_aux.index.getGlobalIndices(mpc, Nt, i-1);
     Pg = x(idx(PGopf));  %% active generation in p.u.
     Qg = x(idx(QGopf));  %% reactive generation in p.u.
-
 
     d2f_dPg2 = sparse(ng, 1);               %% w.r.t. p.u. Pg
     d2f_dQg2 = sparse(ng, 1);               %% w.r.t. p.u. Qg
@@ -108,13 +122,13 @@ end
 d2f = d2f * cost_mult;
 
 %% ----- evaluate Hessian of power balance constraints -----
-%calls our callbacks hess_miss(x, lam) from mpopf_setup.m
+%calls our callbacks hess_miss(x, lam, t) from mpopf_setup.m
 %where all the MPOPF specific indexing is handled
-d2G = om.eval_nln_constraint_hess(x, lambda.eqnonlin, 1);
+d2G = om.eval_nln_constraint_hess(x, lambda.eqnonlin, 1, time_period);
 
 %% ----- evaluate Hessian of flow constraints -----
-%calls our callbacks hess_flow(x, lam) from mpopf_setup.m
+%calls our callbacks hess_flow(x, lam, t) from mpopf_setup.m
 %where all the MPOPF specific indexing is handled
-d2H = om.eval_nln_constraint_hess(x, lambda.ineqnonlin, 0);
+d2H = om.eval_nln_constraint_hess(x, lambda.ineqnonlin, 0, time_period);
 
 Lxx = tril(d2f + d2G + d2H);

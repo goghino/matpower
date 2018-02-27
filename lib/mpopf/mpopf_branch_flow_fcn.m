@@ -1,4 +1,4 @@
-function [h, dh] = mpopf_branch_flow_fcn(x, mpc, mpopf_aux, Yf, Yt, il, mpopt)
+function [h, dh] = mpopf_branch_flow_fcn(x, time_period, mpc, mpopf_aux, Yf, Yt, il, mpopt)
 %MPOPF_BRANCH_FLOW_FCN  Evaluates AC branch flow constraints and Jacobian.
 %The function iterates for each timeperiod and puts the resulting matrices
 %in the global Jacobian/Hessian with proper offsets
@@ -10,6 +10,8 @@ function [h, dh] = mpopf_branch_flow_fcn(x, mpc, mpopf_aux, Yf, Yt, il, mpopt)
 %
 %   Inputs:
 %     X : optimization vector
+%     TIME_PERIOD: if negative, evaluates hessian of the full time horzion,
+%                  othervise only requested time period is evaluated (1:Nt)
 %     MPC : MATPOWER case struct
 %     MPOPF_AUX:
 %           .profile
@@ -62,10 +64,29 @@ Nt = length(profile);
 nb = size(mpc.bus,1);            %% number of buses
 nl2 = size(mpc.branch,1);        %% number of constrained lines
 nx = length(x);                  %% number of optimization variables
+nrows = 0;                       %% number of constraints
+ncols = 0;                       %% number of variables
+time_horizont = [];              %% list of time periods to be evaluated
 
-h = zeros(Nt*2*nl2,1);
+%properly set size of the Hessian, depending if we want only single
+%period or whole horizont, based on the paramter time_period
+if (time_period < 0)
+    %whole time horizon
+    nrows = Nt*2*nl2;
+    ncols = nx;
+    time_horizont = [1:Nt]; 
+elseif (time_period > 0)
+    %only single period
+    nrows = 2*nl2;
+    ncols = length([VAopf, VMopf, PGopf, QGopf]);
+    time_horizont = [time_period];
+else
+    error('Parameter time_period is either negative or positive, cannot be zero!');    
+end
+
+h = zeros(nrows,1);
 if nargout > 1
-    dh = sparse(Nt*2*nl2, nx);
+    dh = sparse(nrows, ncols);
 end
 
 for i = 1:Nt    
@@ -114,9 +135,14 @@ for i = 1:Nt
             end
         end
 
-        % put the constraints to proper positions
-        h(idxF) = flow(1:nl2);
-        h(idxT) = flow((nl2+1):end);
+        if (length(time_horizont) > 1)
+            %multi-period case
+            h(idxF) = flow(1:nl2);
+            h(idxT) = flow((nl2+1):end);
+        else
+            %single period case
+            h = flow;
+        end
     else
         h = zeros(0,1);
     end
@@ -147,10 +173,15 @@ for i = 1:Nt
                 [df_dVa, df_dVm, dt_dVa, dt_dVm] = ...
                       dAbr_dV(dFf_dVa, dFf_dVm, dFt_dVa, dFt_dVm, Ff, Ft);
             end
+            
             %% construct Jacobian of "from" branch flow ineq constraints
-            dh(idxF, idx([VAopf VMopf])) = [df_dVa df_dVm]; %% "from" flow limit
-            dh(idxT, idx([VAopf VMopf])) = [dt_dVa dt_dVm]; %% "to" flow limit
-
+            if (length(time_horizont) > 1)
+                dh(idxF, idx([VAopf VMopf])) = [df_dVa df_dVm]; %% "from" flow limit
+                dh(idxT, idx([VAopf VMopf])) = [dt_dVa dt_dVm]; %% "to" flow limit
+            else
+                dh(:,[VAopf VMopf]) = [df_dVa df_dVm; ...
+                                       dt_dVa dt_dVm];
+            end
         else
             dh = sparse(0, 2*nb);
         end

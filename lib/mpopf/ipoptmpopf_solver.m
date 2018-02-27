@@ -179,10 +179,14 @@ options.cu = [zeros(neq, 1); zeros(niq, 1); u+1e-10];
 
 %% build Jacobian and Hessian structure
 randx = rand(size(x0));
-[h, g, dh, dg] = opf_consfcn(randx, om, Ybus, Yf(il,:), Yt(il,:), mpopt, il);
+time_period = -1; %hessian of the full time horizont
+
+[h, g, dh, dg] = mpopf_consfcn(randx, time_period, om, Ybus, Yf(il,:), Yt(il,:), mpopt, il);
 Js = [dg'; dh'; A];
+
 lam = struct('eqnonlin', ones(size(dg,2),1), 'ineqnonlin', ones(size(dh,2),1) );
-Hs = tril(mpopf_hessfcn(randx, lam, 1, options.auxdata));
+cost_mult = 1;
+Hs = tril(mpopf_hessfcn(randx, lam, cost_mult, time_period, options.auxdata));
 
 %% assign function handles
 funcs.objective         = @objective;
@@ -218,7 +222,7 @@ f = opf_costfcn(x, om);
 
 %% print value of the constraints
 %disp('Final value of the constraints:');
-%[hn, gn] = opf_consfcn(x, om, Ybus, Yf, Yt, mpopt, il)
+%[hn, gn] = mpopf_consfcn(x, time_period, om, Ybus, Yf, Yt, mpopt, il)
 
 results = mpc;
 [results.om, results.x, results.f] = ...
@@ -227,8 +231,8 @@ results = mpc;
 raw = struct('xr', x, 'info', info.status, 'output', output);
 
 %-----  callback functions  -----
-% opf_costfcn
-% opf_consfcn()
+% mpopf_costfcn
+% mpopf_consfcn()
 % mpopf_hessfcn()
 %  are calling the callbacks defined in mpopf_setup.m
 %  mpopf_power_flow_fcn/hess()
@@ -236,13 +240,16 @@ raw = struct('xr', x, 'info', info.status, 'output', output);
 %  or evaluates costs defined by add_quad_cost() coefficients
 
 function f = objective(x, d)
-f = opf_costfcn(x, d.om);
+time_period = -1;
+f = mpopf_costfcn(x, d.om, time_period);
 
 function df = gradient(x, d)
-[f, df] = opf_costfcn(x, d.om);
+time_period = -1;
+[f, df] = mpopf_costfcn(x, d.om, time_period);
 
 function c = constraints(x, d)
-[hn, gn] = opf_consfcn(x, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
+time_period = -1;
+[hn, gn] = mpopf_consfcn(x, time_period, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 if isempty(d.A)
     c = [gn; hn];
 else
@@ -250,15 +257,20 @@ else
 end
 
 function J = jacobian(x, d)
-[hn, gn, dhn, dgn] = opf_consfcn(x, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
+time_period = -1;
+[hn, gn, dhn, dgn] = mpopf_consfcn(x, time_period, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
 J = [dgn'; dhn'; d.A];
+
+% [hn, gn, dhn, dgn] = mpopf_consfcn(x, 2, d.om, d.Ybus, d.Yf, d.Yt, d.mpopt, d.il);
+% J = [dgn'; dhn'];
 
 
 function H = hessian(x, sigma, lambda, d)
 lam.eqnonlin   = lambda(1:d.neqnln);
 lam.ineqnonlin = lambda(d.neqnln+(1:d.niqnln));
 
-H = tril(mpopf_hessfcn(x, lam, sigma, d));
+time_period = -1;
+H = tril(mpopf_hessfcn(x, lam, sigma, time_period, d));
 
 % function Js = jacobianstructure(d)
 % Js = d.Js;

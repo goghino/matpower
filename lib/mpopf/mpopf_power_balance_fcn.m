@@ -1,4 +1,4 @@
-function [g, dg] = mpopf_power_balance_fcn(x, mpc, mpopf_aux, Ybus, mpopt)
+function [g, dg] = mpopf_power_balance_fcn(x, time_period, mpc, mpopf_aux, Ybus, mpopt)
 %OPF_POWER_BALANCE_FCN  Evaluates AC power balance constraints and their gradients.
 %The function iterates for each timeperiod and puts the resulting matrices
 %in the global Jacobian/Hessian with proper offsets
@@ -10,6 +10,8 @@ function [g, dg] = mpopf_power_balance_fcn(x, mpc, mpopf_aux, Ybus, mpopt)
 %
 %   Inputs:
 %     X : optimization vector
+%     TIME_PERIOD: if negative, evaluates hessian of the full time horzion,
+%                  othervise only requested time period is evaluated (1:Nt)
 %     MPC : MATPOWER case struct
 %     MPOPF_AUX:
 %           .profile
@@ -55,13 +57,32 @@ mpcBusLoadNominal = mpc.bus(:,3:4);
 nb = size(mpc.bus,1);            %% number of buses
 ng = size(mpc.gen,1);            %% number of dispatchable injections
 nx = length(x);                  %% number of optimization variables
+nrows = 0;                       %% number of constraints
+ncols = 0;                       %% number of variables
+time_horizont = [];              %% list of time periods to be evaluated
 
-g = zeros(Nt*2*nb,1);
-if nargout > 1
-    dg = sparse(Nt*2*nb, nx);
+%properly set size of the Hessian, depending if we want only single
+%period or whole horizont, based on the paramter time_period
+if (time_period < 0)
+    %whole time horizon
+    nrows = Nt*2*nb;
+    ncols = nx;
+    time_horizont = [1:Nt]; 
+elseif (time_period > 0)
+    %only single period
+    nrows = 2*nb;
+    ncols = length([VAopf, VMopf, PGopf, QGopf]);
+    time_horizont = [time_period];
+else
+    error('Parameter time_period is either negative or positive, cannot be zero!');    
 end
 
-for i = 1:Nt
+g = zeros(nrows,1);
+if nargout > 1
+    dg = sparse(nrows, ncols);
+end
+
+for i = time_horizont
     %% update mpc by load scaling profile for this period by scaling PD, QD
     load_factor = profile(i);
     mpc.bus(:,3:4) = mpc.bus(:,3:4) * load_factor;
@@ -97,9 +118,15 @@ for i = 1:Nt
     %% evaluate complex power balance mismatches
     mis = V .* conj(Ybus * V) - Sbus;
 
-    %% assemble active and reactive power balance constraints    
-    g(idxRe,1) = real(mis);    %% active power mismatch
-    g(idxIm,1) = imag(mis);    %% reactive power mismatch
+    %% assemble active and reactive power balance constraints   
+    if (length(time_horizont) > 1)
+        %multi-period case
+        g(idxRe,1) = real(mis);    %% active power mismatch
+        g(idxIm,1) = imag(mis);    %% reactive power mismatch
+    else
+        %single period case
+        g = [real(mis); imag(mis)];
+    end
 
     %%----- evaluate constraint gradients -----
     if nargout > 1
@@ -112,11 +139,19 @@ for i = 1:Nt
         dSbus_dVm = dSbus_dVm - neg_dSd_dVm;
 
         %% create proper offsets in Jacobian
-        dg(idxRe, idx([VAopf VMopf])) = real([dSbus_dVa dSbus_dVm]);  %% P mismatch w.r.t Va, Vm
-        dg(idxRe, idx(PGopf)) = neg_Cg ;                              %% P mismatch w.r.t Pg
-        
-        dg(idxIm, idx([VAopf VMopf])) = imag([dSbus_dVa dSbus_dVm]);  %% Q mismatch w.r.t Va, Vm
-        dg(idxIm, idx(QGopf)) = neg_Cg ;                              %% Q mismatch w.r.t Qg
+        if (length(time_horizont) > 1)
+            %multiperiod case
+            dg(idxRe, idx([VAopf VMopf])) = real([dSbus_dVa dSbus_dVm]);  %% P mismatch w.r.t Va, Vm
+            dg(idxRe, idx(PGopf)) = neg_Cg ;                              %% P mismatch w.r.t Pg
+
+            dg(idxIm, idx([VAopf VMopf])) = imag([dSbus_dVa dSbus_dVm]);  %% Q mismatch w.r.t Va, Vm
+            dg(idxIm, idx(QGopf)) = neg_Cg ;                              %% Q mismatch w.r.t Qg
+        else
+            %single period case
+            zero = sparse(size(neg_Cg,1), size(neg_Cg,2));
+            dg = [real([dSbus_dVa dSbus_dVm]) neg_Cg zero; ... %% P mismatch w.r.t Va, Vm, Pg, Qg
+                  imag([dSbus_dVa dSbus_dVm]) zero neg_Cg];    %% Q mismatch w.r.t Va, Vm, Pg, Qg
+        end
     end
     
     %% return the load scaling for the next iteration to nominal state
