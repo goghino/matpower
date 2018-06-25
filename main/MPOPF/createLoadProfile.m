@@ -9,7 +9,7 @@ close all;
 % profile = [f(hours)]'; %needs to be a column vector
 
 %% 
-addpath('ticinoData');
+addpath('/home/i1042002/matpower-fork/main/QuadraticCosts/ticinoData');
 %hours = linspace(0, 2*pi, 48);
 %profile = FitTicinoData('Ticino303_390.dat',303,390,hours);
 
@@ -28,6 +28,9 @@ addpath('ticinoData');
 profile = csvread('ticinoData/TI240hrs.dat');
 hours = linspace(0, 2*pi, length(profile));
 [hours, profile] = ScaleData(hours, profile);
+%profile = profile(1:24);
+%profile = repmat(profile, 10, 1);
+%fprintf('Running MPOPF with N=%d periods\n', size(profile,1));
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% compute min and max generation capabilities
 %  so that we can scale the load profile
@@ -69,7 +72,7 @@ prof_min = PGmin_sum / PD_sum;
 prof_max = PGmax_sum / PD_sum;
 fprintf('%.2f <= alpha <= %.2f\n\n', prof_min, prof_max);
 
-ALPHA_MIN = 0.3; 
+ALPHA_MIN = 0.8; 
 ALPHA_MAX = 1.0;
 fprintf('Used fixed bounds (%.2f, %.2f) on alfa:\n', ALPHA_MIN, ALPHA_MAX);
 

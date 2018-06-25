@@ -15,14 +15,13 @@ mpc.branch(mpc.branch(:,RATE_A)==0,RATE_A) = 9900;
 mpc.gen(:,PMIN) = 0;
 
 %% prepare storage data
-
 %do we place static number of storages to all grids, or we pick top 2% of the load buses?
-static_placement = 0;
-
-if (static_placement)
-    load_sorted = find(abs(mpc.bus(nref_idx,PD)) > 0);
+%Rcount = -50; %if negative, use this number of storages abs(Rcoung), otherwise
+%use Rcount % top of the load buses 
+if (Rcount < 0)
+    load_sorted = find(abs(mpc.bus(:,PD)) > 0);
     nload = length(load_sorted);
-    nstorage = 3;  %% 1 ... 100
+    nstorage = abs(Rcount);  %% 1 ... 100
     nstorage_applied = min(nstorage,nload);
     first = 0;
     id_storage_location = load_sorted(first + (1:nstorage_applied));
@@ -67,10 +66,18 @@ elseif (SelectProfile == 1)
     storage_load = abs(p_storage.E_storage_max_MWh * p_storage.rPminEmax_MW_per_MWh);
     storage_injection = p_storage.E_storage_max_MWh * p_storage.rPmaxEmax_MW_per_MWh;
     load_scaling_profile       = createLoadProfile(mpc, storage_injection, storage_load);
+    Nprofile = size(load_scaling_profile,1);
+    if (N <= Nprofile)
+        load_scaling_profile = load_scaling_profile(1:N);
+    else    
+        load_scaling_profile = repmat(load_scaling_profile, ceil(N/Nprofile), 1);
+        load_scaling_profile = load_scaling_profile(1:N);
+    end
+    fprintf('Running MPOPF with N=%d periods\n', size(load_scaling_profile,1));
 end
 
 %repeat data for required no. of days
-load_scaling_profile       = kron(ones(N,1), load_scaling_profile);
+%load_scaling_profile       = kron(ones(N,1), load_scaling_profile);
 
 %% run OPF
 mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
