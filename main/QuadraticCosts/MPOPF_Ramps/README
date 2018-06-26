@@ -1,7 +1,0 @@
-
-## Structure of the IPM system
-In order to dump the matrices that represent Newton system solved during the IPM iterations run matlab as:
-```bash
-export PARDISO_WRITE_MTX=1; matlab
-```
-and use `helpers/visualize.m` script to show the sparse structure of the system.

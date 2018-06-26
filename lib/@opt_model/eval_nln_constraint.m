@@ -1,4 +1,4 @@
-function [g, dg] = eval_nln_constraint(om, x, iseq)
+function [g, dg] = eval_nln_constraint(om, x, iseq, time_period)
 %EVAL_NLN_CONSTRAINT  Builds and returns full set of nonlinear constraints.
 %   [G, DG] = OM.EVAL_NLN_CONSTRAINT(X, ISEQ)
 %   Builds a full set of nonlinear equality or inequality constraints and
@@ -23,6 +23,13 @@ function [g, dg] = eval_nln_constraint(om, x, iseq)
 %   See http://www.pserc.cornell.edu/matpower/ for more info.
 
 %% get constraint type
+TIME_NOT_SPECIFIED = 0;
+if (nargin < 4)
+    time_period = TIME_NOT_SPECIFIED; 
+elseif (time_period == 0)
+    error('Parameter time_period has to be either negative or positive, cannot be zero!');
+end
+
 if iseq         %% equality constraints
     om_nlx = om.nle;
 else            %% inequality constraints
@@ -30,8 +37,24 @@ else            %% inequality constraints
 end
 
 %% initialize g, dg
-g = NaN(om_nlx.N, 1);
-dg = sparse(0, om.var.N);   %% build gradient by stacking
+%properly set size of the Hessian, depending if we want only single
+%period or whole horizont, based on the paramter time_period
+if (time_period <= 0)
+    %whole time horizon
+    nrows = om_nlx.N;
+    ncols = om.var.N;
+elseif (time_period > 0)
+    %only single period
+    mpc = om.get_mpc();
+    if (iseq)
+        nrows = 2*size(mpc.bus,1); %EQ constr
+    else
+        nrows = 2*size(mpc.branch,1); %INEQ constr
+    end
+    ncols = 2*size(mpc.bus,1) + 2*size(mpc.gen,1);    
+end
+g = NaN(nrows, 1);
+dg = sparse(0, ncols);   %% build gradient by stacking
 
 %% calls to substruct() are relatively expensive, so we pre-build the
 %% structs for addressing cell and numeric array fields, updating only
@@ -78,15 +101,39 @@ for k = 1:om_nlx.NS
             vs = subsref(om_nlx.data.vs, sc);   %% var sets
         end
         xx = om.varsets_x(x, vs);
-        [gk, dgk] = fcn(xx);    %% evaluate kth constraint and gradient
-        g(i1:iN) = gk;          %% assign kth constraint
+        if(time_period == TIME_NOT_SPECIFIED)
+            [gk, dgk] = fcn(xx);    %% evaluate kth constraint and gradient
+        else
+            [gk, dgk] = fcn(xx, time_period);    %% evaluate kth constraint and gradient
+        end
+        
+        %in general, we can add multiple equality constraints in the
+        %mpopf_setup, this is handled by the indexing i1..iN, which 
+        %gives us global indexes for the current set of equality
+        %constraints
+        if (time_period <= 0)
+            g(i1:iN) = gk;          %% assign kth constraint
+        elseif (time_period > 0)
+            assert(om_nlx.NS == 2); %[Pmis, Qmis]
+            %however, in the case of MPOPF evaluaing single period,
+            %we assume only a single set of eq. constraints exist
+            %(global for whole time horizon) and we process it without
+            %using the i1..iN indexes
+            g(1:nrows) = gk;
+        end
         
         if isempty(vs)          %% all rows of x
-            if size(dgk, 2) == om.var.N
+            if(time_period <= 0)
+                %full multiperiod horizon
+                if size(dgk, 2) == om.var.N
+                    dg = [dg; dgk];
+                else                %% must have added vars since adding
+                                    %% this constraint set
+                    dg(i1:iN, 1:size(dgk, 2)) = dgk;
+                end
+            else
+                assert(om_nlx.NS == 2); %[Pmis, Qmis]
                 dg = [dg; dgk];
-            else                %% must have added vars since adding
-                                %% this constraint set
-                dg(i1:iN, 1:size(dgk, 2)) = dgk;
             end
         else                    %% selected rows of x
             jj = om.varsets_idx(vs);    %% column indices for var set

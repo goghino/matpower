@@ -88,7 +88,7 @@ if fname
         fclose(fd);
     end
 end
-printpf(r, 1, mpopt);
+%printpf(r, 1, mpopt);
 
 %% save solved case
 if solvedcase

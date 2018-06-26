@@ -73,13 +73,13 @@ duplicates = findDuplicateBranches(mpc, cont_filt);
 cont_filt = setdiff(cont_filt, duplicates);
 
 %%-- remove lines causing Qg violations
-critical = findQgCritical(mpc, cont_filt, 0.0); %allowed % violation
-cont_filt = setdiff(cont_filt, critical);
+%critical = findQgCritical(mpc, cont_filt, 0.0); %allowed % violation
+%cont_filt = setdiff(cont_filt, critical);
 
 %%-- remove lines that make OPF problem infeasible when removed
 cont_filt = findOPFfeasible(mpc, cont_filt);
 
-dlmwrite('cont_filt.txt',cont_filt-1);
+dlmwrite('cont_filtCstyle.txt',cont_filt-1);
 
 cont = [-1; cont_filt(1:min(N,length(cont_filt)))]; %add nominal case and N contingencies
 ns = length(cont);
@@ -271,6 +271,7 @@ BUS_TYPE = 2;
 REF = 3;
 GEN_BUS = 1;
 REFbus_idx = find(mpc.bus(:,BUS_TYPE) == REF);
+%REFbus_idx = mpc.bus(REFbus_idx,BUS_I);%??? in external ordering
 REFgen_idx = find(mpc.gen(:,GEN_BUS) == REFbus_idx); %index of gen connected to ref_bus
 nREFgen_idx = find(mpc.gen(:,GEN_BUS) ~= REFbus_idx); %index of gens not connected to ref_bus
 
