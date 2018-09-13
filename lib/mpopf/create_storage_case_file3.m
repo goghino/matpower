@@ -52,13 +52,12 @@ function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p
     % J_ordered = T1*Js*T2;
     % H_ordered = T2'*Hs*T2;
 
-
-%     fprintf('nb, %5d %5d\n', nb, nb/N);
-%     fprintf('ng, %5d %5d\n', ng, ng/N);
-%     fprintf('nl, %5d %5d\n', nl, nl/N);
-%     fprintf('nA, %5d %5d\n', nA, nA/N);
-%     fprintf('N , %5d\n', N);
-%     fprintf('nstorage, %5d \n', nstorage);
+     fprintf('nb, %5d %5d\n', nb, nb/N);
+     fprintf('ng, %5d %5d\n', ng, ng/N);
+     fprintf('nl, %5d %5d\n', nl, nl/N);
+     fprintf('nA, %5d %5d\n', nA, nA/N);
+     fprintf('N , %5d\n', N);
+     fprintf('nstorage, %5d \n', nstorage);
 
     adjust_ipopt_opt(N,nb/N,ng/N,nl/N,nstorage)
 
