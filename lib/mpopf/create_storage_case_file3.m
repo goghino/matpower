@@ -60,6 +60,6 @@ function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p
 %     fprintf('N , %5d\n', N);
 %     fprintf('nstorage, %5d \n', nstorage);
 
-    %adjust_ipopt_opt(N,nb/N,ng/N,nl/N,nstorage)
+    adjust_ipopt_opt(N,nb/N,ng/N,nl/N,nstorage)
 
 end

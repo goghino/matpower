@@ -30,6 +30,4 @@ hours = linspace(0, 2*pi, length(profile));
 % normalize data to 0-2pi and 0-1
 [~, profile] = ScaleData(hours, profile);
 
-profile = profile(1:10);
-
 end
