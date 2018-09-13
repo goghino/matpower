@@ -79,11 +79,14 @@ ny = om.getN('var', 'y');   %% number of piece-wise linear costs
 % so we add small perturbation to x_u[], we don't want them removed
 % because the Schur solver assumes particular structure that would
 % be changed by removing variables.
-idx = find(xmin == xmax);
-xmax(idx) = xmax(idx) + 1e-10;
+% idx = find(xmin == xmax);
+% xmax(idx) = xmax(idx) + 1e-10;
+xmax = xmax + 1e-10;
+
 %exept for the Va at the refernece bus which we want to remove
-ref_bus = find(mpc.bus(:,BUS_TYPE)==3);
-xmax(ref_bus) = xmin(ref_bus);
+%This is the requirement for the SCOPF, we want to remove the Va
+% ref_bus = find(mpc.bus(:,BUS_TYPE)==3);
+% xmax(ref_bus) = xmin(ref_bus);
 
 %% build admittance matrices
 [Ybus, Yf, Yt] = makeYbus(baseMVA, bus, branch);
