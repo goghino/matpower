@@ -1,13 +1,10 @@
 function storage = createStorage(mpc, Rfirst, Rcount, Emax)
 define_constants;
 
-%do we place static number of storages to all grids, or we pick top 2% of the load buses?
-static_placement = 0;
-
-if (static_placement)
-    load_sorted = find(abs(mpc.bus(nref_idx,PD)) > 0);
+if (Rcount < 0)
+    load_sorted = find(abs(mpc.bus(:,PD)) > 0);
     nload = length(load_sorted);
-    nstorage = 3;  %% 1 ... 100
+    nstorage = abs(Rcount);  %% 1 ... 100
     nstorage_applied = min(nstorage,nload);
     first = 0;
     storage_locations = load_sorted(first + (1:nstorage_applied));
