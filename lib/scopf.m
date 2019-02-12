@@ -64,22 +64,25 @@ else
     %process only N + 20% more in order to have enough cont if some lines are removed
 end
 
-%%-- remove branches causing islands or isolated buses
-lines = findIslandBranches(mpc);
-cont_filt = setdiff(cont_filt, lines);
 
-%%-- remove duplicate lines
-duplicates = findDuplicateBranches(mpc, cont_filt);
-cont_filt = setdiff(cont_filt, duplicates);
+if (cont(1) < 0) %TODO ??? do not analyze contingency feasibility if given explicitly
+    %%-- remove branches causing islands or isolated buses
+    lines = findIslandBranches(mpc);
+    cont_filt = setdiff(cont_filt, lines);
 
-%%-- remove lines causing Qg violations
-%critical = findQgCritical(mpc, cont_filt, 0.0); %allowed % violation
-%cont_filt = setdiff(cont_filt, critical);
+    %%-- remove duplicate lines
+    duplicates = findDuplicateBranches(mpc, cont_filt);
+    cont_filt = setdiff(cont_filt, duplicates);
 
-%%-- remove lines that make OPF problem infeasible when removed
-cont_filt = findOPFfeasible(mpc, cont_filt);
+    %%-- remove lines causing Qg violations
+    %critical = findQgCritical(mpc, cont_filt, 0.0); %allowed % violation
+    %cont_filt = setdiff(cont_filt, critical);
 
-dlmwrite('cont_filtCstyle.txt',cont_filt-1);
+    %%-- remove lines that make OPF problem infeasible when removed
+    cont_filt = findOPFfeasible(mpc, cont_filt);
+
+    dlmwrite('cont_filtCstyle.txt',cont_filt-1);
+end
 
 cont = [-1; cont_filt(1:min(N,length(cont_filt)))]; %add nominal case and N contingencies
 ns = length(cont);
@@ -146,25 +149,25 @@ if (mpopt.verbose >= 1)
         %check power generation bounds l < [Pg Qg] < u
         err = find(xl([PGopf QGopf]) < raw.meta.lb(idx([PGscopf QGscopf])));
         if (~isempty(err))
-            fprintf('violated %d lower Pg/Qg limits %e\n', length(err), max(raw.meta.lb(idx([PGscopf QGscopf])) - xl([PGopf QGopf])));
+            fprintf('\t  violated %d lower Pg/Qg limits %e\n', length(err), max(raw.meta.lb(idx([PGscopf QGscopf])) - xl([PGopf QGopf])));
             errors = errors + 1;
         end
         err = find(xl([PGopf QGopf]) > raw.meta.ub(idx([PGscopf QGscopf])));
         if (~isempty(err))
-            fprintf('violated %d upper Pg/Qg limits %e\n', length(err), max(xl([PGopf QGopf]) - raw.meta.ub(idx([PGscopf QGscopf]))));
+            fprintf('\t  violated %d upper Pg/Qg limits %e\n', length(err), max(xl([PGopf QGopf]) - raw.meta.ub(idx([PGscopf QGscopf]))));
             errors = errors + 1;
         end
 
         %bus voltages magnitude bounds p.u. l < Vm < u
         err = find(xl(VMopf) < raw.meta.lb(idx(VMscopf)));
         if (~isempty(err))
-            fprintf('violated %d lower Vm limits %e\n', length(err), max(raw.meta.lb(idx(VMscopf)) - xl(VMopf)));
+            fprintf('\t  violated %d lower Vm limits %e\n', length(err), max(raw.meta.lb(idx(VMscopf)) - xl(VMopf)));
             errors = errors + 1;
         end
 
         err = find(xl(VMopf) > raw.meta.ub(idx(VMscopf)));
         if (~isempty(err))
-            fprintf('violated %d upper Vm limits %e\n', length(err), max(xl(VMopf) - raw.meta.ub(idx(VMscopf))));
+            fprintf('\t  violated %d upper Vm limits %e\n', length(err), max(xl(VMopf) - raw.meta.ub(idx(VMscopf))));
             errors = errors + 1;
         end
 
@@ -172,11 +175,11 @@ if (mpopt.verbose >= 1)
         err_lb = abs(xl(VAopf(REFbus_idx)) - raw.meta.lb(idx(VAscopf(REFbus_idx))));
         err_ub = abs(xl(VAopf(REFbus_idx)) - raw.meta.ub(idx(VAscopf(REFbus_idx))));
         if (err_lb > TOL_EQ)
-            fprintf('violated lower Va limit on reference bus %e\n', err_lb);
+            fprintf('\t  violated lower Va limit on reference bus %e\n', err_lb);
             errors = errors + 1;
         end
         if (err_ub > TOL_EQ)
-            fprintf('violated upper Va limit on reference bus %e\n', err_ub);
+            fprintf('\t  violated upper Va limit on reference bus %e\n', err_ub);
             errors = errors + 1;
         end
 
@@ -188,7 +191,7 @@ if (mpopt.verbose >= 1)
         %g(x) = 0, g(x) = V .* conj(Ybus * V) - Sbus;
         err = find(abs(gn_local) > TOL_EQ);
         if (~isempty(err))
-            fprintf('violated %d PF equations with max %e\n', length(err), max(abs(gn_local(err))));
+            fprintf('\t  violated %d PF equations with max %e\n', length(err), max(abs(gn_local(err))));
             errors = errors + 1;
         end
 
@@ -196,7 +199,7 @@ if (mpopt.verbose >= 1)
         %h(x) for lines with contingency is (- flow_max.^2) which satisfy limits implicitly
         err = find(hn_local > 0);
         if(not(isempty(err)))
-            fprintf('violated %d branch power flow limits %e\n', length(err), max(abs(hn_local(err))));
+            fprintf('\t  violated %d branch power flow limits %e\n', length(err), max(abs(hn_local(err))));
             errors = errors + 1;
         end
 
@@ -205,7 +208,7 @@ if (mpopt.verbose >= 1)
             lin_constr = raw.meta.A * results.x;
             err = find(abs(lin_constr) > TOL_LIN);
             if(not(isempty(err)))
-                fprintf('violated %d linear constraints %e\n', length(err), max(abs(lin_constr(err))));
+                fprintf('\t  violated %d linear constraints %e\n', length(err), max(abs(lin_constr(err))));
                 errors = errors + 1;
             end
         end

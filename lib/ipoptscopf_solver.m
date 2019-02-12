@@ -490,10 +490,15 @@ meta.lb = options.lb;
 meta.ub = options.ub;
 meta.A = A;
 meta.lenX = length(x); %no. of variables
+meta.lenXlocal = nb + length(nPVbus_idx) + ng + 1; %Va, Vm_nPV, Qg, Pg_REF
+meta.lenXglobal = length(PVbus_idx) + ng - 1; %Vm_PV, Pg_nREF
 meta.lenG = ns*2*nb;   %total no. of eq constraints
 meta.lenH = ns*2*nl2;  %total no. of ineq constraints
 meta.lenA = 0;         %total no. of lin constraints
 meta.cont = model.cont;
+meta.zl = info.zl;
+meta.zu = info.zu;
+meta.lambda = info.lambda;
     
 raw = struct('xr', x, 'info', info.status, 'output', output, 'meta', meta);
 results = struct('f', f, 'x', x, 'om', om);
