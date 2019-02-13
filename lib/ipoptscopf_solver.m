@@ -481,6 +481,7 @@ else
 end
 
 f = opf_costfcn(x, om);
+[h, g] = opf_consfcn(x, om);
     
 %pack some additional info to output so that we can verify the solution
 meta.Ybus = Ybus;
@@ -499,6 +500,8 @@ meta.cont = model.cont;
 meta.zl = info.zl;
 meta.zu = info.zu;
 meta.lambda = info.lambda;
+meta.g = g;
+meta.h = h;
     
 raw = struct('xr', x, 'info', info.status, 'output', output, 'meta', meta);
 results = struct('f', f, 'x', x, 'om', om);

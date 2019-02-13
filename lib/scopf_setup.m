@@ -178,10 +178,12 @@ end
 
 %% quadratic/linear generator costs
 if ~isempty(cpg)
-  %consider REF generator first, then the rest - permute cost coefficients accordingly 
+  %consider REF generator first, then the rest - permute cost coefficients
+  %accordingly, only nominal case Pg_ref is considered
   om.add_quad_cost('polPg', Qpg([REFgen_idx; nREFgen_idx]), cpg([REFgen_idx; nREFgen_idx]), kpg([REFgen_idx; nREFgen_idx]), {'Pg1', 'Pgg'});
 end
 if ~isempty(cqg)
+  %only nominal scenario Qg is considered
   om.add_quad_cost('polQg', Qqg, cqg, kqg, {'Qg1'});
 end
 
