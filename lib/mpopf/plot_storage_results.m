@@ -16,58 +16,78 @@ function plot_storage_results(mpc_solution)
 
     max_product_charge_discharge_MWMW = max(max(abs(Pgen_discharge.*Pgen_charge)))
 
+    %set matching colors for discharge and the corresponding maximum
+    map = get(gca,'ColorOrder');
+    ns = size(Pgen_discharge, 1); %number of storage devices
+    map_n = size(map,1); %size of the color pallete
+    map = repmat(map, [ceil(ns/map_n),1]); %make color pallete match the ns
+    map(ns+1:end, :) = [];
+    set(gca, 'ColorOrder',map, 'NextPlot','ReplaceChildren')
 
-    figure;
+    fig=figure;
+    set(fig,'defaultAxesColorOrder',map);
     subplot(2,1,1)
-    plot(Pgen_discharge');
+    stairs(Pgen_discharge', 'LineWidth',2);
+    hold on;
+    stairs(0:N, [Pgen_storage_max Pgen_storage_max(:,end)  ]', '--');
     grid on
-    title('storage network injection - discharging')
+    title('Storage network injection - discharging')
     xlabel('t [hours]')
-    ylabel('storage power [MW]')
+    ylabel('Storage power [MW]')
+    set(gca,'FontSize',20);
     subplot(2,1,2)
-    plot(Pgen_charge');
+    stairs(Pgen_charge', 'LineWidth',2);
+    hold on;
+    stairs(0:N, [Pgen_storage_min Pgen_storage_min(:,end)  ]', '--');
     grid on
-    title('storage network injection - charging')
+    title('Storage network injection - charging')
     xlabel('t [hours]')
-    ylabel('storage power [MW]')
+    ylabel('Storage power [MW]')
+    set(gca,'FontSize',20);
 
 
-    figure;
+    fig=figure;
+    set(fig,'defaultAxesColorOrder',map);
     subplot(2,1,1)
-    stairs(0:N, [Pgen_storage Pgen_storage(:,end)  ]', 'LineWidth',2);
+    stairs( [Pgen_storage ]', 'LineWidth',2);
     hold on;
     stairs(0:N, [Pgen_storage_max Pgen_storage_max(:,end)  ]', '--');
     stairs(0:N, [Pgen_storage_min Pgen_storage_min(:,end)  ]', '--');
     grid on
-    title('storage network injection power : trajectory (solid) and maximum (dashed)')
+    title('Storage network injection power : trajectory (solid) and maximum (dashed)')
     xlabel('t [hours]')
-    ylabel('storage power [MW]')
+    ylabel('Storage power [MW]')
+    set(gca,'FontSize',20);
     subplot(2,1,2)
     plot(0:N, E_storage', 'LineWidth',2);
     hold on;
     plot(0:N, E_storage_max','--');
     grid on
-    title('storage energy level: trajectory (solid) and maximum (dashed)')
+    title('Storage energy level: trajectory (solid) and maximum (dashed)')
     xlabel('t [hours]')
-    ylabel('storage energy [MWh]')
+    ylabel('Storage energy [MWh]')
+    set(gca,'FontSize',20);
 
-    figure;
+    fig=figure;
+    set(fig,'defaultAxesColorOrder',map);
     subplot(2,1,1)
-    stairs(0:N, sum([Pgen_storage Pgen_storage(:,end)])', 'b-', 'LineWidth',2);
+    stairs(sum([Pgen_storage])', 'b-', 'LineWidth',2);
     hold on;
     stairs(0:N, sum([Pgen_storage_max Pgen_storage_max(:,end)  ])', 'b--');
     stairs(0:N, sum([Pgen_storage_min Pgen_storage_min(:,end)  ])', 'b--');
     grid on
-    title('total storage network injection power : trajectory (solid) and maximum (dashed)')
+    title('Total storage network injection power : trajectory (solid) and maximum (dashed)')
     xlabel('t [hours]')
-    ylabel('storage power [MW]')
+    ylabel('Storage power [MW]')
+    set(gca,'FontSize',20);
     subplot(2,1,2)
     plot(0:N, sum(E_storage)','b-', 'LineWidth',2);
     hold on;
     plot(0:N, sum(E_storage_max)','b--');
     grid on
-    title('total storage energy level: trajectory (solid) and maximum (dashed)')
+    title('Total storage energy level: trajectory (solid) and maximum (dashed)')
     xlabel('t [hours]')
-    ylabel('storage energy [MWh]')
+    ylabel('Storage energy [MWh]')
+    set(gca,'FontSize',20);
 
 end

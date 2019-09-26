@@ -1,6 +1,6 @@
-function mpcN      = create_multi_time_step_case_file(mpc0,load_scaling_profile)
+function mpcN      = create_multi_time_step_case_file(mpc0)
 
-N                  = length(load_scaling_profile);
+N                  = length(mpc0.load_profile(:,1));
 
 nnodes             = size(mpc0.bus,1);
 
@@ -19,7 +19,32 @@ mpcN.baseMVA       = mpc0.baseMVA;
 
 mpcN.bus           = repmat(mpc0.bus,[N,1]);
 mpcN.bus(:,1)      = 1:(nnodes*N); %fix bus IDs
-mpcN.bus(:,3:4)    = mpcN.bus(:,3:4).*repmat(kron(load_scaling_profile,ones(nnodes,1)),[1 2]) ; %Scale PD, QD for each N by load_profile
+
+%load can be split into different categories - e.g. residential and
+%commertial, each is scaled using different load scaling profile
+base_load = mpcN.bus(:,3:4);
+mpcN.bus(:,3:4) = zeros(size(mpcN.bus(:,3:4)));
+for load_cat=1:size(mpc0.load_profile, 2) %number of cols
+  load_scaling_profile = mpc0.load_profile(:, load_cat); %needs to be column vec
+  load_ratios = mpc0.load_ratios(:, load_cat);%needs to be column vec
+  %sum of different load categories (ratio of base load) scaled by its load scaling profile
+  mpcN.bus(:,3:4) = mpcN.bus(:,3:4) + base_load.*repmat(kron(ones(N,1),load_ratios),[1 2]).*repmat(kron(load_scaling_profile,ones(nnodes,1)),[1 2]) ; %Scale PD, QD for each N by load_profile
+end
+
+figure;
+for b=1:nnodes
+    plot(mpcN.bus(b:15:end,3)*mpc0.baseMVA, 'LineWidth',2); hold on;
+end
+title('Pd at the buses');
+xlabel('T [hrs]');
+ylabel('Load demand [MW]');
+figure;
+for b=1:nnodes
+    plot(mpcN.bus(b:15:end,3)*mpc0.baseMVA, 'LineWidth',2); hold on;
+end
+title('Qd at the buses');
+xlabel('T [hrs]');
+ylabel('Load demand [MW]');
 
 mpcN.branch        = repmat(mpc0.branch,[N,1]);
 mpcN.branch(:,1:2) = mpcN.branch(:,1:2) + kron( (0:(N-1))' , ones(nbranches,2)*nnodes ); %fix F_BUS, T_BUS

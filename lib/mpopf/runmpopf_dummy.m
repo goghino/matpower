@@ -19,24 +19,15 @@ mpc.gen(:,PMIN) = 0;
 p_storage = createStorage(mpc, Rfirst, Rcount, Emax);
 
 %% set load scaling profile and scale it to respect PG/QG generation limits
-load_scaling_profile = createLoadProfile();
-Nprofile = size(load_scaling_profile,1);
-if (N <= Nprofile)
-    load_scaling_profile = load_scaling_profile(1:N);
-else
-    load_scaling_profile = repmat(load_scaling_profile, ceil(N/Nprofile), 1);
-    load_scaling_profile = load_scaling_profile(1:N);
-end
+[load_scaling_profile, residential_ratios] = createLoadProfile(N, mpc);
 
-storage_load = abs(p_storage.E_storage_max_MWh * p_storage.rPminEmax_MW_per_MWh);
-storage_injection = p_storage.E_storage_max_MWh * p_storage.rPmaxEmax_MW_per_MWh;
-%load_scaling_profile = scaleLoadProfile(load_scaling_profile, mpc, storage_injection, storage_load);
-load_scaling_profile = scaleLoadProfile(load_scaling_profile, mpc, 0, 0);
+mpc.load_profile = load_scaling_profile;
+mpc.load_ratios = residential_ratios;
 
 %% run OPF
-mpcN_opf_storage = create_storage_case_file3(mpc,load_scaling_profile, p_storage);
+mpcN_opf_storage = create_storage_case_file3(mpc, p_storage);
 [RESULTS, SUCCESS] = runopf(mpcN_opf_storage, mpopt);
 
-% plot_storage_results(opt_solution)
+plot_storage_results(RESULTS)
 
 end

@@ -1,9 +1,11 @@
-function mpcN_opf_storage = create_storage_case_file(mpc,load_scaling_profile, p_storage)
+function mpcN_opf_storage = create_storage_case_file(mpc, p_storage)
 
     define_constants
     
+    load_scaling_profile = mpc.load_profile(:,1);
+    
     %replicate mpc for each timeperiod, fix numbering
-    mpcN_opf = create_multi_time_step_case_file4(mpc,load_scaling_profile);
+    mpcN_opf = create_multi_time_step_case_file4(mpc);
 
 
     nnodes =size(mpc.bus,1);

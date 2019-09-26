@@ -2,12 +2,12 @@ function storage = createStorage(mpc, Rfirst, Rcount, Emax)
 define_constants;
 
 if (Rcount < 0)
-    load_sorted = find(abs(mpc.bus(:,PD)) > 0);
+    [load_sorted, load_sorted_Idx] = sort(mpc.bus(:,PD), 'descend');
     nload = length(load_sorted);
     nstorage = abs(Rcount);  %% 1 ... 100
     nstorage_applied = min(nstorage,nload);
     first = 0;
-    storage_locations = load_sorted(first + (1:nstorage_applied));
+    storage_locations = load_sorted_Idx(first + (1:nstorage_applied));
 else
     [~, load_sorted] = sort(mpc.bus(:,PD), 'descend'); %% sort buses w.r.t PD
     nload = length(find(abs(mpc.bus(:,PD)) > 0));
@@ -28,9 +28,9 @@ if(nstorage_applied < 1)
    error('Number of storateges has to be > 0'); 
 end
 
-storage.id_storage_location = storage_locations;
-storage.E_storage_max_MWh  = Emax*abs(mpc.bus(storage_locations,PD));
-storage.E_storage_init_MWh = storage.E_storage_max_MWh*.7;
+storage.id_storage_location = storage_locations; %storage placement
+storage.E_storage_max_MWh  = Emax*abs(mpc.bus(storage_locations,PD)); %max storage level
+storage.E_storage_init_MWh = storage.E_storage_max_MWh*.7; %initial charge level
 storage.rPmaxEmax_MW_per_MWh = 1/3;
 storage.rPminEmax_MW_per_MWh = -1/2;
 storage.P_storage_max_MW   =  storage.rPmaxEmax_MW_per_MWh*storage.E_storage_max_MWh;
