@@ -128,7 +128,7 @@ if nargin==4
     TOL_LIN = tol;
 end
 
-%verigy feasibility and check bounds
+%verify feasibility and check bounds
 if (mpopt.verbose >= 1)
     fprintf('\n--------------------------------------------------------------\n');
     fprintf('--------------------------------------------------------------\n');

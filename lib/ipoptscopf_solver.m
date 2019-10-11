@@ -482,7 +482,22 @@ end
 
 f = opf_costfcn(x, om);
 [h, g] = opf_consfcn(x, om);
-    
+
+%% update solution data
+idx = model.index.getGlobalIndices(mpc, ns, 0);
+Va = x(idx(VAscopf));
+Vm = x(idx(VMscopf));
+Pg = x(idx(PGscopf));
+Qg = x(idx(QGscopf));
+
+%% update voltages & generator outputs
+mpc.bus(:, VA) = Va * 180/pi;
+mpc.bus(:, VM) = Vm;
+mpc.gen(:, PG) = Pg * baseMVA;
+mpc.gen(:, QG) = Qg * baseMVA;
+mpc.gen(:, VG) = Vm(gen(:, GEN_BUS));
+
+%% -----  Assemble return values  -----
 %pack some additional info to output so that we can verify the solution
 meta.Ybus = Ybus;
 meta.Yf = Yf;
@@ -504,7 +519,7 @@ meta.g = g;
 meta.h = h;
     
 raw = struct('xr', x, 'info', info.status, 'output', output, 'meta', meta);
-results = struct('f', f, 'x', x, 'om', om);
+results = struct('f', f, 'x', x, 'mpc', mpc, 'om', om);
 
 %% -----  callback functions  -----
 function f = objective(x, d)
