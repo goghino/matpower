@@ -1,10 +1,18 @@
-function [RESULTS, SUCCESS] = runmpopf_dummy(mpc, mpopt, N, Emax, Rcount, Rfirst)
+function [RESULTS, SUCCESS] = runmpopf_dummy(mpc, mpopt, N)
 %MPOPF Run a multiperiod OPF problem
-%   mpc  - Matpower case
-%   N    - Number of time periods
+%   mpc   - Matpower case
+%   mpopt - Matpower options struct
+%   N     - Number of time periods
+
+%%
 %   Emax - max capacity of the storage relative to a PD at given bus
-%   Rcount - fraction of the PD buses that will have storage
+Emax = 2;
+
+%   Rcount - fraction of the PD buses that will have storage, negative is absolute count
+Rcount = -2;
+
 %   Rfirst - relative position of the storage placement when sorted by PD from largest first
+Rfirst = 0.00;
 
 %% set options
 define_constants;
@@ -15,7 +23,6 @@ mpc.branch(mpc.branch(:,RATE_A)==0,RATE_A) = 9900;
 mpc.gen(:,PMIN) = 0;
 
 %% prepare storage data
-
 p_storage = createStorage(mpc, Rfirst, Rcount, Emax);
 
 %% set load scaling profile and scale it to respect PG/QG generation limits

@@ -32,13 +32,14 @@ for load_cat=1:size(mpc0.load_profile, 2) %number of cols
 end
 
 figure;
+subplot(2,1,1)
 for b=1:nnodes
     plot(mpcN.bus(b:15:end,3)*mpc0.baseMVA, 'LineWidth',2); hold on;
 end
 title('Pd at the buses');
 xlabel('T [hrs]');
 ylabel('Load demand [MW]');
-figure;
+subplot(2,1,2)
 for b=1:nnodes
     plot(mpcN.bus(b:15:end,3)*mpc0.baseMVA, 'LineWidth',2); hold on;
 end
