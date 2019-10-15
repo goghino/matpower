@@ -15,11 +15,10 @@ function mpcN_opf_storage = create_storage_case_file(mpc, p_storage)
     E_storage_init_MWh  = p_storage.E_storage_init_MWh ;
     nstorage = length(id_storage_location);
 
-    ngen0 = size(mpc.gen,1);
-    ngen_total = ngen0+nstorage*2;
-
     P_storage_max_MW   =  p_storage.rPmaxEmax_MW_per_MWh*E_storage_max_MWh;
     P_storage_min_MW   =  p_storage.rPminEmax_MW_per_MWh*E_storage_max_MWh;
+    
+    %for each storage we can have different efficiency
     if length(p_storage.c_discharge)> 1
         c_discharge        = p_storage.c_discharge;
     else
@@ -32,7 +31,7 @@ function mpcN_opf_storage = create_storage_case_file(mpc, p_storage)
     end
 
 
-    mpcN_opf_storage = add_storage2bNoPeriodic(mpcN_opf,nnodes,length(load_scaling_profile),id_storage_location,P_storage_max_MW,P_storage_min_MW,E_storage_max_MWh,E_storage_init_MWh,c_discharge,c_charge, 1);
+    mpcN_opf_storage = add_storage2bNoPeriodic(mpcN_opf,nnodes,length(load_scaling_profile),id_storage_location,P_storage_max_MW,P_storage_min_MW,E_storage_max_MWh,E_storage_init_MWh,c_discharge,c_charge, 1, p_storage.storageFlexibility);
     % max(max(abs(mpcN_opf_storage.bus - mpcN_opf_storage2.bus)))
     % max(max(abs(mpcN_opf_storage.branch - mpcN_opf_storage2.branch)))
     % max(max(abs(mpcN_opf_storage.gen - mpcN_opf_storage2.gen)))
