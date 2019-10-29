@@ -49,6 +49,29 @@ ng = length(Pg);            %% number of dispatchable injections
 gen(:, PG) = Pg * baseMVA;  %% active generation in MW
 gen(:, QG) = Qg * baseMVA;  %% reactive generation in MVAr
 
+%remove the flexibility from the generator structure in the power balance
+%the flexibility is only guarantee of the charge/disch. reserves, not the
+%actual power consumption/output of the storages
+if isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility
+    ns = mpc.nstorage;
+    ngen = mpc.ngenerators;
+    N = mpc.horizon;
+
+    %We assume ordering as defined in add_storage2bNoPeriodic.m
+    %Pg = [Pgen Pd Pc ud dd uc dc] (external order)
+    offset = N*ngen + 2*N*ns; %skip Pgen, Pd, Pc
+    flex_idx = offset + (1:4*N*ns);
+    
+    %apply the internal ordering
+    flex_idx = mpc.order.gen.i2e(flex_idx);
+    
+    %this prevents considering ud/dd/uc/dc in the power balance
+    gen(flex_idx, PG) = 0;
+    
+    %update size of generators
+    %ng = size(gen,1);
+end
+
 %% reconstruct V
 V = Vm .* exp(1j * Va);
 
@@ -67,6 +90,12 @@ if nargout > 1
     %% compute partials of injected bus powers
     [dSbus_dVm, dSbus_dVa] = dSbus_dV(Ybus, V);         %% w.r.t. V
     neg_Cg = sparse(gen(:, GEN_BUS), 1:ng, -1, nb, ng); %% Pbus w.r.t. Pg
+    
+    %remove ud/dd/uc/dc variables from the PF Jacobian
+    if isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility
+        neg_Cg_correction = sparse(gen(flex_idx, GEN_BUS), flex_idx, 1, nb, ng); %% Pbus w.r.t. Pg
+        neg_Cg = neg_Cg + neg_Cg_correction;
+    end
 
     %% adjust for voltage dependent loads
     [dummy, neg_dSd_dVm] = makeSbus(baseMVA, bus, gen, mpopt, Vm);

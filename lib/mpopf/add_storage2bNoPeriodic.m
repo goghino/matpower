@@ -1,8 +1,7 @@
-function mpc_storage = add_storage(mpc,nnodes,N,storage_nodes_idx,P_discharge_max_MW,P_charge_min_MW, E_storage_max_MWh, E_storage_init_MWh,c_discharge, c_charge,T_timestep_hours, storageFlexibility)
+function mpc_storage = add_storage(mpc,nnodes,N,storage_nodes_idx,P_discharge_max_MW,P_charge_min_MW, E_storage_max_MWh, E_storage_init_MWh,c_discharge, c_charge,T_timestep_hours, storageFlexibility, storageFlexibilityReq)
     
     mpc_storage      = mpc;
     nstorage         = length(storage_nodes_idx);
-    ngeneratorsN      = size(mpc.gen,1);
     nstorageN        = N*nstorage;
     if mod(size(mpc.bus,1),nnodes)
         error('wrong number of nodes, MPOPF bus count not a multiple of base OPF')
@@ -15,9 +14,11 @@ function mpc_storage = add_storage(mpc,nnodes,N,storage_nodes_idx,P_discharge_ma
     if(N == size(mpc.bus,1)/nnodes)
         Nkron = N;
         ngen_nostorageN = size(mpc.gen, 1);
+        ngenerators      = size(mpc.gen,1)/N;
     else
         Nkron = 1;
         ngen_nostorageN = size(mpc.gen,1) * N;
+        ngenerators      = size(mpc.gen,1);
     end
     nnodesN = nnodes * N;
     storage_nodes_idxN = repmat(storage_nodes_idx,[Nkron,1])+kron( (0:(Nkron-1))' , ones(nstorage,1)*nnodes ); %proper bus number for different periods N
@@ -111,8 +112,9 @@ nA = nstorageN; %number of lin. constr. (energy of each storage at each time int
 nX = 2*(nnodesN+ngenN_total); %number of variables, |x|
 
 if storageFlexibility
-    ngen_flexibilityN_half = ngen_flexibilityN / 2;
-    nA = nA + ngen_flexibilityN_half; %storage (discharge + up/down) and (charge + up/down) flexibility is 0 < ... < Pmax and Pmin < ... < 0
+    nA_flexibility_limits = nstorageN*2; %storage (discharge + up/down) and (charge + up/down) flexibility is 0 < ... < Pmax and Pmin < ... < 0
+    nA_flexibility_requirements = 2*N; %sum of up flexibility > requirement or sum of down flex < requirement
+    nA = nA + nA_flexibility_limits + nA_flexibility_requirements; 
 end
 
 A                    = sparse(nA,nX);
@@ -138,7 +140,6 @@ if storageFlexibility
         -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_charge), ...
         -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_charge)];
 end
-  
 
 l(1:nstorageN) = repmat(-E_storage_init_MWh,[N,1]);
 u(1:nstorageN) = repmat(E_storage_max_MWh-E_storage_init_MWh,[N,1]);
@@ -150,16 +151,16 @@ u(1:nstorageN) = repmat(E_storage_max_MWh-E_storage_init_MWh,[N,1]);
 %% pmin < p_sc + u_c < 0 (pmin is negative)
 %% pmin < p_sc + d_c < 0 (pmin is negative)
 if storageFlexibility
-    I = speye(nstorageN);
+    I = mpc.baseMVA*speye(nstorageN);
     z = sparse(nstorageN, nstorageN);
 
-    A((nstorageN+1):(nstorageN+ngen_flexibilityN_half), 2*nnodesN+ngen_nostorageN+(1:(ngen_storageN+ngen_flexibilityN))  ) = ...
+    A(nstorageN+(1:nA_flexibility_limits), 2*nnodesN+ngen_nostorageN+(1:(ngen_storageN+ngen_flexibilityN))  ) = ...
         [ I  z  I  I  z  z; ...
-          z  I  z  z  I  I; ]; %assumes complementarity of ud*dd and uc*dc is enforces we can simplify A to
+          z  I  z  z  I  I; ]; %assumes complementarity of ud*dd and uc*dc
        % Pd Pc  ud dd uc dc
        
-    l((nstorageN+1):(nstorageN+ngen_flexibilityN_half)) = [zeros(nstorageN, 1); repmat(P_charge_min_MW,[N,1]) ];    
-    u((nstorageN+1):(nstorageN+ngen_flexibilityN_half)) = [repmat(P_discharge_max_MW,[N,1]); zeros(nstorageN, 1) ];  
+    l(nstorageN+(1:nA_flexibility_limits)) = [zeros(nstorageN, 1); repmat(P_charge_min_MW,[N,1]) ];    
+    u(nstorageN+(1:nA_flexibility_limits)) = [repmat(P_discharge_max_MW,[N,1]); zeros(nstorageN, 1) ];  
       
     %no assumptions on complementarity    
     %[ I  z  I  z  z  z; ...
@@ -170,6 +171,28 @@ if storageFlexibility
     %u((nstorageN+1):(nstorageN+ngen_flexibilityN)) = [repmat(P_discharge_max_MW,[2*N,1]); zeros(2*nstorageN, 1) ];      
 end
 
+
+%% u     < uc_1 + ud_1 < u+10%
+%% u     < uc_2 + ud_2 < u+10%
+%% d-10% < dc_1 + dd_1 < d
+%% d-10% < dc_2 + dd_2 < d
+if storageFlexibility 
+    e = mpc.baseMVA*ones(1,nstorage);   
+    A(nstorageN+nA_flexibility_limits+(1:nA_flexibility_requirements), 2*nnodesN+ngen_nostorageN+ngen_storageN+(1:ngen_flexibilityN)  ) = ...
+        [kron(eye(N),e),        sparse(N,nstorageN), kron(eye(N),e),      sparse(N,nstorageN); ...
+         sparse(N,nstorageN),   kron(eye(N),e),      sparse(N,nstorageN), kron(eye(N),e)];
+     %   ud1 ud2...udN                                 uc1  uc2...ucN        
+     %                           dd1 dd2...ddN                             dd1   dd2...ddN
+       
+    assert(length(storageFlexibilityReq.up) == N);
+    assert(length(storageFlexibilityReq.down) == N);
+    assert(all(storageFlexibilityReq.up >= 0)); % up flex must be non-negative
+    assert(all(storageFlexibilityReq.down <= 0)); % down flex must be non-positive
+     
+    l(nstorageN+nA_flexibility_limits+(1:nA_flexibility_requirements)) = [storageFlexibilityReq.up; 1.1.*storageFlexibilityReq.down];
+    u(nstorageN+nA_flexibility_limits+(1:nA_flexibility_requirements)) = [1.1.*storageFlexibilityReq.up; storageFlexibilityReq.down];
+   
+end
 %%
 mpc_storage.A                           = sparse(A);
 clear A;
@@ -179,8 +202,10 @@ mpc_storage.u                           = u;
 mpc_storage.c_charge                    = c_charge;
 mpc_storage.c_discharge                 = c_discharge;
 mpc_storage.nstorage                    = nstorage;
+mpc_storage.ngenerators                 = ngenerators;
 mpc_storage.storage_nodes               = storage_nodes_idx;
 mpc_storage.storageFlexibility          = storageFlexibility;
+mpc_storage.storageFlexibilityReq       = storageFlexibilityReq;
 
 mpc_storage.P_storage_max_MW            = P_discharge_max_MW;
 mpc_storage.P_storage_min_MW            = P_charge_min_MW;

@@ -203,8 +203,16 @@ options.auxdata = struct( ...
 %% define variable and constraint bounds
 options.lb = xmin;
 options.ub = xmax;
-options.cl = [zeros(neq, 1);  -Inf(niq, 1); l];
-options.cu = [zeros(neq, 1); zeros(niq, 1); u+1e-10];
+if (mpc.storageFlexibility)
+    nb2 = 2*size(mpc.bus,1);
+    ncompl = neq - nb2;
+    %we don't impose flexibility complementarity exactly, only its relaxation
+    options.cl = [zeros(nb2, 1); zeros(ncompl, 1)-1e-10;  -Inf(niq, 1); l];
+    options.cu = [zeros(nb2, 1); zeros(ncompl, 1)+1e-10; zeros(niq, 1); u+1e-10];
+else
+    options.cl = [zeros(neq, 1);  -Inf(niq, 1); l];
+    options.cu = [zeros(neq, 1); zeros(niq, 1); u+1e-10];
+end
 
 %% assign function handles
 funcs.objective         = @objective;

@@ -265,6 +265,15 @@ else                %% AC model
   fcn_flow = @(x)opf_branch_flow_fcn(x, mpc, Yf(il, :), Yt(il, :), il, mpopt);
   hess_flow = @(x, lam)opf_branch_flow_hess(x, lam, mpc, Yf(il, :), Yt(il, :), il, mpopt);
   
+  fcn_discharge_charge = @(x)discharge_charge(x, mpc);
+  hess_discharge_charge = @(x, lam)discharge_charge_hess(x, lam, mpc);
+  
+  addDischargeChargeFlexibilityPairs = 0; %add also constraints [uc*dd; ud*dc]
+  fcn_flex_up_down = @(x)flexibility_up_down(x, addDischargeChargeFlexibilityPairs, mpc);
+  hess_flex_up_down = @(x, lam)flexibility_up_down_hess(x, lam, addDischargeChargeFlexibilityPairs, mpc);
+  
+  
+  
   %% nonlinear cost functions
   if ~isempty(ip3)
     cost_Pg = @(x)opf_gen_cost_fcn(x, baseMVA, pcost, ip3, mpopt);
@@ -356,6 +365,27 @@ else
     om.add_nln_constraint({'Sf', 'St'}, [nl;nl], 0, fcn_flow, hess_flow, {'Va', 'Vm'});
   else
     om.add_nln_constraint({'Sf', 'St'}, [nl2;nl2], 0, fcn_flow, hess_flow, {'Va', 'Vm'});
+  end
+  
+  %% complementarity constraints
+  %prevent simultaneous charging and discharging
+  ns = mpc.nstorage;
+  N = mpc.horizon;
+  om.add_nln_constraint({'Discharge_charge'}, [ns*N], 1, fcn_discharge_charge, hess_discharge_charge, {'Pg'});
+  
+  if isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility
+      %only up or down flexibility at a time, prevent simultaneus up and down flexibility
+      
+      if addDischargeChargeFlexibilityPairs == 0
+        nflex = 2*ns*N; %[ud*dd; uc*dc]
+      else
+        nflex = 4*ns*N; %[ud*dd; uc*dc; uc*dd; ud*dc]
+      end
+      om.add_nln_constraint({'Flex_up_down'}, nflex, 1, fcn_flex_up_down, hess_flex_up_down, {'Pg'});
+      
+      %ns: no simultaneous charging/discharging
+      %4*ns: when charging cannot use discharging flexibility
+      %om.add_nln_constraint({'Flex'}, [nflex], 1, fcn_flex, hess_flex, {'Pg', 'Qg'});
   end
 
   %% linear constraints
