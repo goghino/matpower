@@ -65,8 +65,14 @@ if isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility
     %apply the internal ordering
     flex_idx = mpc.order.gen.i2e(flex_idx);
     
-    %this prevents considering ud/dd/uc/dc in the power balance
+    %This prevents considering ud/dd/uc/dc in the power balance.
+    %Additionally, we need to fix the jacobian/hessian structure (remove some
+    %identity entries corresponding to flexibility PG)
     gen(flex_idx, PG) = 0;
+    %!Note that we set up the problem, where the storage device has
+    %QMIN=QMAX=0, but in ipoptopf_solver we perturb xmax by 1e=1-10,
+    %thus we need to remove the QG here manually
+    gen(flex_idx, QG) = 0;
     
     %update size of generators
     %ng = size(gen,1);
