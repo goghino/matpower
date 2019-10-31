@@ -369,6 +369,7 @@ else
   
   %% complementarity constraints
   %prevent simultaneous charging and discharging
+  assert(mpc.horizon>0); %we assume MPOPF problem, will fail for single period OPF
   ns = mpc.nstorage;
   N = mpc.horizon;
   om.add_nln_constraint({'Discharge_charge'}, [ns*N], 1, fcn_discharge_charge, hess_discharge_charge, {'Pg'});

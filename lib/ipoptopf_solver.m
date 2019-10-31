@@ -245,6 +245,8 @@ else
 end
 f = opf_costfcn(x, om);
 
+c = constraints(x, options.auxdata);
+
 %% print value of the constraints
 %disp('Final value of the constraints:');
 %[hn, gn] = opf_consfcn(x, om, Ybus, Yf, Yt, mpopt, il)

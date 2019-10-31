@@ -30,26 +30,28 @@ close all;
 % hours = linspace(0, 2*pi, length(profile));
 
 %%
-% profile = csvread('ticinoData/TI240hrs.dat');
-% hours = linspace(0, 2*pi, length(profile));
-% % normalize data to 0-2pi and 0-1
-% [~, profile] = ScaleData(hours, profile);
-% ratios = ones(1, size(mpc.bus, 1));
+addpath('/Users/Juraj/Documents/Optimization/matpower/lib/mpopf/ticinoData');
+profile = csvread('TI240hrs.dat');
+hours = linspace(0, 2*pi, length(profile));
+% normalize data to 0-2pi and 0-1
+[~, profile] = ScaleData(hours, profile);
+ratios = ones(size(mpc.bus, 1),1);
 
 %% DSO profile for case15cigre
-% Residential profile over time
-rp  = [0.25 0.20 0.19 0.195 0.19 0.25 0.4 0.60 0.65 0.65 0.65 0.6 0.75 0.65 0.55 0.5 0.45 0.60 0.75 0.90 0.8 0.7 0.6 0.40 0.3]';
-% Commercial and Industrial profile over time
-cip = [0.35 0.35 0.30 0.375 0.40 0.50 0.6 0.85 1.00 0.95 1.00 0.8 0.85 0.90 0.90 0.9 0.80 0.55 0.50 0.45 0.4 0.4 0.3 0.35 0.3]';
+if size(mpc.bus,1) == 15
+    % Residential profile over time
+    rp  = [0.25 0.20 0.19 0.195 0.19 0.25 0.4 0.60 0.65 0.65 0.65 0.6 0.75 0.65 0.55 0.5 0.45 0.60 0.75 0.90 0.8 0.7 0.6 0.40 0.3]';
+    % Commercial and Industrial profile over time
+    cip = [0.35 0.35 0.30 0.375 0.40 0.50 0.6 0.85 1.00 0.95 1.00 0.8 0.85 0.90 0.90 0.9 0.80 0.55 0.50 0.45 0.4 0.4 0.3 0.35 0.3]';
 
-% 1st row is percentage of resedential loads and 2nd row is percentage of
-% commercial/industrial loads at each bus
-rcip = [0 0.75	0.00	0.51	1.00	1.00	1.00	0.00	1.00	0.00	0.86	1.00	0.74	0.00	0.35;
-        0 0.25	0.00	0.49	0.00	0.00	0.00	1.00	0.00	1.00	0.14	0.00	0.26	1.00	0.65]';
-    
-profile = [rp, cip];
-ratios = rcip;
+    % 1st row is percentage of resedential loads and 2nd row is percentage of
+    % commercial/industrial loads at each bus
+    rcip = [0 0.75	0.00	0.51	1.00	1.00	1.00	0.00	1.00	0.00	0.86	1.00	0.74	0.00	0.35;
+            0 0.25	0.00	0.49	0.00	0.00	0.00	1.00	0.00	1.00	0.14	0.00	0.26	1.00	0.65]';
 
+    profile = [rp, cip];
+    ratios = rcip;
+end
 %% Create load of the size N that was requested (repeat if data above are smaller)
 Nprofile = size(profile,1);
 if (N <= Nprofile)

@@ -38,7 +38,10 @@ mpc.load_ratios = residential_ratios;
 mpcN_opf_storage = create_storage_case_file3(mpc, p_storage);
 [RESULTS, SUCCESS] = runopf(mpcN_opf_storage, mpopt);
 
-%plot_storage_results(RESULTS)
-plot_flexibility_results(RESULTS)
+if mpcN_opf_storage.storageFlexibility == 0
+    plot_storage_results(RESULTS)
+else
+    plot_flexibility_results(RESULTS)
+end
 
 end
