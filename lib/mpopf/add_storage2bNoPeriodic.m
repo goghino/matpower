@@ -1,4 +1,4 @@
-function mpc_storage = add_storage(mpc,nnodes,N,storage_nodes_idx,P_discharge_max_MW,P_charge_min_MW, E_storage_max_MWh, E_storage_init_MWh,c_discharge, c_charge,T_timestep_hours, storageFlexibility, storageFlexibilityReq)
+function mpc_storage = add_storage(mpc,nnodes,N,storage_nodes_idx,P_discharge_max_MW,P_charge_min_MW, E_storage_max_MWh, E_storage_init_MWh,c_discharge, c_charge,T_timestep_hours, storageFlexibility, FlexibilityReq)
     
     mpc_storage      = mpc;
     nstorage         = length(storage_nodes_idx);
@@ -186,13 +186,13 @@ if storageFlexibility
      %   ud1 ud2...udN                                 uc1  uc2...ucN        
      %                           dd1 dd2...ddN                             dd1   dd2...ddN
        
-    assert(length(storageFlexibilityReq.up) == N);
-    assert(length(storageFlexibilityReq.down) == N);
-    assert(all(storageFlexibilityReq.up >= 0)); % up flex must be non-negative
-    assert(all(storageFlexibilityReq.down <= 0)); % down flex must be non-positive
+    assert(length(FlexibilityReq.up) == N);
+    assert(length(FlexibilityReq.down) == N);
+    assert(all(FlexibilityReq.up >= 0)); % up flex must be non-negative
+    assert(all(FlexibilityReq.down <= 0)); % down flex must be non-positive
      
-    l(nstorageN+nA_flexibility_limits+(1:nA_flexibility_requirements)) = [storageFlexibilityReq.up; 1.1.*storageFlexibilityReq.down];
-    u(nstorageN+nA_flexibility_limits+(1:nA_flexibility_requirements)) = [1.1.*storageFlexibilityReq.up; storageFlexibilityReq.down];
+    l(nstorageN+nA_flexibility_limits+(1:nA_flexibility_requirements)) = [FlexibilityReq.up; 1.1.*FlexibilityReq.down];
+    u(nstorageN+nA_flexibility_limits+(1:nA_flexibility_requirements)) = [1.1.*FlexibilityReq.up; FlexibilityReq.down];
    
 end
 %%
@@ -207,7 +207,7 @@ mpc_storage.nstorage                    = nstorage;
 mpc_storage.ngenerators                 = ngenerators;
 mpc_storage.storage_nodes               = storage_nodes_idx;
 mpc_storage.storageFlexibility          = storageFlexibility;
-mpc_storage.storageFlexibilityReq       = storageFlexibilityReq;
+mpc_storage.FlexibilityReq       = FlexibilityReq;
 
 mpc_storage.P_storage_max_MW            = P_discharge_max_MW;
 mpc_storage.P_storage_min_MW            = P_charge_min_MW;

@@ -27,14 +27,24 @@ p_storage = createStorage(mpc, Rfirst, Rcount, Emax, enable_flexibility);
 
 if(enable_flexibility == 1)
     %Specify storage flexibility parameters and requirements
-    mpc.storageFlexibilityReq.up = [0 3 2 0 0 4 0 0 0 0 zeros(1, N-10)]'; 
-    mpc.storageFlexibilityReq.down = [-1 0 0 -2 -1 0 -15 -15 -15 -15 zeros(1, N-10)]';
-    %in case N is very small, N < size(mpc.storageFlexibilityReq.XXX)
-    mpc.storageFlexibilityReq.up = mpc.storageFlexibilityReq.up(1:N);
-    mpc.storageFlexibilityReq.down = mpc.storageFlexibilityReq.down(1:N);
+    mpc.FlexibilityReq.up = [0 3 2 0 0 4 0 0 0 0 zeros(1, N-10)]'; 
+    mpc.FlexibilityReq.down = [-1 0 0 -2 -1 0 -15 -15 -15 -15 zeros(1, N-10)]';
+    %in case N is very small, N < size(mpc.FlexibilityReq.XXX)
+    mpc.FlexibilityReq.up = mpc.FlexibilityReq.up(1:N);
+    mpc.FlexibilityReq.down = mpc.FlexibilityReq.down(1:N);
 
     %Specify demand shift and flexibility parameters and requirements
-    mpc.demandShift.responsePower = [];
+    mpc.demandShift.busesID = [11, 15]; %which buses offer demand shift
+    mpc.demandShift.responsePowerMW = [0.15, 0.15]; %demand shift offer MW
+    mpc.demandShift.responseTimeH = [3, 3]; %demand shift duration
+    mpc.demandShift.reboundPowerMW = [0.15, 0.15]; %demand shift offer MW
+    mpc.demandShift.reboundTimeH = [3, 3]; %demand shift duration
+    mpc.demandShift.recoveryTimeH = [2, 2]; %demand shift duration
+    assert(length(mpc.demandShift.busesID) == length(mpc.demandShift.responsePowerMW));
+    assert(length(mpc.demandShift.busesID) == length(mpc.demandShift.responseTimeH));
+    assert(length(mpc.demandShift.busesID) == length(mpc.demandShift.reboundPowerMW));
+    assert(length(mpc.demandShift.busesID) == length(mpc.demandShift.reboundTimeH));
+    assert(length(mpc.demandShift.busesID) == length(mpc.demandShift.recoveryTimeH));
 end
 
 %% set load scaling profile and scale it to respect PG/QG generation limits
