@@ -24,9 +24,18 @@ enable_flexibility = 1;
 
 %prepares storage data: location, capacity, efficiency, ...
 p_storage = createStorage(mpc, Rfirst, Rcount, Emax, enable_flexibility);
-%and storage flexibility
-mpc.storageFlexibilityReq.up = [0 3 2 0 0 4 0 0 0 0 zeros(1, N-10)]'; 
-mpc.storageFlexibilityReq.down = [-1 0 0 -2 -1 0 -15 -15 -15 -15 zeros(1, N-10)]';
+
+if(enable_flexibility == 1)
+    %Specify storage flexibility parameters and requirements
+    mpc.storageFlexibilityReq.up = [0 3 2 0 0 4 0 0 0 0 zeros(1, N-10)]'; 
+    mpc.storageFlexibilityReq.down = [-1 0 0 -2 -1 0 -15 -15 -15 -15 zeros(1, N-10)]';
+    %in case N is very small, N < size(mpc.storageFlexibilityReq.XXX)
+    mpc.storageFlexibilityReq.up = mpc.storageFlexibilityReq.up(1:N);
+    mpc.storageFlexibilityReq.down = mpc.storageFlexibilityReq.down(1:N);
+
+    %Specify demand shift and flexibility parameters and requirements
+    mpc.demandShift.responsePower = [];
+end
 
 %% set load scaling profile and scale it to respect PG/QG generation limits
 [load_scaling_profile, residential_ratios] = createLoadProfile(N, mpc);

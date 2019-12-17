@@ -122,8 +122,8 @@ l                    = zeros(nA,1);
 u                    = l;
 
 
-%% 0 < Einit + T*P1 < Emax
-%% 0 < Einit + T*(P1+P2) < Emax ...
+%% 0 < Einit + T*(P1c+P1d) < Emax
+%% 0 < Einit + T*(P1c+P1d+P2c+P2d) < Emax ...
 % T_timestep_hours = 1
 M_diag_discharge = sparse(1:nstorage,1:nstorage,1./c_discharge);
 M_diag_charge = sparse(1:nstorage,1:nstorage,c_charge);
@@ -132,6 +132,8 @@ A(1:(nstorageN),2*nnodesN+ngen_nostorageN+(1:(ngen_storageN))  ) = ...
     [ -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_discharge), ...
       -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_charge)    ];
 
+% 0 < Einit + T*(P1c+P1d+u1_d+d1_d+u1_c+d1_c) < Emax
+% 0 < Einit + T*(P1c+P1d+u1_d+d1_d+u1_c+d1_c +P2c+P2d+u2_d+d2_d+u2_c+d2_c) < Emax ...
 %overall energy needs to account for the flexibility as well  
 if storageFlexibility
     A(1:(nstorageN),2*nnodesN+ngen_nostorageN+ngen_storageN+(1:(ngen_flexibilityN))  ) = ...
@@ -145,7 +147,7 @@ l(1:nstorageN) = repmat(-E_storage_init_MWh,[N,1]);
 u(1:nstorageN) = repmat(E_storage_max_MWh-E_storage_init_MWh,[N,1]);
 
 
-
+%% Respect max. charge/discharge rate considering also the flexibility provision
 %% 0 < p_sd + u_d < p_max
 %% 0 < p_sd + d_d < p_max
 %% pmin < p_sc + u_c < 0 (pmin is negative)
@@ -171,7 +173,7 @@ if storageFlexibility
     %u((nstorageN+1):(nstorageN+ngen_flexibilityN)) = [repmat(P_discharge_max_MW,[2*N,1]); zeros(2*nstorageN, 1) ];      
 end
 
-
+%% flexibility provisions in each time period
 %% u     < uc_1 + ud_1 < u+10%
 %% u     < uc_2 + ud_2 < u+10%
 %% d-10% < dc_1 + dd_1 < d
