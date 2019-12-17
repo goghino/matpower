@@ -1,4 +1,4 @@
-function storage = createStorage(mpc, Rfirst, Rcount, Emax, enable_flexibility)
+function storage = createStorage(mpc, Rfirst, Rcount, Emax)
 define_constants;
 
 if (Rcount < 0)
@@ -37,6 +37,5 @@ storage.P_storage_max_MW   =  storage.rPmaxEmax_MW_per_MWh*storage.E_storage_max
 storage.P_storage_min_MW   =  storage.rPminEmax_MW_per_MWh*storage.E_storage_max_MWh;
 storage.c_discharge        = .97;
 storage.c_charge           = .95;
-storage.storageFlexibility = enable_flexibility;
 
 end
