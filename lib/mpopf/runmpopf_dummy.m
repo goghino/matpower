@@ -42,7 +42,7 @@ if(enable_flexibility == 1)
     mpc.demandShift.busesID = [2,13]'; %which buses offer demand shift
     mpc.demandShift.responsePowerMW = [0.1, 0.1]'; %demand shift offer MW
     mpc.demandShift.responseTimeH = [2, 2]'; %demand shift duration
-    mpc.demandShift.reboundPowerMW = [1, 1]'; %demand shift offer MW
+    mpc.demandShift.reboundPowerMW = [0.1, 0.1]'; %demand shift offer MW
     mpc.demandShift.reboundTimeH = [1, 1]'; %demand shift duration
     mpc.demandShift.recoveryTimeH = [2, 2]'; %demand shift duration
     assert(length(mpc.demandShift.busesID) == length(mpc.demandShift.responsePowerMW));
@@ -52,8 +52,8 @@ if(enable_flexibility == 1)
     assert(length(mpc.demandShift.busesID) == length(mpc.demandShift.recoveryTimeH));
     
     %Specify requirements
-    mpc.FlexibilityReq.up =   [0.01 0.01  0   0   0  0 0 0 0 0 zeros(1, N-10)]'; 
-    mpc.FlexibilityReq.down = [0   0    0   0   0  0 0 0 0 0 zeros(1, N-10)]';
+    mpc.FlexibilityReq.up =   [0.1 0.1  0       0   0  0.15 0.05 0    0 0 zeros(1, N-10)]'; 
+    mpc.FlexibilityReq.down = [0   0    -0.01   0   0  0    0    -0.1 0 0 zeros(1, N-10)]';
     %in case N is very small, N < size(mpc.FlexibilityReq.XXX)
     mpc.FlexibilityReq.up = mpc.FlexibilityReq.up(1:N);
     mpc.FlexibilityReq.down = mpc.FlexibilityReq.down(1:N);

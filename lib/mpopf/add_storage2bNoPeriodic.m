@@ -186,9 +186,9 @@ if enableDemandShift
     nX = nX + nbus_demandShiftN; %additional binary variables
     
     %limits and initial value of the extra binary variables b=(0,1)
-    mpc_storage.z0 = [1;1;1;1;1;1;0;0;0;0;0;0];%0*ones(nbus_demandShiftN, 1);
-    mpc_storage.zl = [1;1;1;1;1;1;0;0;0;0;0;0];%zeros(nbus_demandShiftN, 1);
-    mpc_storage.zu = [1;1;1;1;1;1;0;0;0;0;0;0];%ones(nbus_demandShiftN, 1);
+    mpc_storage.z0 = [1;1;1;1;1;1;0;0;0;0;1;1;1;1;1;1;zeros(2*16,1)];
+    mpc_storage.zl = zeros(nbus_demandShiftN, 1);
+    mpc_storage.zu = ones(nbus_demandShiftN, 1);
 end
 
 %variables ordering
