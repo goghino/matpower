@@ -8,13 +8,13 @@ N = mpc.horizon;
 %reorder the variables back so that we can compute the offsets
 %for the flexibility variables ourselves.
 %We assume ordering as defined in add_storage2bNoPeriodic.m
-%Pg = [Pgen Pd Pc ud dd uc dc]
+%Pg = [Pgen -- Ped Pec -- ued ded uec dec -- Pdu ud Pdd dd]
 
 %ordering of flexibility up/down complementarity is as follows
 %first discharging complementarity
-%t=1 [ud11*dd11, ud21*dd21, ud_ns1*dd_ns1]
-%t=2 [ud12*dd12, ud22*dd22, ud_ns2*dd_ns2]
-%t=N [ud1N*dd1N, ud2N*dd2N, ud_nsN*dd_nsN]
+%t=1 [ued11*ded11, ued21*ded21, ued_ns1*ded_ns1]
+%t=2 [ued12*ded12, ued22*ded22, ued_ns2*ded_ns2]
+%t=N [ued1N*ded1N, ued2N*ded2N, ued_nsN*ded_nsN]
 %f = [t1, t2, .. tN]
 lam1 = lam(1:(N*ns)); %for the discharging complementarity
 lam2 = lam((N*ns) + (1:(N*ns))); %for the discharging complementarity
@@ -38,12 +38,20 @@ h_=[z   L1 z   L4;
     z   L3 z   L2;
     L4  z  L2  z];
 
-%add zero blocks for Pg, Pd, Pc
+%add zero blocks for Pg, Ped, Pec
 n11 = N*ng + 2*N*ns;
 n22 = size(h_, 1);
 h = [sparse(n11,n11) sparse(n11,n22);
     sparse(n22,n11)  h_];
 
+
+if mpc.enableDemandShift
+    %                         [Pdu Pdd ud dd]
+    n11 = size(h,1);
+    n12 = N*4*length(mpc.demandShift.busesID);
+    h = [h sparse(n11,n12);
+        sparse(n12,n11) sparse(n12,n12)];
+end
 
 %revert back to the internal ordering
 h = h(mpc.order.gen.e2i, mpc.order.gen.e2i);

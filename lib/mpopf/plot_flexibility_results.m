@@ -122,7 +122,7 @@ function plot_flexibility_results(mpc_solution)
     map(ns+1:end, :) = [];
     set(gca, 'ColorOrder',map, 'NextPlot','ReplaceChildren')
     
-    Pgen_storage = Pgen_discharge+Pgen_charge+Pgen_d_up+Pgen_d_down+Pgen_c_up+Pgen_c_down;
+    Pgen_storage = Pgen_discharge+Pgen_charge;
     
     fig=figure;
     set(fig,'defaultAxesColorOrder',map);
@@ -145,7 +145,7 @@ function plot_flexibility_results(mpc_solution)
     Pgen_c_up = Pgen_c_up(:,1:N);
     Pgen_c_down = Pgen_c_down(:,1:N);
     
-    E_storage = [mpc_solution.E_storage_init_MWh, repmat(mpc_solution.E_storage_init_MWh,[1,N]) - cumsum((Pgen_discharge+Pgen_d_up+Pgen_d_down)./repmat(mpc_solution.c_discharge,[1,N]) + (Pgen_charge+Pgen_c_up+Pgen_c_down).*repmat(mpc_solution.c_charge,[1,N]),2)];
+    E_storage = [mpc_solution.E_storage_init_MWh, repmat(mpc_solution.E_storage_init_MWh,[1,N]) - cumsum((Pgen_discharge)./repmat(mpc_solution.c_discharge,[1,N]) + (Pgen_charge).*repmat(mpc_solution.c_charge,[1,N]),2)];
     E_storage_max = repmat(mpc_solution.E_storage_max_MWh,[1,N+1]);
 
 

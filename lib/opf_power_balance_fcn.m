@@ -58,7 +58,7 @@ if isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility
     N = mpc.horizon;
 
     %We assume ordering as defined in add_storage2bNoPeriodic.m
-    %Pg = [Pgen Pd Pc ud dd uc dc] (external order)
+    %Pg = [Pgen Pd Pc ued ded uec dec] (external order)
     offset = N*ngen + 2*N*ns; %skip Pgen, Pd, Pc
     flex_idx = offset + (1:4*N*ns);
     
@@ -73,6 +73,39 @@ if isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility
     %QMIN=QMAX=0, but in ipoptopf_solver we perturb xmax by 1e=1-10,
     %thus we need to remove the QG here manually
     gen(flex_idx, QG) = 0;
+    
+    %update size of generators
+    %ng = size(gen,1);
+end
+
+if isfield(mpc, 'enableDemandShift') && mpc.enableDemandShift
+    ns = mpc.nstorage;
+    ngen = mpc.ngenerators;
+    nbus_demandShift = length(mpc.demandShift.busesID);
+    N = mpc.horizon;
+
+    %We assume ordering as defined in add_storage2bNoPeriodic.m
+    %Pg = [Pgen Pd Pc] [ued ded uec dec] [Pdu ud Pdd dd] (external order)
+    offset = N*ngen + 2*N*ns; %skip Pgen, Pd, Pc
+    if isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility
+        offset = offset + 4*N*ns; %skip ued ded uec dec
+    end
+    offset = offset + nbus_demandShift*N; %skip Pdu
+    flex_idx_DS = offset + (1:N*nbus_demandShift);
+    offset = offset + 2*nbus_demandShift*N; %skip ud, Pdd
+    flex_idx_DS = [ flex_idx_DS offset + (1:N*nbus_demandShift)];
+    
+    %apply the internal ordering
+    flex_idx_DS = mpc.order.gen.i2e(flex_idx_DS);
+    
+    %This prevents considering ud/dd/uc/dc in the power balance.
+    %Additionally, we need to fix the jacobian/hessian structure (remove some
+    %identity entries corresponding to flexibility PG)
+    gen(flex_idx_DS, PG) = 0;
+    %!Note that we set up the problem, where the storage device has
+    %QMIN=QMAX=0, but in ipoptopf_solver we perturb xmax by 1e=1-10,
+    %thus we need to remove the QG here manually
+    gen(flex_idx_DS, QG) = 0;
     
     %update size of generators
     %ng = size(gen,1);
@@ -97,9 +130,15 @@ if nargout > 1
     [dSbus_dVm, dSbus_dVa] = dSbus_dV(Ybus, V);         %% w.r.t. V
     neg_Cg = sparse(gen(:, GEN_BUS), 1:ng, -1, nb, ng); %% Pbus w.r.t. Pg
     
-    %remove ud/dd/uc/dc variables from the PF Jacobian
+    %remove ued/ded/uec/dec variables from the PF Jacobian
     if isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility
         neg_Cg_correction = sparse(gen(flex_idx, GEN_BUS), flex_idx, 1, nb, ng); %% Pbus w.r.t. Pg
+        neg_Cg = neg_Cg + neg_Cg_correction;
+    end
+    
+    %remove ud/dd variables from the PF Jacobian
+    if isfield(mpc, 'enableDemandShift') && mpc.enableDemandShift
+        neg_Cg_correction = sparse(gen(flex_idx_DS, GEN_BUS), flex_idx_DS, 1, nb, ng); %% Pbus w.r.t. Pg
         neg_Cg = neg_Cg + neg_Cg_correction;
     end
 

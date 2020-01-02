@@ -203,16 +203,59 @@ options.auxdata = struct( ...
 %% define variable and constraint bounds
 options.lb = xmin;
 options.ub = xmax;
-if (mpc.storageFlexibility)
-    nb2 = 2*size(mpc.bus,1);
-    ncompl = neq - nb2;
-    %we don't impose flexibility complementarity exactly, only its relaxation
-    options.cl = [zeros(nb2, 1); zeros(ncompl, 1)-1e-10;  -Inf(niq, 1); l];
-    options.cu = [zeros(nb2, 1); zeros(ncompl, 1)+1e-10; zeros(niq, 1); u+1e-10];
-else
-    options.cl = [zeros(neq, 1);  -Inf(niq, 1); l];
-    options.cu = [zeros(neq, 1); zeros(niq, 1); u+1e-10];
+
+%ordering of the constraints:
+%[Pmis, Qmis, Sf, St] [Discharge_charge] [Flex_up_down] [binary_complementarity]
+%Matpower splits the constraints into equality (first) and inequality(second):
+%Equality: [Pmis, Qmis] 
+%Inequality: [Sf, St] [Discharge_charge] [Flex_up_down] [binary_complementarity]
+misN = 2*nb;
+pfN = 2*nl2;
+
+options.cl = [zeros(misN, 1);  -Inf(pfN, 1)];
+options.cu = [zeros(misN, 1); zeros(pfN, 1)];
+
+%om.add_nln_constraint({'Discharge_charge'}, [ns*N], 0, fcn_discharge_charge, hess_discharge_charge, {'Pg'});
+if isfield(mpc, 'horizon') && mpc.horizon > 1
+  ns = mpc.nstorage;
+  N = mpc.horizon;
+
+  options.cl = [options.cl; zeros(ns*N, 1)-1e-10];
+  options.cu = [options.cu; zeros(ns*N, 1)+1e-10];
 end
+
+%om.add_nln_constraint({'Flex_up_down'}, nflex, 0, fcn_flex_up_down, hess_flex_up_down, {'Pg'});
+if (isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility)
+    addDischargeChargeFlexibilityPairs = 0;
+    if addDischargeChargeFlexibilityPairs == 0
+        nflex = 2*ns*N; %[ud*dd; uc*dc]
+      else
+        nflex = 4*ns*N; %[ud*dd; uc*dc; uc*dd; ud*dc]
+    end
+    
+    %we don't impose flexibility complementarity exactly, only its relaxation
+    options.cl = [options.cl; zeros(nflex, 1)-1e-10];
+    options.cu = [options.cu; zeros(nflex, 1)+1e-10];
+end
+
+%mpc_storage.user_constraints.nli = {{'binary_complementarity', nbus_demandShiftN, 'binary_complementarity', 'binary_complementarity_hess', {'z'}, {}}};
+if isfield(mpc, 'enableDemandShift') && mpc.enableDemandShift
+    nbinary = length(mpc.demandShift.busesID)*mpc.horizon;
+    
+    %we don't impose flexibility complementarity exactly, only its relaxation
+    options.cl = [options.cl; zeros(nbinary, 1)];
+    options.cu = [options.cu; zeros(nbinary, 1)+1e-10];    
+end
+
+assert(length(options.cl) == length(options.cu));
+assert(length(options.cl) == neq+niq);
+
+%append the bounds for the linear constraints
+options.cl = [options.cl; l];
+options.cu = [options.cu; u+1e-10];
+
+
+
 
 %% assign function handles
 funcs.objective         = @objective;
@@ -246,6 +289,22 @@ end
 f = opf_costfcn(x, om);
 
 c = constraints(x, options.auxdata);
+
+
+clin = A*x;
+err = find(clin<l);
+if(~isempty(err))
+fprintf('Violated %d linear constraints (lower bound) with idx: ', length(err)); fprintf('%i ', err');
+fprintf('\n');
+[l(err) clin(err) abs(l(err)-clin(err))]
+end
+
+err = find(clin>u);
+if(~isempty(err))
+fprintf('Violated %d linear constraints (upper bound) with idx: ', length(err)); fprintf('%i ', err');
+fprintf('\n');
+[clin(err) u(err) abs(clin(err)-u(err))]
+end
 
 %% print value of the constraints
 %disp('Final value of the constraints:');

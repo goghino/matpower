@@ -252,6 +252,7 @@ else                %% AC model
 
   %% dispatchable load, constant power factor constraints
   [Avl, lvl, uvl]  = makeAvl(baseMVA, gen);
+  %Avl = sparse(0,2*ng); lvl = []; uvl = [];
   
   %% generator PQ capability curve constraints
   [Apqh, ubpqh, Apql, ubpql, Apqdata] = makeApq(baseMVA, gen);
@@ -369,10 +370,12 @@ else
   
   %% complementarity constraints
   %prevent simultaneous charging and discharging
-  assert(mpc.horizon>0); %we assume MPOPF problem, will fail for single period OPF
-  ns = mpc.nstorage;
-  N = mpc.horizon;
-  om.add_nln_constraint({'Discharge_charge'}, [ns*N], 1, fcn_discharge_charge, hess_discharge_charge, {'Pg'});
+  if isfield(mpc, 'horizon') && mpc.horizon > 1
+      ns = mpc.nstorage;
+      N = mpc.horizon;
+      %added as inequality constr, realaxed complementarity (instead of =0)
+      om.add_nln_constraint({'Discharge_charge'}, [ns*N], 0, fcn_discharge_charge, hess_discharge_charge, {'Pg'});
+  end
   
   if isfield(mpc, 'storageFlexibility') && mpc.storageFlexibility
       %only up or down flexibility at a time, prevent simultaneus up and down flexibility
@@ -382,7 +385,10 @@ else
       else
         nflex = 4*ns*N; %[ud*dd; uc*dc; uc*dd; ud*dc]
       end
-      om.add_nln_constraint({'Flex_up_down'}, nflex, 1, fcn_flex_up_down, hess_flex_up_down, {'Pg'});
+      
+      %added as inequality constr, realaxed complementarity (instead of =0)
+      assert(addDischargeChargeFlexibilityPairs == 0); %otherwise we need to change size of the cmin,cmax in ipoptopf_solver.m
+      om.add_nln_constraint({'Flex_up_down'}, nflex, 0, fcn_flex_up_down, hess_flex_up_down, {'Pg'});
       
       %ns: no simultaneous charging/discharging
       %4*ns: when charging cannot use discharging flexibility

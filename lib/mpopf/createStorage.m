@@ -1,4 +1,4 @@
-function storage = createStorage(mpc, Rfirst, Rcount, Emax)
+function storage = createStorage(mpc, Rfirst, Rcount, Emax, Einit)
 define_constants;
 
 if (Rcount < 0)
@@ -30,7 +30,7 @@ end
 
 storage.id_storage_location = storage_locations; %storage placement
 storage.E_storage_max_MWh  = Emax*abs(mpc.bus(storage_locations,PD)); %max storage level
-storage.E_storage_init_MWh = storage.E_storage_max_MWh*.7; %initial charge level
+storage.E_storage_init_MWh = storage.E_storage_max_MWh*Einit; %initial charge level
 storage.rPmaxEmax_MW_per_MWh = 1/3;
 storage.rPminEmax_MW_per_MWh = -1/2;
 storage.P_storage_max_MW   =  storage.rPmaxEmax_MW_per_MWh*storage.E_storage_max_MWh;
