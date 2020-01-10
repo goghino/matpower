@@ -7,13 +7,17 @@ function mpc_storage = add_storage(mpc,nbus,N,storage_nodes_idx,P_discharge_max_
         error('wrong number of nodes, MPOPF bus count is not a multiple of base OPF')
     end
     
+    enableDemandShift = 0; storageFlexibility=0;
     if isfield(mpc, 'storageFlexibility')
         storageFlexibility = mpc.storageFlexibility;
-        FlexibilityReq = mpc.FlexibilityReq;
     end
     if isfield(mpc, 'enableDemandShift')
         enableDemandShift = mpc.enableDemandShift;
         demandShift = mpc.demandShift;
+    end
+    
+    if enableDemandShift || storageFlexibility
+        FlexibilityReq = mpc.FlexibilityReq;
     end
     
     
@@ -165,8 +169,9 @@ if storageFlexibility || enableDemandShift
 end
 
 if storageFlexibility
+    nA_flexibility = nstorageN; %(energy of each storage at each time interval with ES flexibility, no init=end constraint)
     nA_flexibility_limits = nstorageN*2; %storage (discharge + up/down) and (charge + up/down) flexibility is 0 < ... < Pmax and Pmin < ... < 0
-    nA = nA + nA_flexibility_limits;
+    nA = nA + nA_flexibility + nA_flexibility_limits;
 end
 
 if enableDemandShift
@@ -226,23 +231,30 @@ M_diag_charge = sparse(1:nstorage,1:nstorage,c_charge);
 A(offset1+(1:nstorageN), offset2storages+(1:(ngen_storageN))  ) = ...
     [ -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_discharge), ...
       -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_charge)    ];
+  
+l(offset1+(1:nstorageN)) = repmat(-E_storage_init_MWh,[N,1]);
+u(offset1+(1:nstorageN)) = repmat(E_storage_max_MWh-E_storage_init_MWh,[N,1]);
 
-%NOT ADDITIONAL CONSTRAINTS, ONLY ADDITIONAL TERMS IN ROWS OF A
+offset1 = offset1 + nstorageN;  
+
 % 0 < Einit + T*(P1c+P1d+u1_d+d1_d+u1_c+d1_c) < Emax
 % 0 < Einit + T*(P1c+P1d+u1_d+d1_d+u1_c+d1_c +P2c+P2d+u2_d+d2_d+u2_c+d2_c) < Emax ...
 %overall energy needs to account for the flexibility as well  
 if storageFlexibility
-    A(offset1+(1:nstorageN), offset2flexibility+(1:(ngen_storageFlexibilityN))  ) = ...
+    A(offset1+(1:nA_flexibility), offset2storages+(1:(ngen_storageN))  ) = ...
+    [ -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_discharge), ...
+      -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_charge)    ];
+    A(offset1+(1:nA_flexibility), offset2flexibility+(1:(ngen_storageFlexibilityN))  ) = ...
         [-kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_discharge), ...
         -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_discharge), ...
         -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_charge), ...
         -kron(tril(ones(N)), mpc.baseMVA*T_timestep_hours*M_diag_charge)];
+
+    l(offset1+(1:nA_flexibility)) = repmat(-E_storage_init_MWh,[N,1]);
+    u(offset1+(1:nA_flexibility)) = repmat(E_storage_max_MWh-E_storage_init_MWh,[N,1]);
+
+    offset1 = offset1 + nA_flexibility;
 end
-
-l(offset1+(1:nstorageN)) = repmat(-E_storage_init_MWh,[N,1]);
-u(offset1+(1:nstorageN)) = repmat(E_storage_max_MWh-E_storage_init_MWh,[N,1]);
-
-offset1 = offset1 + nstorageN;
 
 
 %% Respect max. charge/discharge rate considering also the flexibility provision
