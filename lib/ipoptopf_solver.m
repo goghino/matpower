@@ -244,7 +244,7 @@ if isfield(mpc, 'enableDemandShift') && mpc.enableDemandShift
     
     %we don't impose flexibility complementarity exactly, only its relaxation
     options.cl = [options.cl; zeros(nbinary, 1)];
-    options.cu = [options.cu; zeros(nbinary, 1)+1e-10];    
+    options.cu = [options.cu; zeros(nbinary, 1)+1e-16];    
 end
 
 assert(length(options.cl) == length(options.cu));

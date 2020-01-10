@@ -64,7 +64,7 @@ function plot_flexibility_results(mpc_solution)
         stairs(Pgen_d_down(s,:)','g--', 'LineWidth',2); hold on;
         stairs([Pgen_storage_max(s,:)]', 'r:', 'LineWidth',2);
         legend('P_{ed}+u_{ed}+d_{ed}', 'P_{ed}', 'u_{ed}', 'd_{ed}', 'P_{max}');
-        grid on
+        grid on; xticks(1:N);
         title("Storage network injection - discharging flexibility. Device " + num2str(s))
         xlabel('t [hours]')
         ylabel('Storage power [MW]')
@@ -80,7 +80,7 @@ function plot_flexibility_results(mpc_solution)
         stairs(Pgen_c_down(s,:)','g--', 'LineWidth',2); hold on;
         stairs([Pgen_storage_min(s,:)]', 'r', 'LineWidth',2);
         legend('P_{ec}+u_{ec}+d_{ec}', 'P_c', 'u_{ec}', 'd_{ec}', 'P_{max}');
-        grid on
+        grid on; xticks(1:N);
         title("Storage network injection - charging flexibility. Device " + num2str(s))
         xlabel('t [hours]')
         ylabel('Storage power [MW]')
@@ -95,7 +95,7 @@ function plot_flexibility_results(mpc_solution)
     stairs(sum(Pgen_c_up,1),'b:', 'LineWidth',2); hold on;
     stairs(requirement, 'r:', 'LineWidth',2);
     legend('u_{ed}', 'u_{ec}', 'u_{min}');
-    grid on
+    grid on; xticks(1:N);
     title('Cumulative Storage up flexibility (all storage devices)')
     xlabel('t [hours]')
     ylabel('Storage power [MW]')
@@ -107,7 +107,7 @@ function plot_flexibility_results(mpc_solution)
     stairs(sum(Pgen_c_down,1),'b:', 'LineWidth',2); hold on;
     stairs(requirement, 'r:', 'LineWidth',2);
     legend('d_{ed}', 'd_{ec}', 'd_{max}');
-    grid on
+    grid on; xticks(1:N);
     title('Cumulative Storage down flexibility (all storage devices)')
     xlabel('t [hours]')
     ylabel('Storage power [MW]')
@@ -131,7 +131,7 @@ function plot_flexibility_results(mpc_solution)
     hold on;
     stairs(Pgen_storage_max', '--', 'LineWidth',3);
     stairs(Pgen_storage_min', ':', 'LineWidth',3);
-    grid on
+    grid on; xticks(1:N);
     title('Individual storage network injection power : trajectory (solid) and maximum(dashed)/minimum(dotted)')
     xlabel('t [hours]')
     ylabel('Storage power [MW]')
@@ -153,7 +153,7 @@ function plot_flexibility_results(mpc_solution)
     plot(E_storage', 'LineWidth',3);
     hold on;
     plot(E_storage_max','--', 'LineWidth',3);
-    grid on
+    grid on; xticks(1:N);
     title('Individual storage energy level: trajectory (solid) and maximum (dashed)')
     xlabel('t [hours]')
     ylabel('Storage energy [MWh]')

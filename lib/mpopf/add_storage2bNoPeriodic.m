@@ -186,7 +186,7 @@ if enableDemandShift
     nX = nX + nbus_demandShiftN; %additional binary variables
     
     %limits and initial value of the extra binary variables b=(0,1)
-    mpc_storage.z0 = [1;1;1;1;1;1;0;0;0;0;1;1;1;1;1;1;zeros(2*16,1)];
+    mpc_storage.z0 = [1;1;1;1;1;1;0;0;0;0;1;1;1;1;1;1;0;0;0;0;0;0;0;0;1;1;1;1;1;1;zeros(2*9,1)]; %0.5*ones(nbus_demandShiftN, 1);
     mpc_storage.zl = zeros(nbus_demandShiftN, 1);
     mpc_storage.zu = ones(nbus_demandShiftN, 1);
 end
@@ -273,10 +273,10 @@ if storageFlexibility
 end
 
 %% Overall flexibility provisions in each time period
-%% u     < ud_1 + uec_1 + ued_1 + ... + ud_ns + uec_ns + ued_ns < u+10% @t1
-%% u     < ud_1 + uec_1 + ued_1 + ... + ud_ns + uec_ns + ued_ns < u+10% @t2
-%% d-10% < dd_1 + dec_1 + ded_1 + ... + dd_ns + dec_ns + ded_ns < d  @t1
-%% d-10% < dd_1 + dec_1 + ded_1 + ... + dd_ns + dec_ns + ded_ns < d  @t2
+%% u     < ud_1 + uec_1 + ued_1 + ... + ud_ns + uec_ns + ued_ns < u+0.1% @t1
+%% u     < ud_1 + uec_1 + ued_1 + ... + ud_ns + uec_ns + ued_ns < u+0.1% @t2
+%% d-0.1% < dd_1 + dec_1 + ded_1 + ... + dd_ns + dec_ns + ded_ns < d  @t1
+%% d-0.1% < dd_1 + dec_1 + ded_1 + ... + dd_ns + dec_ns + ded_ns < d  @t2
 if storageFlexibility 
     e = mpc.baseMVA*ones(1,nstorage);   
     A(offset1+(1:nA_flexibility_requirements), offset2flexibility+(1:ngen_storageFlexibilityN)  ) = ...
@@ -301,8 +301,8 @@ if storageFlexibility || enableDemandShift
     assert(all(FlexibilityReq.up >= 0)); % up flex must be non-negative
     assert(all(FlexibilityReq.down <= 0)); % down flex must be non-positive 
     
-    l(offset1+(1:nA_flexibility_requirements)) = [FlexibilityReq.up; 1.1.*FlexibilityReq.down];
-    u(offset1+(1:nA_flexibility_requirements)) = [1.1.*FlexibilityReq.up; FlexibilityReq.down];
+    l(offset1+(1:nA_flexibility_requirements)) = [FlexibilityReq.up; 1.01.*FlexibilityReq.down];
+    u(offset1+(1:nA_flexibility_requirements)) = [1.01.*FlexibilityReq.up; FlexibilityReq.down];
     offset1 = offset1 + nA_flexibility_requirements;
 end
 

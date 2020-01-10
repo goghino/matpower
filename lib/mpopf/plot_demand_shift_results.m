@@ -68,7 +68,7 @@ function plot_flexibility_results(mpc_solution)
         stairs(ud(s,:)','g:', 'LineWidth',2); hold on;
         stairs([Prsp(s,:)]', 'r:', 'LineWidth',2);
         legend('-P_{du}+u_{d}', '-P_{du}', 'u_{d}', 'P_{rsp}');
-        grid on
+        grid on; xticks(1:N);
         title("Response power. Bus " + num2str(DS_bus_idx(s)))
         xlabel('t [hours]')
         ylabel('Power [MW]')
@@ -83,7 +83,7 @@ function plot_flexibility_results(mpc_solution)
         stairs(-dd(s,:)','g:', 'LineWidth',2); hold on;
         stairs([Prb(s,:)]', 'r:', 'LineWidth',2);
         legend('P_{dd}-d_{d}', 'P_{dd}', '-d_{d}', 'P_{rb}');
-        grid on
+        grid on; xticks(1:N);
         title("Rebound power. Bus " + num2str(DS_bus_idx(s)))
         xlabel('t [hours]')
         ylabel('Power [MW]')
@@ -97,10 +97,33 @@ function plot_flexibility_results(mpc_solution)
         subplot(nbus_demandShift,1,s)
         stairs(b(s,:)','b', 'LineWidth',2); hold on;
         legend('b_{d}');
-        grid on
+        grid on; xticks(1:N);
         title("Binary variable corresponding to the activation of DS at bus" + num2str(DS_bus_idx(s)))
         xlabel('t [hours]')
         %set(gca,'FontSize',20);
     end
 
+    %% Plot the flexibility
+    figure;
+    requirement = [mpc_solution.FlexibilityReq.up' mpc_solution.FlexibilityReq.up(end)];
+    subplot(2,1,1)
+    stairs(sum(ud,1),'b--', 'LineWidth',2); hold on;
+    stairs(requirement, 'r:', 'LineWidth',2);
+    legend('u_{d}', 'u_{min}');
+    grid on; xticks(1:N);
+    title('Cumulative DS up flexibility (all demands)')
+    xlabel('t [hours]')
+    ylabel('Power [MW]')
+    %set(gca,'FontSize',20);
+    
+    requirement = [mpc_solution.FlexibilityReq.down' mpc_solution.FlexibilityReq.down(end)];
+    subplot(2,1,2)
+    stairs(sum(dd,1),'b--', 'LineWidth',2); hold on;
+    stairs(requirement, 'r:', 'LineWidth',2);
+    legend('d_{d}', 'd_{max}');
+    grid on; xticks(1:N);
+    title('Cumulative DS down flexibility (all demands)')
+    xlabel('t [hours]')
+    ylabel('Power [MW]')
+    %set(gca,'FontSize',20);
 end
