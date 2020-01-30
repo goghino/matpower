@@ -18,6 +18,8 @@ function mpc_storage = add_storage(mpc,nbus,N,storage_nodes_idx,P_discharge_max_
     
     if enableDemandShift || storageFlexibility
         FlexibilityReq = mpc.FlexibilityReq;
+    else
+        FlexibilityReq = [];
     end
     
     
@@ -504,7 +506,7 @@ end
 
 %% Demand Shift complementarity constraint for the binary var b*(b-1)
 
-if mpc_storage.enableDemandShift
+if isfield(mpc_storage, 'enableDemandShift') && mpc_storage.enableDemandShift
     mpc_storage.user_constraints.nli = {
      {'binary_complementarity_constr', nbus_demandShiftN, 'binary_complementarity', 'binary_complementarity_hess', {'z'}, {}}
     };

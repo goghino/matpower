@@ -45,7 +45,7 @@ else
         sparse(n22,n11)  h_ ];
 end
 
-if mpc.enableDemandShift
+if isfield(mpc, 'enableDemandShift') && mpc.enableDemandShift
     %                         [Pdu Pdd ud dd]
     n11 = size(h,1);
     n12 = N*4*length(mpc.demandShift.busesID);
